@@ -125,6 +125,8 @@ markers = [
     "unit: unit-level test",
     "integration: integration test spanning multiple components",
     "e2e: end-to-end test exercising the full service",
+    "conformance: structural/architectural conformance test",
+    "benchmark: performance benchmark, excluded from default run",
     "slow: test takes more than 1 second",
 ]
 filterwarnings = [

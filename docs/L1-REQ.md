@@ -54,10 +54,11 @@ Each requirement carries the following fields:
 | `MAIL`    | Email delivery                         | 5        |
 | `DASH`    | Dashboard                              | 4        |
 | `PERS`    | Persistence                            | 3        |
-| `OBS`     | Observability                          | 3        |
+| `OBS`     | Observability                          | 4        |
+| `ERR`     | Error handling and exception taxonomy  | 4        |
 | `CFG`     | Configuration                          | 3        |
 | `DEP`     | Deployment                             | 3        |
-| **Total** |                                        | **52**   |
+| **Total** |                                        | **57**   |
 
 ---
 
@@ -654,6 +655,70 @@ Each requirement carries the following fields:
 **Rationale**: The agreed audit scope for v1 is narrow; the retention duration configuration key gives operations the ability to meet site-specific retention requirements without code changes.
 
 **Verification Method**: Test (T)
+
+**Verification Artifact**: (TBD)
+
+**Status**: Draft
+
+### L1-OBS-004
+
+**Statement**: The service SHALL emit log records at appropriate severity levels drawn from the Python `logging` standard taxonomy (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`), with consistent level-assignment rules applied across all components.
+
+**Rationale**: Consistent level assignment is what makes log filtering in production useful; without a documented convention, operators face a mix of overly-verbose and overly-quiet components.
+
+**Verification Method**: Inspection (I), Test (T)
+
+**Verification Artifact**: (TBD)
+
+**Status**: Draft
+
+---
+
+## L1-ERR: Error handling and exception taxonomy
+
+### L1-ERR-001
+
+**Statement**: The service SHALL define a hierarchical exception taxonomy rooted at a single base class `MessageServiceError`, with distinct subclasses for domain errors, validation errors, infrastructure errors, and configuration errors.
+
+**Rationale**: A rooted hierarchy allows exception handlers to catch broad categories (`except InfrastructureError`) or specific cases (`except SmtpTransientError`), and makes the full set of expected error conditions enumerable and documentable.
+
+**Verification Method**: Inspection (I), Test (T)
+
+**Verification Artifact**: (TBD)
+
+**Status**: Draft
+
+### L1-ERR-002
+
+**Statement**: The service SHALL attach a stable machine-readable error code to every exception instance, drawn from a single enumerated set shared between the exception classes and the proto-defined error codes.
+
+**Rationale**: A shared error code set keeps the exception-to-gRPC-status mapping mechanical and prevents drift between internal and external error identifiers.
+
+**Verification Method**: Inspection (I), Test (T)
+
+**Verification Artifact**: (TBD)
+
+**Status**: Draft
+
+### L1-ERR-003
+
+**Statement**: Every exception raised within the domain or application layer SHALL be caught at an inbound interface boundary (gRPC servicer, FastAPI route, CLI entry point, or background task), translated to the appropriate transport-level error response, and logged at a severity level appropriate to the exception category.
+
+**Rationale**: Catching exceptions exclusively at interface boundaries keeps error-handling logic out of domain code and ensures uniform response translation across all callers.
+
+**Verification Method**: Test (T), Inspection (I)
+
+**Verification Artifact**: (TBD)
+
+**Status**: Draft
+
+### L1-ERR-004
+
+**Statement**: Exceptions SHALL NOT be silently swallowed; every caught exception SHALL either be logged, re-raised, or translated to a transport error with an associated log record.
+
+**Rationale**: Silent swallowing is the single most common source of "it doesn't work and I can't tell why" operational issues; explicit handling of every caught exception is the remedy.
+
+**Verification Method**: Inspection (I), Analysis (A)
 
 **Verification Artifact**: (TBD)
 

@@ -25,6 +25,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+# Re-export fixtures from tests.fixtures so they are discoverable under the
+# ``unit`` test tree. As more fixture modules are populated, add their
+# re-exports here.
+from tests.fixtures.clocks import fake_clock, fake_clock_at_epoch  # noqa: F401
+
+#     from tests.fixtures.uuids import frozen_uuid
+#     from tests.fixtures.loggers import null_logger
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -38,11 +46,3 @@ def _forbid_io() -> Iterator[None]:
     """
     # TODO(L3-PERS-016): wire up io_guard once fixtures/io_guard.py is in place
     yield
-
-
-# Fixtures will be imported from tests.fixtures once those modules are
-# populated. Example of the planned re-export pattern:
-#
-#     from tests.fixtures.clocks import fake_clock  # noqa: F401
-#     from tests.fixtures.uuids import frozen_uuid  # noqa: F401
-#     from tests.fixtures.loggers import null_logger  # noqa: F401

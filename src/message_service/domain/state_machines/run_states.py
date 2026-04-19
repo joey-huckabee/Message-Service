@@ -9,7 +9,7 @@ Design
   fast via identity but also trivially JSON-serializable for persistence.
 * The transition table is a module-level frozen dict of sets (L3-RUN-006),
   inspectable without any side effects.
-* :class:`InvalidStateTransition` (from :mod:`message_service.domain.errors`)
+* :class:`InvalidStateTransitionError` (from :mod:`message_service.domain.errors`)
   is raised on any attempted transition outside the table (L2-RUN-005).
 * Terminal states reject all outgoing transitions (L2-RUN-006, L3-RUN-009).
 
@@ -29,7 +29,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Final
 
-from message_service.domain.errors import InvalidStateTransition
+from message_service.domain.errors import InvalidStateTransitionError
 
 
 class RunState(str, Enum):
@@ -115,12 +115,12 @@ def transition(
         The new state (same as ``to_state`` on success).
 
     Raises:
-        InvalidStateTransition: If the transition is not permitted. The
+        InvalidStateTransitionError: If the transition is not permitted. The
             exception's ``details`` dict carries ``from_state``, ``to_state``,
             and ``run_id`` (L3-RUN-008).
     """
     if not can_transition(from_state, to_state):
-        raise InvalidStateTransition(
+        raise InvalidStateTransitionError(
             f"illegal run transition {from_state} -> {to_state}",
             details={
                 "from_state": from_state.value,

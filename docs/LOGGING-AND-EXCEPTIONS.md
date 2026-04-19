@@ -13,22 +13,22 @@ All exceptions raised inside this service derive from `message_service.domain.er
 ```
 MessageServiceError
 ├── ValidationError                  → gRPC INVALID_ARGUMENT
-│   ├── UnknownPipelineType
-│   ├── UnknownTag
-│   ├── DuplicateStageId
-│   ├── UnknownTemplate
-│   ├── MissingAggregationTemplate
-│   ├── UnknownStage
-│   ├── ContextSchemaViolation
-│   ├── ContextSizeExceeded
-│   ├── RenderedSizeExceeded
-│   └── MalformedRequest
+│   ├── UnknownPipelineTypeError
+│   ├── UnknownTagError
+│   ├── DuplicateStageIdError
+│   ├── UnknownTemplateError
+│   ├── MissingAggregationTemplateError
+│   ├── UnknownStageError
+│   ├── ContextSchemaViolationError
+│   ├── ContextSizeExceededError
+│   ├── RenderedSizeExceededError
+│   └── MalformedRequestError
 ├── NotFoundError                    → gRPC NOT_FOUND
-│   └── RunNotFound
+│   └── RunNotFoundError
 ├── PreconditionError                → gRPC FAILED_PRECONDITION
-│   ├── InvalidRunState
-│   ├── InvalidStateTransition
-│   └── InvalidStageState
+│   ├── InvalidRunStateError
+│   ├── InvalidStateTransitionError
+│   └── InvalidStageStateError
 ├── InfrastructureError              → gRPC INTERNAL (logged, sanitized to client)
 │   ├── PersistenceError
 │   ├── TemplateRenderError
@@ -41,7 +41,7 @@ MessageServiceError
 Each leaf exception class has a class-level `error_code` attribute that exactly matches a value from the `ErrorCode` enum in `message_service.proto`. This is how domain code communicates the machine-readable code to the servicer boundary without the domain layer depending on proto types.
 
 ```python
-class UnknownTag(ValidationError):
+class UnknownTagError(ValidationError):
     error_code: ClassVar[str] = "ERROR_CODE_UNKNOWN_TAG"
 ```
 
@@ -49,13 +49,13 @@ class UnknownTag(ValidationError):
 
 ```python
 # GOOD — structured, machine-parseable details alongside the message
-raise UnknownTag(
+raise UnknownTagError(
     f"tag {tag!r} not in configured vocabulary",
     details={"tag": tag, "allowed_tags": sorted(vocabulary)},
 )
 
 # BAD — unstructured string, detail only available via parsing
-raise UnknownTag(f"tag {tag!r} not allowed; allowed: {vocabulary}")
+raise UnknownTagError(f"tag {tag!r} not allowed; allowed: {vocabulary}")
 ```
 
 The `details` dict flows through to:

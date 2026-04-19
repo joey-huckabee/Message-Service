@@ -6,7 +6,7 @@ from enum import Enum
 
 import pytest
 
-from message_service.domain.errors import InvalidStateTransition
+from message_service.domain.errors import InvalidStateTransitionError
 from message_service.domain.state_machines.stage_states import (
     NON_TERMINAL_STATES,
     RESERVED_FOR_V2,
@@ -156,7 +156,7 @@ def test_valid_transition_returns_new_state() -> None:
 @pytest.mark.requirement("L3-STAGE-003")
 def test_transition_to_in_progress_is_rejected() -> None:
     """Direct attempt to transition to IN_PROGRESS SHALL raise."""
-    with pytest.raises(InvalidStateTransition):
+    with pytest.raises(InvalidStateTransitionError):
         transition(
             from_state=StageState.PENDING,
             to_state=StageState.IN_PROGRESS,
@@ -167,7 +167,7 @@ def test_transition_to_in_progress_is_rejected() -> None:
 
 @pytest.mark.requirement("L2-STAGE-002")
 def test_illegal_transition_carries_structured_details() -> None:
-    with pytest.raises(InvalidStateTransition) as exc_info:
+    with pytest.raises(InvalidStateTransitionError) as exc_info:
         transition(
             from_state=StageState.PENDING,
             to_state=StageState.ACCEPTED,  # must go PENDING -> SUBMITTED first
@@ -184,7 +184,7 @@ def test_illegal_transition_carries_structured_details() -> None:
 @pytest.mark.requirement("L2-STAGE-001")
 @pytest.mark.parametrize("src", sorted(TERMINAL_STATES))
 def test_terminal_stage_states_reject_further_transitions(src: StageState) -> None:
-    with pytest.raises(InvalidStateTransition):
+    with pytest.raises(InvalidStateTransitionError):
         transition(
             from_state=src,
             to_state=StageState.PENDING,

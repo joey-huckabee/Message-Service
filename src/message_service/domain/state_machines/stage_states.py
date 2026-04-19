@@ -25,7 +25,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Final
 
-from message_service.domain.errors import InvalidStateTransition
+from message_service.domain.errors import InvalidStateTransitionError
 
 
 class StageState(str, Enum):
@@ -109,10 +109,10 @@ def transition(
         The new state.
 
     Raises:
-        InvalidStateTransition: If the transition is not permitted.
+        InvalidStateTransitionError: If the transition is not permitted.
     """
     if not can_transition(from_state, to_state):
-        raise InvalidStateTransition(
+        raise InvalidStateTransitionError(
             f"illegal stage transition {from_state} -> {to_state}",
             details={
                 "from_state": from_state.value,

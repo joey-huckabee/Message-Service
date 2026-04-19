@@ -23,13 +23,12 @@ Requirement references
 * L2-API-008: validation → INVALID_ARGUMENT
 * L2-API-009: not-found → NOT_FOUND
 * L2-API-010: internal → INTERNAL with correlation id, no stack trace
-* L2-RUN-005: invalid transition → InvalidStateTransition
+* L2-RUN-005: invalid transition → InvalidStateTransitionError
 """
 
 from __future__ import annotations
 
 from typing import Any, ClassVar
-
 
 # =============================================================================
 # Root
@@ -49,11 +48,20 @@ class MessageServiceError(Exception):
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
 
     def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
+        """Initialize the error with a message and optional structured details.
+
+        Args:
+            message: Human-readable message. Appears in logs and (for
+                validation-category errors) in the client-facing gRPC response.
+            details: Machine-parseable diagnostic fields. Attached to the
+                gRPC error response metadata and included in log records.
+        """
         super().__init__(message)
         self.message = message
         self.details: dict[str, Any] = details or {}
 
     def __repr__(self) -> str:
+        """Return a debugging representation including error_code and message."""
         return f"{type(self).__name__}(error_code={self.error_code!r}, message={self.message!r})"
 
 
@@ -68,31 +76,31 @@ class ValidationError(MessageServiceError):
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
 
 
-class UnknownPipelineType(ValidationError):
+class UnknownPipelineTypeError(ValidationError):
     """Pipeline type not in configured registry. See L2-RUN-007."""
 
     error_code: ClassVar[str] = "ERROR_CODE_UNKNOWN_PIPELINE_TYPE"
 
 
-class UnknownTag(ValidationError):
+class UnknownTagError(ValidationError):
     """Tag not present in configured vocabulary. See L2-RUN-008, L2-SUB-008."""
 
     error_code: ClassVar[str] = "ERROR_CODE_UNKNOWN_TAG"
 
 
-class DuplicateStageId(ValidationError):
+class DuplicateStageIdError(ValidationError):
     """Two or more declared stages share the same stage_id. See L2-RUN-009."""
 
     error_code: ClassVar[str] = "ERROR_CODE_DUPLICATE_STAGE_ID"
 
 
-class UnknownTemplate(ValidationError):
+class UnknownTemplateError(ValidationError):
     """Template reference not present in manifest. See L2-RUN-010."""
 
     error_code: ClassVar[str] = "ERROR_CODE_UNKNOWN_TEMPLATE"
 
 
-class MissingAggregationTemplate(ValidationError):
+class MissingAggregationTemplateError(ValidationError):
     """SINGLE_AGGREGATED mode declared without an aggregation_template.
 
     See L2-RUN-011, L2-AGGR-009.
@@ -101,13 +109,13 @@ class MissingAggregationTemplate(ValidationError):
     error_code: ClassVar[str] = "ERROR_CODE_MISSING_AGGREGATION_TEMPLATE"
 
 
-class UnknownStage(ValidationError):
+class UnknownStageError(ValidationError):
     """Submission references a stage_id not declared in the run. See L2-STAGE-008."""
 
     error_code: ClassVar[str] = "ERROR_CODE_UNKNOWN_STAGE"
 
 
-class ContextSchemaViolation(ValidationError):
+class ContextSchemaViolationError(ValidationError):
     """Stage context failed JSON Schema validation. See L2-TMPL-011.
 
     The ``details`` dict SHOULD include a ``schema_path`` (JSON Pointer) key
@@ -117,19 +125,19 @@ class ContextSchemaViolation(ValidationError):
     error_code: ClassVar[str] = "ERROR_CODE_CONTEXT_SCHEMA_VIOLATION"
 
 
-class ContextSizeExceeded(ValidationError):
+class ContextSizeExceededError(ValidationError):
     """Submitted context exceeded ``templates.max_context_bytes``. See L2-TMPL-012."""
 
     error_code: ClassVar[str] = "ERROR_CODE_CONTEXT_SIZE_EXCEEDED"
 
 
-class RenderedSizeExceeded(ValidationError):
+class RenderedSizeExceededError(ValidationError):
     """Rendered output exceeded ``templates.max_rendered_bytes``. See L2-TMPL-013."""
 
     error_code: ClassVar[str] = "ERROR_CODE_RENDERED_SIZE_EXCEEDED"
 
 
-class MalformedRequest(ValidationError):
+class MalformedRequestError(ValidationError):
     """Request failed protobuf-level or syntactic validation."""
 
     error_code: ClassVar[str] = "ERROR_CODE_MALFORMED_REQUEST"
@@ -146,7 +154,7 @@ class NotFoundError(MessageServiceError):
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
 
 
-class RunNotFound(NotFoundError):
+class RunNotFoundError(NotFoundError):
     """Referenced run_id does not exist. See L2-STAGE-009."""
 
     error_code: ClassVar[str] = "ERROR_CODE_RUN_NOT_FOUND"
@@ -163,7 +171,7 @@ class PreconditionError(MessageServiceError):
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
 
 
-class InvalidRunState(PreconditionError):
+class InvalidRunStateError(PreconditionError):
     """Operation attempted against a run in an incompatible state. See L2-RUN-012.
 
     Typical usage: ``FinalizeRun`` called against a run not in ``AGGREGATING``.
@@ -172,7 +180,7 @@ class InvalidRunState(PreconditionError):
     error_code: ClassVar[str] = "ERROR_CODE_INVALID_RUN_STATE"
 
 
-class InvalidStateTransition(PreconditionError):
+class InvalidStateTransitionError(PreconditionError):
     """Attempt to perform a transition not in the permitted transition table.
 
     Raised by :mod:`message_service.domain.state_machines`. See L2-RUN-005,
@@ -182,7 +190,7 @@ class InvalidStateTransition(PreconditionError):
     error_code: ClassVar[str] = "ERROR_CODE_INVALID_RUN_STATE"
 
 
-class InvalidStageState(PreconditionError):
+class InvalidStageStateError(PreconditionError):
     """Operation attempted against a stage in an incompatible state."""
 
     error_code: ClassVar[str] = "ERROR_CODE_INVALID_STAGE_STATE"
@@ -211,7 +219,7 @@ class PersistenceError(InfrastructureError):
 class TemplateRenderError(InfrastructureError):
     """Jinja2 rendering failed for a reason other than schema or size violation.
 
-    Contrast with :class:`ContextSchemaViolation` and :class:`RenderedSizeExceeded`
+    Contrast with :class:`ContextSchemaViolationError` and :class:`RenderedSizeExceededError`
     which are validation errors surfaced to the client.
     """
 
@@ -235,24 +243,24 @@ __all__ = [
     "MessageServiceError",
     # Validation
     "ValidationError",
-    "UnknownPipelineType",
-    "UnknownTag",
-    "DuplicateStageId",
-    "UnknownTemplate",
-    "MissingAggregationTemplate",
-    "UnknownStage",
-    "ContextSchemaViolation",
-    "ContextSizeExceeded",
-    "RenderedSizeExceeded",
-    "MalformedRequest",
+    "UnknownPipelineTypeError",
+    "UnknownTagError",
+    "DuplicateStageIdError",
+    "UnknownTemplateError",
+    "MissingAggregationTemplateError",
+    "UnknownStageError",
+    "ContextSchemaViolationError",
+    "ContextSizeExceededError",
+    "RenderedSizeExceededError",
+    "MalformedRequestError",
     # Not found
     "NotFoundError",
-    "RunNotFound",
+    "RunNotFoundError",
     # Precondition
     "PreconditionError",
-    "InvalidRunState",
-    "InvalidStateTransition",
-    "InvalidStageState",
+    "InvalidRunStateError",
+    "InvalidStateTransitionError",
+    "InvalidStageStateError",
     # Infrastructure
     "InfrastructureError",
     "PersistenceError",

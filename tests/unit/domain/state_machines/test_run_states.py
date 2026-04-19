@@ -10,7 +10,7 @@ from enum import Enum
 
 import pytest
 
-from message_service.domain.errors import InvalidStateTransition
+from message_service.domain.errors import InvalidStateTransitionError
 from message_service.domain.state_machines.run_states import (
     NON_TERMINAL_STATES,
     TERMINAL_STATES,
@@ -133,14 +133,14 @@ def test_all_state_pairs_respect_transition_table() -> None:
 
 
 # -----------------------------------------------------------------------------
-# transition() raises InvalidStateTransition on illegal edges (L2-RUN-005)
+# transition() raises InvalidStateTransitionError on illegal edges (L2-RUN-005)
 # -----------------------------------------------------------------------------
 
 
 @pytest.mark.requirement("L3-RUN-008")
 def test_illegal_transition_raises_with_structured_details() -> None:
     """Raised exception SHALL carry from_state, to_state, run_id in details."""
-    with pytest.raises(InvalidStateTransition) as exc_info:
+    with pytest.raises(InvalidStateTransitionError) as exc_info:
         transition(
             from_state=RunState.INITIATED,
             to_state=RunState.SENT,  # not permitted
@@ -161,7 +161,7 @@ def test_illegal_transition_raises_with_structured_details() -> None:
 )
 def test_terminal_states_reject_transitions_to_non_terminal(src: RunState, dst: RunState) -> None:
     """Attempts to transition a terminal run to any other state SHALL raise."""
-    with pytest.raises(InvalidStateTransition):
+    with pytest.raises(InvalidStateTransitionError):
         transition(
             from_state=src,
             to_state=dst,

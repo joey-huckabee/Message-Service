@@ -30,7 +30,7 @@ import pytest
 
 
 def pytest_collection_modifyitems(
-    config: pytest.Config,  # noqa: ARG001
+    config: pytest.Config,
     items: list[pytest.Item],
 ) -> None:
     """Auto-apply layer markers based on test path.
@@ -53,7 +53,7 @@ def pytest_collection_modifyitems(
             item.add_marker(pytest.mark.benchmark)
 
 
-def pytest_report_header(config: pytest.Config) -> list[str]:  # noqa: ARG001
+def pytest_report_header(config: pytest.Config) -> list[str]:
     """Add requirement-coverage hint to the pytest header."""
     return [
         "Message-Service test suite — tag tests with @pytest.mark.requirement('L<N>-<CAT>-<NNN>')",

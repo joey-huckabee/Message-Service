@@ -33,5 +33,5 @@ def _mark_slow(request: pytest.FixtureRequest) -> None:
     request.node.add_marker(pytest.mark.slow)
 
 
-# from tests.fixtures.service import running_service  # noqa: F401
-# from tests.fixtures.service import grpc_stub, dashboard_client  # noqa: F401
+# from tests.fixtures.service import running_service
+# from tests.fixtures.service import grpc_stub, dashboard_client

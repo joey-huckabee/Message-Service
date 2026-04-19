@@ -25,5 +25,6 @@ repos:
         additional_dependencies:
           - pytest
           - pydantic
+          - structlog
           - types-jsonschema
         args: [--config-file, pyproject.toml]

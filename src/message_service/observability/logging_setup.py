@@ -59,8 +59,8 @@ _REDACTED = "<redacted>"
 
 
 def _redact_sensitive_fields(
-    logger: logging.Logger,  # noqa: ARG001 - structlog processor signature
-    method_name: str,  # noqa: ARG001
+    logger: logging.Logger,
+    method_name: str,
     event_dict: EventDict,
 ) -> EventDict:
     """Processor: replace values of sensitive keys with ``<redacted>``.
@@ -179,4 +179,7 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
 
         logger.info("run_finalized", run_id=run_id, stage_count=len(stages))
     """
-    return structlog.get_logger(name)
+    # structlog.get_logger returns Any; cast here to keep the downstream
+    # signature strict without forcing every call site to assert.
+    logger: structlog.stdlib.BoundLogger = structlog.get_logger(name)
+    return logger

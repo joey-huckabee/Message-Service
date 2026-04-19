@@ -1,0 +1,47 @@
+@startuml c4-component-assembly
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Component.puml
+
+title Component view — Assembly & Delivery Pipeline (C4 Level 3)
+
+ContainerDb_Ext(sqlite, "SQLite", "", "")
+ContainerDb_Ext(report_store, "Rendered Report Store", "filesystem", "")
+Container_Ext(smtp_relay, "SMTP Relay", "", "")
+
+Container_Boundary(assembly, "Assembly & Delivery Pipeline") {
+    Component(assemble_uc, "AssembleReport Use Case", "application", "Orchestrates: load contributions, sort, render, compose, deliver.")
+    Component(deliver_uc, "DeliverEmail Use Case", "application", "Recipient resolution, MIME composition, size check, SMTP send, retry.")
+
+    Component(ordering, "Stage Ordering", "domain", "Sorts stage contributions by stage_order, ties broken by stage_id lex.")
+    Component(mode_strategy, "Attachment Mode Strategy", "domain", "SINGLE_AGGREGATED vs PER_STAGE branching.")
+
+    Component(renderer, "Jinja2 Sandboxed Renderer", "infrastructure/templating", "SandboxedEnvironment with whitelisted filters; L2-TMPL-007..009.")
+    Component(schema_val, "Context Schema Validator", "infrastructure/templating", "jsonschema Draft 2020-12; L2-TMPL-010..011.")
+    Component(manifest, "Template Manifest Loader", "infrastructure/templating", "Loads manifest at startup; resolves name+version.")
+
+    Component(mime_composer, "MIME Composer", "infrastructure/email", "Builds multipart message; enforces max_email_size_bytes at handoff.")
+    Component(smtp_sender, "SMTP Sender", "infrastructure/email", "aiosmtplib client with exponential backoff retry.")
+
+    Component(recipient_resolver, "Recipient Resolver", "application", "Union of GLOBAL + PIPELINE + TAG subscriptions, dedup.")
+    Component(report_writer, "Report Filesystem Writer", "infrastructure/persistence", "Atomic write to report store by run_id.")
+    Component(audit_writer, "Audit Writer", "infrastructure/audit", "Persists delivery events before state transitions.")
+}
+
+Rel(assemble_uc, ordering, "sorts contributions")
+Rel(assemble_uc, mode_strategy, "selects attachment mode")
+Rel(assemble_uc, renderer, "renders per-stage and aggregation templates")
+Rel(renderer, schema_val, "validates context")
+Rel(renderer, manifest, "resolves template source")
+Rel(assemble_uc, report_writer, "persists rendered HTML")
+Rel(assemble_uc, deliver_uc, "hands off")
+
+Rel(deliver_uc, recipient_resolver, "builds recipient list")
+Rel(recipient_resolver, sqlite, "query subscriptions")
+Rel(deliver_uc, mime_composer, "builds MIME message")
+Rel(deliver_uc, smtp_sender, "sends via SMTP")
+Rel(smtp_sender, smtp_relay, "aiosmtplib")
+Rel(deliver_uc, audit_writer, "records delivery")
+Rel(audit_writer, sqlite, "persist")
+
+Rel(report_writer, report_store, "atomic write")
+
+@enduml

@@ -1,0 +1,27 @@
+@startuml deployment
+!theme plain
+title Deployment topology — single-node ISOLAN
+
+node "ISOLAN host\n(Linux systemd OR Windows NSSM)" {
+  artifact "message-service\n(Poetry-installed)" as Svc
+  database "SQLite\n(WAL)" as DB
+  folder "Rendered reports\n(filesystem)" as FS
+  folder "Config\n(TOML)" as Cfg
+  folder "Templates\n(manifest + Jinja2)" as Tpl
+}
+
+cloud "ETL pipelines\n(gRPC clients)" as Pipelines
+node "SMTP relay" as SMTP
+node "Subscribers\n(email)" as Subs
+actor "Operators\n(dashboard HTTPS)" as Ops
+
+Pipelines --> Svc : gRPC :50051 (plaintext v1)
+Ops --> Svc : HTTP :8080 (dashboard)
+Svc --> DB
+Svc --> FS
+Svc --> Cfg
+Svc --> Tpl
+Svc --> SMTP : aiosmtplib
+SMTP --> Subs
+
+@enduml

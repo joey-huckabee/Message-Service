@@ -1,0 +1,30 @@
+@startuml c4-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Context.puml
+
+title System Context — Message-Service (C4 Level 1)
+
+Person(pipeline_author, "ETL Pipeline Author", "Writes pipelines that submit reports to Message-Service")
+System_Ext(etl_pipeline, "ETL Pipeline", "External pipeline process that submits per-stage reports during a run.")
+
+Person(subscriber, "Subscriber", "Receives aggregated report emails; manages own subscriptions.")
+Person(admin, "Administrator", "Manages users, inspects past reports, triggers resends, reviews audit log.")
+
+System_Boundary(mspboundary, "Message-Service deployment") {
+    System(msp, "Message-Service", "Collects stage reports, aggregates into HTML, delivers by email.")
+}
+
+System_Ext(smtp_relay, "SMTP Relay", "Site-local SMTP relay for outbound email delivery.")
+System_Ext(tag_config, "Tag Vocabulary File", "Operator-managed TOML file defining permitted tags.")
+System_Ext(template_bundle, "Template Manifest + Source", "Git-managed Jinja2 templates shipped with the service.")
+
+Rel(etl_pipeline, msp, "Submits runs and stage reports", "gRPC (unary, plaintext v1)")
+Rel(subscriber, msp, "Manages subscriptions, views past reports", "HTTPS")
+Rel(admin, msp, "Admin operations: resend, user management, audit", "HTTPS")
+Rel(msp, smtp_relay, "Delivers composed emails", "SMTP (with optional STARTTLS)")
+Rel(msp, subscriber, "Receives aggregated report", "Email")
+Rel_L(msp, tag_config, "Loads at startup")
+Rel_L(msp, template_bundle, "Loads at startup")
+
+Rel_U(pipeline_author, etl_pipeline, "Authors and operates")
+
+@enduml

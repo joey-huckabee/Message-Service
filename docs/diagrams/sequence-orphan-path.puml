@@ -1,0 +1,34 @@
+@startuml sequence-orphan-path
+!theme plain
+title Orphan detection sequence — L1-SWEEP
+
+participant "Asyncio sweeper" as Sweeper
+participant "Run repo" as Repo
+participant "Disposition handlers" as DH
+participant "SMTP sender" as SMTP
+actor "Admins" as Admins
+
+loop every poll_interval_seconds
+    Sweeper -> Repo : query non-terminal runs
+    Repo --> Sweeper : candidates
+    alt any candidate exceeds run_timeout
+        Sweeper -> Repo : transition to ORPHANED (atomic)
+        Sweeper -> DH : dispatch configured actions
+        note right of DH
+            Any combination of:
+            SEND_PARTIAL_FLAGGED
+            DISCARD_SILENTLY
+            NOTIFY_SUBSCRIBERS
+            NOTIFY_ADMINS
+        end note
+        opt NOTIFY_ADMINS in policy
+            DH -> SMTP : send admin notification
+            SMTP -> Admins : email
+        end
+        opt SEND_PARTIAL_FLAGGED in policy
+            DH -> SMTP : send partial report (flagged)
+        end
+    end
+end
+
+@enduml

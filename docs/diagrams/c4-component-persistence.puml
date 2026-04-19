@@ -1,0 +1,62 @@
+@startuml c4-component-persistence
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Component.puml
+
+title Component view — Persistence Layer (C4 Level 3)
+
+Container_Ext(app, "Application Layer", "use cases", "")
+ContainerDb_Ext(sqlite_file, "SQLite file", "WAL mode", "")
+ContainerDb_Ext(fs, "Filesystem", "report store", "")
+
+Container_Boundary(ports, "Ports (application/ports/)") {
+    Component(run_port, "RunRepository", "ABC", "")
+    Component(stage_port, "StageRepository", "ABC", "")
+    Component(user_port, "UserRepository", "ABC", "")
+    Component(sub_port, "SubscriptionRepository", "ABC", "")
+    Component(audit_port, "AuditRepository", "ABC", "")
+    Component(tmpl_meta_port, "TemplateMetaRepository", "ABC", "")
+    Component(report_store_port, "ReportStore", "ABC", "")
+}
+
+Container_Boundary(sqlite_adapters, "SQLite adapters (infrastructure/persistence/sqlite/)") {
+    Component(conn_mgr, "Connection Manager", "aiosqlite", "Pool sized by persistence.connection_pool_size; WAL pragmas at startup.")
+    Component(migrations, "Migration Runner", "", "Applies versioned migrations at startup per L2-PERS-003.")
+    Component(run_repo, "SqliteRunRepository", "", "")
+    Component(stage_repo, "SqliteStageRepository", "", "")
+    Component(user_repo, "SqliteUserRepository", "", "")
+    Component(sub_repo, "SqliteSubscriptionRepository", "", "")
+    Component(audit_repo, "SqliteAuditRepository", "", "")
+    Component(tmpl_meta_repo, "SqliteTemplateMetaRepository", "", "")
+}
+
+Container_Boundary(fs_adapters, "Filesystem adapters (infrastructure/persistence/filesystem/)") {
+    Component(report_store_impl, "FilesystemReportStore", "", "Atomic write via tmp+rename; pathlib only.")
+}
+
+Rel(app, run_port, "depends on")
+Rel(app, stage_port, "depends on")
+Rel(app, user_port, "depends on")
+Rel(app, sub_port, "depends on")
+Rel(app, audit_port, "depends on")
+Rel(app, tmpl_meta_port, "depends on")
+Rel(app, report_store_port, "depends on")
+
+Rel(run_repo, run_port, "implements")
+Rel(stage_repo, stage_port, "implements")
+Rel(user_repo, user_port, "implements")
+Rel(sub_repo, sub_port, "implements")
+Rel(audit_repo, audit_port, "implements")
+Rel(tmpl_meta_repo, tmpl_meta_port, "implements")
+Rel(report_store_impl, report_store_port, "implements")
+
+Rel(run_repo, conn_mgr, "acquires connection")
+Rel(stage_repo, conn_mgr, "")
+Rel(user_repo, conn_mgr, "")
+Rel(sub_repo, conn_mgr, "")
+Rel(audit_repo, conn_mgr, "")
+Rel(tmpl_meta_repo, conn_mgr, "")
+Rel(conn_mgr, sqlite_file, "aiosqlite")
+Rel(migrations, sqlite_file, "at startup")
+
+Rel(report_store_impl, fs, "pathlib + os.rename")
+
+@enduml

@@ -1,0 +1,32 @@
+@startuml data-flow
+!theme plain
+title Data-flow: pipeline submission → aggregated email
+
+skinparam rectangle {
+  BackgroundColor #F8F8F8
+}
+
+rectangle "Pipeline stage\n(submits context dict)" as Stage
+rectangle "gRPC ingest\n(proto validation)" as Ingest
+rectangle "Template manifest\n(name, version, schema)" as Manifest
+rectangle "Context schema validation\n(jsonschema)" as Schema
+rectangle "Sandboxed Jinja2 renderer\n(SandboxedEnvironment)" as Render
+rectangle "Stage contribution store\n(SQLite, keyed by run_id, stage_id)" as Store
+rectangle "Aggregation\n(sorted by stage_order)" as Agg
+rectangle "MIME composer\n(size check at handoff)" as MIME
+rectangle "SMTP relay\n(aiosmtplib)" as SMTP
+rectangle "Recipient list\n(union of matching subscriptions)" as Recipients
+rectangle "Filesystem report store\n(rendered HTML persisted by run_id)" as FS
+
+Stage --> Ingest
+Ingest --> Manifest
+Manifest --> Schema
+Schema --> Render
+Render --> Store
+Store --> Agg
+Agg --> MIME
+Agg --> FS
+Recipients --> MIME
+MIME --> SMTP
+
+@enduml

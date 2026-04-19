@@ -1,0 +1,44 @@
+@startuml c4-container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Container.puml
+
+title Container view — Message-Service (C4 Level 2)
+
+Person(pipeline, "ETL Pipeline", "gRPC client")
+Person(user, "Dashboard User", "Subscriber or admin")
+System_Ext(smtp_relay, "SMTP Relay", "")
+
+System_Boundary(msp, "Message-Service (single process)") {
+    Container(grpc_server, "gRPC Ingest Server", "Python, grpc.aio", "Receives BeginRun / SubmitStageReport / FinalizeRun. Port 50051.")
+    Container(dashboard, "Dashboard", "Python, FastAPI + uvicorn", "HTML UI and REST for subscription mgmt, past reports, admin ops. Port 8080.")
+    Container(assembly, "Assembly & Delivery Pipeline", "Python, asyncio", "Renders templates, composes MIME, sends via SMTP.")
+    Container(sweeper, "Orphan Sweeper", "Python, asyncio", "Periodic background task scanning for orphaned runs.")
+    Container(audit_cleanup, "Audit Retention Task", "Python, asyncio", "Daily task enforcing audit log retention.")
+
+    ContainerDb(sqlite, "SQLite Database", "SQLite 3, WAL mode", "Users, subscriptions, audit log, template metadata, in-flight run state.")
+    ContainerDb(report_store, "Rendered Report Store", "Local filesystem", "One HTML file per rendered report, named by run_id.")
+}
+
+System_Ext(template_src, "Template Sources", "Jinja2 files bundled with service")
+System_Ext(config_file, "TOML Config", "Loaded at startup")
+
+Rel(pipeline, grpc_server, "gRPC calls", "gRPC/HTTP2")
+Rel(user, dashboard, "HTTP requests", "HTTPS (recommended)")
+
+Rel(grpc_server, sqlite, "Persists run & stage state", "aiosqlite")
+Rel(grpc_server, assembly, "Triggers on FinalizeRun", "asyncio task")
+Rel(assembly, sqlite, "Reads contributions, writes state", "aiosqlite")
+Rel(assembly, report_store, "Writes rendered HTML", "pathlib")
+Rel(assembly, template_src, "Reads templates", "Jinja2 loader")
+Rel(assembly, smtp_relay, "SMTP submission", "aiosmtplib")
+
+Rel(sweeper, sqlite, "Scans for orphans", "aiosqlite")
+Rel(sweeper, assembly, "Dispatches disposition actions", "")
+Rel(audit_cleanup, sqlite, "Deletes expired audit records", "aiosqlite")
+
+Rel(dashboard, sqlite, "Reads users, subs, audit", "aiosqlite")
+Rel(dashboard, report_store, "Serves past reports", "pathlib")
+
+Rel_L(grpc_server, config_file, "Reads at startup")
+Rel_L(dashboard, config_file, "Reads at startup")
+
+@enduml

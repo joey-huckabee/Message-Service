@@ -1,0 +1,42 @@
+@startuml sequence-happy-path
+!theme plain
+title Happy-path sequence: BeginRun → SubmitStageReport (xN) → FinalizeRun → email sent
+
+actor Pipeline
+participant "gRPC servicer" as GRPC
+participant "Use cases" as UC
+participant "Run repo" as Repo
+participant "Template renderer" as TR
+participant "SMTP sender" as SMTP
+actor "Subscribers" as Subs
+
+Pipeline -> GRPC : BeginRun(pipeline_type, stages, templates, tags)
+GRPC -> UC : begin_run(cmd)
+UC -> Repo : persist Run (INITIATED)
+Repo --> UC : run_id
+UC --> GRPC : BeginRunResponse(run_id)
+GRPC --> Pipeline : run_id
+
+loop per stage
+    Pipeline -> GRPC : SubmitStageReport(run_id, stage_id, contribution)
+    GRPC -> UC : submit_stage_report(cmd)
+    UC -> Repo : upsert stage contribution
+    UC --> GRPC : ok
+    GRPC --> Pipeline : ok
+end
+
+Pipeline -> GRPC : FinalizeRun(run_id)
+GRPC -> UC : finalize_run(cmd)
+UC -> Repo : transition READY
+UC --> GRPC : ok (non-blocking)
+GRPC --> Pipeline : ok
+
+== assembly (async) ==
+UC -> TR : render aggregated report
+TR --> UC : rendered bytes
+UC -> SMTP : send(recipients, attachment, body)
+SMTP --> UC : delivered
+UC -> Repo : transition SENT
+Subs <-- SMTP : email
+
+@enduml

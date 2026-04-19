@@ -1,0 +1,35 @@
+@startuml run-state-machine
+!theme plain
+title Run lifecycle state machine — L2-RUN-004
+
+[*] --> INITIATED : BeginRun (validated)
+INITIATED --> AGGREGATING : first SubmitStageReport
+AGGREGATING --> READY : FinalizeRun
+READY --> SENDING : assembly complete
+SENDING --> SENT : SMTP success
+SENDING --> FAILED : permanent delivery failure
+SENDING --> FAILED : email size exceeded
+
+INITIATED --> ORPHANED : sweeper timeout
+AGGREGATING --> ORPHANED : sweeper timeout
+READY --> ORPHANED : sweeper timeout
+SENDING --> ORPHANED : sweeper timeout
+
+INITIATED --> FAILED : internal error
+AGGREGATING --> FAILED : internal error
+READY --> FAILED : internal error
+
+SENT --> [*]
+FAILED --> [*]
+ORPHANED --> [*]
+
+note right of ORPHANED
+  Disposition policy dispatched
+  per L2-SWEEP-007: any combination
+  of SEND_PARTIAL_FLAGGED,
+  DISCARD_SILENTLY,
+  NOTIFY_SUBSCRIBERS,
+  NOTIFY_ADMINS
+end note
+
+@enduml

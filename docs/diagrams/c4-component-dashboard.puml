@@ -1,0 +1,47 @@
+@startuml c4-component-dashboard
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Component.puml
+
+title Component view — FastAPI Dashboard (C4 Level 3)
+
+Person_Ext(user, "Dashboard User", "Subscriber or admin")
+ContainerDb_Ext(sqlite, "SQLite", "", "")
+ContainerDb_Ext(report_store, "Rendered Report Store", "", "")
+Container_Ext(assembly, "Assembly Pipeline", "", "")
+
+Container_Boundary(dashboard, "FastAPI Dashboard") {
+    Component(app_factory, "FastAPI App Factory", "interfaces/rest", "create_app(config) per L2-DASH-001.")
+    Component(session_dep, "Session Dependency", "auth", "Validates session cookie, checks idle timeout per L2-AUTH-006.")
+    Component(admin_gate, "Admin Role Gate", "auth", "Dependency requiring is_admin flag per L2-DASH-007.")
+    Component(password_hasher, "Password Hasher", "auth", "argon2-cffi Argon2id per L2-AUTH-001.")
+
+    Component(sub_routes, "Subscription Routes", "routes/subscriptions", "CRUD scoped to session user per L2-DASH-004..006.")
+    Component(report_routes, "Past Report Routes", "routes/reports", "List, view, resend. Resend resolves recipients at resend time per L2-DASH-008.")
+    Component(user_routes, "User Management Routes", "routes/users", "Admin-only.")
+    Component(template_routes, "Template Inspection Routes", "routes/templates", "Read-only per L2-DASH-009.")
+    Component(audit_routes, "Audit Log Routes", "routes/audit", "Admin-only view of audit table.")
+    Component(metrics_routes, "Metrics Routes", "routes/metrics", "Prometheus /metrics + embedded dashboard view per L2-DASH-010..011.")
+
+    Component(html_views, "HTML Views", "html/", "Server-side Jinja2 for dashboard UI (distinct from report templates).")
+    Component(static_assets, "Static Assets", "packaged", "CSS, JS, charting lib — no external CDN per L2-DASH-003.")
+}
+
+Rel(user, app_factory, "HTTP request")
+Rel(app_factory, session_dep, "applies on protected routes")
+Rel(app_factory, admin_gate, "applies on admin routes")
+Rel(app_factory, sub_routes, "")
+Rel(app_factory, report_routes, "")
+Rel(app_factory, user_routes, "")
+Rel(app_factory, template_routes, "")
+Rel(app_factory, audit_routes, "")
+Rel(app_factory, metrics_routes, "")
+Rel(app_factory, html_views, "")
+Rel(app_factory, static_assets, "")
+
+Rel(sub_routes, sqlite, "via SubscriptionRepository")
+Rel(report_routes, report_store, "serves HTML")
+Rel(report_routes, assembly, "triggers resend")
+Rel(user_routes, sqlite, "via UserRepository")
+Rel(user_routes, password_hasher, "on create/reset")
+Rel(audit_routes, sqlite, "reads audit_log table")
+
+@enduml

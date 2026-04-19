@@ -1,0 +1,32 @@
+@startuml stage-state-machine
+!theme plain
+title Stage lifecycle state machine — L2-STAGE-002
+
+[*] --> PENDING : run BeginRun (stage declared)
+PENDING --> SUBMITTED : first SubmitStageReport
+SUBMITTED --> RETRIED : repeat SubmitStageReport (same stage_id)
+RETRIED --> RETRIED : further SubmitStageReport calls
+
+SUBMITTED --> ACCEPTED : run assembly
+RETRIED --> ACCEPTED : run assembly
+
+PENDING --> TIMEOUT : sweeper classification
+SUBMITTED --> TIMEOUT : sweeper classification
+RETRIED --> TIMEOUT : sweeper classification
+
+PENDING --> FAILED : validation error
+SUBMITTED --> FAILED : validation error
+RETRIED --> FAILED : validation error
+
+ACCEPTED --> [*]
+TIMEOUT --> [*]
+FAILED --> [*]
+
+note right of PENDING
+  IN_PROGRESS state is reserved
+  for a future heartbeat RPC.
+  v1 does not enter IN_PROGRESS.
+  See L2-STAGE-002.
+end note
+
+@enduml

@@ -1,0 +1,40 @@
+@startuml c4-component-ingest
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.11.0/C4_Component.puml
+
+title Component view — gRPC Ingest Server (C4 Level 3)
+
+Container_Ext(pipeline, "ETL Pipeline", "gRPC client", "")
+ContainerDb_Ext(sqlite, "SQLite", "WAL mode", "")
+Container_Ext(assembly, "Assembly Pipeline", "asyncio", "")
+
+Container_Boundary(ingest, "gRPC Ingest Server") {
+    Component(servicer, "MessageServiceServicer", "grpc.aio.ServicerContext", "Implements BeginRun, SubmitStageReport, FinalizeRun RPCs.")
+    Component(error_map, "Error Translation", "grpc status mapping", "Catches domain exceptions, maps to gRPC status codes per L2-API-008..011.")
+    Component(log_ctx, "Request Context Binder", "structlog contextvars", "Binds run_id/correlation_id for the RPC lifetime.")
+
+    Component(begin_run_uc, "BeginRun Use Case", "application layer", "Validates request, mints run_id, persists INITIATED state.")
+    Component(submit_uc, "SubmitStageReport Use Case", "application layer", "Validates stage, renders report contribution, persists.")
+    Component(finalize_uc, "FinalizeRun Use Case", "application layer", "Transitions to READY, enqueues assembly task.")
+
+    Component(validators, "Request Validators", "domain layer", "Pipeline type, tags, stage uniqueness, template refs, aggregation template.")
+    Component(run_repo_port, "RunRepository port", "ABC", "Interface defined in application/ports; impl in infrastructure/persistence/sqlite.")
+    Component(tmpl_renderer_port, "TemplateRenderer port", "ABC", "Interface defined in application/ports; impl in infrastructure/templating.")
+}
+
+Rel(pipeline, servicer, "RPC", "gRPC")
+Rel(servicer, log_ctx, "bind_request_context()")
+Rel(servicer, begin_run_uc, "dispatch")
+Rel(servicer, submit_uc, "dispatch")
+Rel(servicer, finalize_uc, "dispatch")
+Rel(servicer, error_map, "on exception")
+
+Rel(begin_run_uc, validators, "validates input")
+Rel(begin_run_uc, run_repo_port, "persists new Run")
+Rel(submit_uc, run_repo_port, "loads Run, persists Stage")
+Rel(submit_uc, tmpl_renderer_port, "validates schema, renders report fragment")
+Rel(finalize_uc, run_repo_port, "transitions state")
+Rel(finalize_uc, assembly, "enqueues task")
+
+Rel(run_repo_port, sqlite, "via SqliteRunRepository")
+
+@enduml

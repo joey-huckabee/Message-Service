@@ -1,0 +1,32 @@
+[Unit]
+Description=Message Service — ETL pipeline report aggregator
+Documentation=file:///opt/message-service/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=message-service
+Group=message-service
+WorkingDirectory=/opt/message-service
+Environment="MSG_SERVICE_CONFIG=/etc/message-service/config.toml"
+ExecStart=/opt/message-service/.venv/bin/message-service --config /etc/message-service/config.toml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+
+# Sandboxing (adjust as needed for deployment)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/message-service /var/log/message-service
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=message-service
+
+[Install]
+WantedBy=multi-user.target

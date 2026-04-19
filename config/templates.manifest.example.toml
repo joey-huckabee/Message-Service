@@ -1,0 +1,30 @@
+# ============================================================================
+# Message-Service — Template Manifest
+# ============================================================================
+# Every Jinja2 template usable by pipelines must be registered here. See
+# L1-TMPL-001, L2-TMPL-002. Paths are resolved relative to this file.
+#
+# Fields per entry:
+#   name         — template identifier referenced in BeginRun / SubmitStageReport
+#   version      — semantic version string (compared via packaging.version.Version)
+#   source_path  — relative path to the Jinja2 source file
+#   schema_path  — relative path to the JSON Schema validating the context
+# ============================================================================
+
+[[template]]
+name = "default-stage-report"
+version = "1.0.0"
+source_path = "../src/message_service/templates/report/default_stage.j2"
+schema_path = "../src/message_service/templates/report/default_stage.schema.json"
+
+[[template]]
+name = "default-aggregation"
+version = "1.0.0"
+source_path = "../src/message_service/templates/report/default_aggregation.j2"
+schema_path = "../src/message_service/templates/report/default_aggregation.schema.json"
+
+[[template]]
+name = "default-email-body"
+version = "1.0.0"
+source_path = "../src/message_service/templates/email/default_body.j2"
+schema_path = "../src/message_service/templates/email/default_body.schema.json"

@@ -1,0 +1,91 @@
+# ============================================================================
+# Message-Service — Example Configuration
+# ============================================================================
+# This file is the canonical example showing every documented configuration
+# key. Copy it to a deployment-specific location and adjust as needed.
+#
+# Paths may be relative to this file's directory (resolved per L2-CFG-007) or
+# absolute. Secret values may use ${env:VAR_NAME} indirection (L2-CFG-008).
+# ============================================================================
+
+[grpc]
+# L2-API-007: gRPC ingest listener
+host = "0.0.0.0"
+port = 50051
+
+[dashboard]
+# L2-DASH-002: FastAPI dashboard listener (must differ from grpc.port)
+host = "0.0.0.0"
+port = 8080
+
+[persistence]
+# L2-PERS-001: single SQLite file per deployment
+sqlite_path = "./data/message-service.sqlite"
+# L2-PERS-004: connection pool sizing
+connection_pool_size = 16
+
+[persistence.filesystem]
+# L1-PERS-002: rendered report storage root
+report_directory = "./data/reports"
+
+[templates]
+# L2-TMPL-001: template manifest path (TOML)
+manifest_path = "./config/templates.manifest.toml"
+# L2-TMPL-014: independent size limits
+max_context_bytes = 1_048_576       # 1 MiB
+max_rendered_bytes = 10_485_760     # 10 MiB
+
+[tags]
+# L2-SUB-006: controlled tag vocabulary
+vocabulary_path = "./config/tags.toml"
+
+[sweeper]
+# L1-SWEEP-002: orphan timeout and polling interval
+run_timeout_seconds = 3600          # 1 hour
+poll_interval_seconds = 60
+# L2-SWEEP-007: disposition policy (any combination)
+disposition_actions = ["SEND_PARTIAL_FLAGGED", "NOTIFY_ADMINS"]
+
+[mail]
+# L2-MAIL-003: validated sender address
+from_address = "message-service@example.invalid"
+# L1-MAIL-003: assembly-time size cap
+max_email_size_bytes = 26_214_400   # 25 MiB (typical SMTP relay limit)
+# Administrator notification list (receives orphan and size-exceeded alerts)
+admin_recipients = ["ops@example.invalid"]
+
+[mail.smtp]
+# L2-MAIL-002: SMTP connection parameters
+host = "smtp.example.invalid"
+port = 587
+username = "message-service"
+password = "${env:MSG_SERVICE_SMTP_PASSWORD}"
+use_starttls = true
+
+[mail.retry]
+# L2-MAIL-006: exponential backoff parameters
+max_retries = 5
+initial_interval_seconds = 2
+max_interval_seconds = 300
+
+[auth]
+# L1-AUTH-002: session idle timeout
+session_idle_timeout_seconds = 3600
+
+[auth.argon2]
+# L2-AUTH-002: Argon2id parameters (OWASP-conformant defaults shown)
+memory_cost = 65536     # 64 MiB
+time_cost = 3
+parallelism = 4
+
+[observability.audit]
+# L1-OBS-003: audit log retention
+retention_days = 365
+
+[service]
+# L2-DEP-006: cross-platform graceful shutdown window
+shutdown_grace_period_seconds = 30
+
+[pipelines]
+# L2-RUN-007: registered pipeline types (BeginRun rejects unknown types)
+registered = ["etl-nightly", "etl-adhoc", "ingestion-test"]

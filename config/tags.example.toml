@@ -1,0 +1,30 @@
+# ============================================================================
+# Message-Service — Tag Vocabulary
+# ============================================================================
+# Tags listed here are the only values accepted in BeginRun `run_tags` arrays
+# and TAG-granularity subscription `target_value` fields. See L2-SUB-006,
+# L2-SUB-008.
+#
+# The `description` field is optional and surfaced in the dashboard UI when
+# users are selecting tags for subscriptions.
+# ============================================================================
+
+[[tag]]
+name = "nightly"
+description = "Runs on the nightly schedule."
+
+[[tag]]
+name = "adhoc"
+description = "Manually-invoked one-off runs."
+
+[[tag]]
+name = "production"
+description = "Runs against production datasets."
+
+[[tag]]
+name = "test"
+description = "Runs against test or synthetic datasets."
+
+[[tag]]
+name = "critical"
+description = "Runs whose failure requires immediate attention."

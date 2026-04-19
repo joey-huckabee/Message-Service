@@ -4,7 +4,9 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 ## Status
 
-**Pre-implementation.** L1 and L2 requirements are drafted; L3 decomposition and implementation have not begun. See `docs/L1-REQ.md`, `docs/L2-REQ.md`, and `docs/TRACE-MATRIX.md`.
+**Under active development (Increment 2 complete).** Domain state machines and the `Clock` port are implemented with 99 passing tests at 62% branch coverage. Remaining increments will add the config loader, persistence adapters, application use cases, and the gRPC/FastAPI interface layers. See `ROADMAP.md` for the phase plan and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability.
+
+Requirement counts: **57 L1 · 157 L2 · 315 L3** across 15 categories.
 
 ## Key characteristics
 
@@ -27,9 +29,11 @@ Message-Service/
 │   ├── linux/                  # systemd unit file
 │   └── windows/                # NSSM installation procedure
 ├── docs/
-│   ├── L1-REQ.md               # Level 1 SHALL statements (52 reqs)
-│   ├── L2-REQ.md               # Level 2 SHALL statements (144 reqs)
+│   ├── L1-REQ.md               # Level 1 SHALL statements (57 reqs)
+│   ├── L2-REQ.md               # Level 2 SHALL statements (157 reqs)
+│   ├── L3-REQ.md               # Level 3 SHALL statements (315 reqs)
 │   ├── TRACE-MATRIX.md         # forward trace + coverage summary
+│   ├── LOGGING-AND-EXCEPTIONS.md  # exception hierarchy and log conventions
 │   ├── adr/                    # architecture decision records
 │   ├── analysis/               # verification-method Analysis artifacts
 │   ├── diagrams/               # PlantUML sources
@@ -67,26 +71,49 @@ The codebase follows **ports-and-adapters (hexagonal)** architecture to satisfy 
 
 A CI lint rule (see L2-PERS-010) enforces the dependency direction.
 
-## Quickstart (once implemented)
+## Technology stack
+
+- **Python 3.10+** baseline (tested on 3.10–3.13)
+- **gRPC** via grpcio 1.78, grpcio-tools 1.80 (unary RPCs in v1)
+- **FastAPI 0.136 + Starlette 0.47** for the dashboard
+- **Pydantic 2.12** for config schemas
+- **aiosqlite** for async SQLite persistence (no ORM)
+- **aiosmtplib 4.0** for SMTP delivery
+- **Jinja2 3.1** SandboxedEnvironment for template rendering
+- **structlog 25.1** for structured JSON logging
+- **argon2-cffi** for password hashing
+- **prometheus-client** for embedded metrics
+
+Dev tooling: **ruff 0.15 · mypy 1.20 · pytest 9.0 · pytest-cov 7.1 · pre-commit 4.0**.
+
+## Quickstart
 
 ```bash
 # install
 poetry install
+poetry run pre-commit install
 
-# run tests
+# run tests with coverage (gated at ≥60%)
 poetry run pytest
 
-# lint and type-check
-poetry run ruff check .
+# lint and type-check (what the pre-commit hooks run)
+poetry run ruff format .
+poetry run ruff check . --fix
 poetry run mypy src tests
 
-# run the service
+# regenerate the requirements-to-tests trace matrix
+poetry run python scripts/build-trace-matrix.py
+
+# run the service (once implemented)
 poetry run message-service --config config/default.toml
 ```
 
+See `CONTRIBUTING.md` for the full pre-commit-passing command sequence.
+
 ## Further reading
 
-- `docs/L1-REQ.md` — what the service does
-- `docs/L2-REQ.md` — how the service is structured
-- `docs/TRACE-MATRIX.md` — requirements-to-implementation traceability
+- `docs/L1-REQ.md` / `L2-REQ.md` / `L3-REQ.md` — what the service does, how it's structured, and the implementation-level SHALL statements
+- `docs/TRACE-MATRIX.md` — auto-generated requirements-to-tests forward trace
+- `docs/LOGGING-AND-EXCEPTIONS.md` — exception hierarchy and structured logging conventions
+- `CONTRIBUTING.md` — pre-commit-passing command sequence and coding conventions
 - `ROADMAP.md` — deferred items and future work

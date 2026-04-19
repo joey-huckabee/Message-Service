@@ -16,7 +16,7 @@ poetry run ruff check . --fix
 # 3. Type check — mypy in strict mode
 poetry run mypy src tests
 
-# 4. Run the test suite
+# 4. Run the test suite (coverage is gated at ≥60% via pyproject.toml)
 poetry run pytest
 
 # 5. Regenerate the trace matrix (if you added requirement markers)
@@ -24,6 +24,17 @@ poetry run python scripts/build-trace-matrix.py
 
 # 6. Final sanity: run pre-commit against every file
 poetry run pre-commit run --all-files
+```
+
+`pytest` is configured (via `pyproject.toml` addopts) to:
+- collect coverage for `message_service`
+- emit terminal, HTML (`.coverage_html/`), and XML (`.coverage.xml`) reports
+- fail the run if total coverage drops below **60%**
+
+To run tests without the coverage overhead during rapid iteration:
+
+```bash
+poetry run pytest --no-cov
 ```
 
 If steps 1–5 succeed, step 6 should be a no-op. If step 6 changes any file, `git add` those changes and amend.
@@ -185,6 +196,20 @@ poetry run pytest -m e2e                     # full service black-box
 poetry run pytest -m "not slow"              # skip long-running tests
 ```
 
+### With coverage controls
+
+```bash
+# Skip coverage entirely (much faster during iteration)
+poetry run pytest --no-cov
+
+# Coverage for just one path
+poetry run pytest --cov=src/message_service/domain
+
+# Browse the HTML coverage report
+poetry run pytest && open .coverage_html/index.html   # macOS
+poetry run pytest && xdg-open .coverage_html/index.html  # Linux
+```
+
 ### By requirement id
 
 Use the helper script (substring prefix match works):
@@ -228,6 +253,12 @@ poetry run pytest -k "in_progress and not reserved"
 
 **Cause**: New test file not named `test_*.py`, or missing `__init__.py` in the test directory.
 **Fix**: Rename the file; add the `__init__.py` with a one-line docstring.
+
+### `pytest` failed with "Coverage failure: total of X is less than fail-under=60.00"
+
+**Cause**: The aggregate branch-coverage percentage across `src/message_service/` dropped below the gate in `pyproject.toml`.
+**Fix**: Write tests for the uncovered code paths shown in the terminal report. Run `poetry run pytest` again to re-check. Opening `.coverage_html/index.html` in a browser gives a file-by-file view with uncovered lines highlighted.
+**Short-term escape hatch**: `poetry run pytest --no-cov` skips the gate for iterative work, but the commit-time check still applies on CI.
 
 ### CI fails on trace matrix but local is fine
 

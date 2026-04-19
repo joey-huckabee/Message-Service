@@ -6,9 +6,10 @@ Items in this file are **not** requirements. When an item is promoted into a fut
 
 ## Testing and verification
 
-- **Test strategy document** — a top-level document covering unit test conventions, integration test harness for gRPC and FastAPI, end-to-end run-simulation fixtures, orphan-path test harness, and SMTP sandbox configuration.
-- **pytest marker auto-extraction tool** — `scripts/build-trace-matrix.py` to scan `@pytest.mark.requirement("L<N>-<CAT>-<NNN>")` markers across the test suite and auto-populate the Verification Artifacts column of `docs/TRACE-MATRIX.md`. Eliminates manual matrix maintenance.
-- **Coverage enforcement** — CI gate requiring every approved L1 requirement to have at least one linked verification artifact before release.
+- **Test strategy document** — a top-level document covering unit test conventions, integration test harness for gRPC and FastAPI, end-to-end run-simulation fixtures, orphan-path test harness, and SMTP sandbox configuration. (Partially superseded by `tests/README.md`; still to be promoted to a formal top-level doc.)
+- ~~**pytest marker auto-extraction tool**~~ — **Done.** `scripts/build-trace-matrix.py` now scans `@pytest.mark.requirement` markers and auto-populates `docs/TRACE-MATRIX.md`.
+- **Coverage ratchet** — the pytest gate is currently set at **60%** in `pyproject.toml` to allow progress while `src/message_service/interfaces/grpc/error_mapping.py` and `src/message_service/observability/logging_setup.py` still lack tests (they are 0% covered). Ratchet the gate to **75%** once those two modules have unit tests, and to **85%** once the SQLite adapter has integration coverage.
+- **Coverage enforcement** — CI gate requiring every approved L1 requirement to have at least one linked verification artifact before release. (The `--cov-fail-under` gate enforces aggregate coverage; requirement-level coverage tracking is the separate item.)
 
 ## Performance and profiling
 

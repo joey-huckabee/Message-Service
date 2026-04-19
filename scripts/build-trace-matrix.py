@@ -63,6 +63,7 @@ CATEGORIES: list[tuple[str, str]] = [
     ("DASH", "Dashboard"),
     ("PERS", "Persistence"),
     ("OBS", "Observability"),
+    ("ERR", "Error handling and exception taxonomy"),
     ("CFG", "Configuration"),
     ("DEP", "Deployment"),
 ]
@@ -141,7 +142,12 @@ def _extract_requirement_id(decorator: ast.expr) -> str | None:
 
 
 def build_matrix() -> str:
-    """Generate the trace matrix markdown from requirements and pytest markers."""
+    """Build the full trace-matrix markdown by walking req docs and test markers.
+
+    Returns:
+        The complete markdown document as a string, ready to write to
+        ``docs/TRACE-MATRIX.md``.
+    """
     l1_doc = L1_DOC.read_text()
     l2_doc = L2_DOC.read_text()
     l3_doc = L3_DOC.read_text()
@@ -190,7 +196,7 @@ def build_matrix() -> str:
 
     # Per-category sections
     for cat_code, cat_title in CATEGORIES:
-        cat_l1s = [l1_id for l1_id in l1_ids if l1_id.startswith(f"L1-{cat_code}-")]
+        cat_l1s = [req for req in l1_ids if req.startswith(f"L1-{cat_code}-")]
         if not cat_l1s:
             continue
         lines.append(f"### L1-{cat_code}: {cat_title}")
@@ -243,9 +249,9 @@ def build_matrix() -> str:
     total_l1 = total_l2 = total_l3 = 0
     total_l2_tested = total_l3_tested = 0
     for cat_code, _ in CATEGORIES:
-        l1s = [l1_id for l1_id in l1_ids if l1_id.startswith(f"L1-{cat_code}-")]
-        l2s = [l2_id for l2_id in l2_parent if l2_id.startswith(f"L2-{cat_code}-")]
-        l3s = [l3_id for l3_id in l3_parent if l3_id.startswith(f"L3-{cat_code}-")]
+        l1s = [req for req in l1_ids if req.startswith(f"L1-{cat_code}-")]
+        l2s = [req for req in l2_parent if req.startswith(f"L2-{cat_code}-")]
+        l3s = [req for req in l3_parent if req.startswith(f"L3-{cat_code}-")]
         l2_tested = sum(1 for l2 in l2s if test_markers.get(l2))
         l3_tested = sum(1 for l3 in l3s if test_markers.get(l3))
         lines.append(
@@ -327,7 +333,7 @@ def _rollup_l1_status(
 
 
 def main() -> int:
-    """Write the regenerated trace matrix to disk and report the output path."""
+    """CLI entry point: regenerate the trace matrix on disk."""
     output = build_matrix()
     TRACE_DOC.write_text(output)
     print(f"Wrote {TRACE_DOC.relative_to(ROOT)} ({len(output.splitlines())} lines)")

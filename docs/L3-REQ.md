@@ -32,10 +32,11 @@ Verification artifacts are all `(TBD)` at this stage. They are populated in `TRA
 | `MAIL`    | 13              | 26       |
 | `DASH`    | 11              | 21       |
 | `PERS`    | 10              | 23       |
-| `OBS`     | 9               | 18       |
+| `OBS`     | 12              | 24       |
+| `ERR`     | 10              | 22       |
 | `CFG`     | 8               | 16       |
 | `DEP`     | 9               | 18       |
-| **Total** | **144**         | **287**  |
+| **Total** | **157**         | **315**  |
 
 ---
 
@@ -956,8 +957,103 @@ A static check SHALL assert that no `domain/` or `application/` module imports f
 
 ---
 
+## L3-ERR: Error handling and exception taxonomy
+
+**L3-ERR-001** · Parent: L2-ERR-001 · Verification: I, T · Status: Draft
+The `MessageServiceError` base class SHALL be defined in `src/message_service/domain/errors.py` with class-level attributes `error_code: ClassVar[str]`, `http_status: ClassVar[int]`, and `log_level: ClassVar[int] = logging.ERROR`.
+
+**L3-ERR-002** · Parent: L2-ERR-001 · Verification: T · Status: Draft
+The `MessageServiceError.__init__` signature SHALL be `(self, message: str, *, details: dict[str, Any] | None = None)` with details defaulting to an empty dict when omitted.
+
+**L3-ERR-003** · Parent: L2-ERR-001 · Verification: T · Status: Draft
+`MessageServiceError` SHALL NOT attempt to abstract-enforce `error_code` and `http_status`; concrete subclasses SHALL set them as `ClassVar` overrides, and a startup self-check (L3-ERR-011) catches missing overrides at import time.
+
+**L3-ERR-004** · Parent: L2-ERR-002 · Verification: I · Status: Draft
+The four direct subclasses `DomainError`, `ValidationError`, `InfrastructureError`, `ConfigurationError` SHALL each be an abstract intermediate class with the same `__init__` signature as the base and SHALL NOT be raised directly in production code.
+
+**L3-ERR-005** · Parent: L2-ERR-002 · Verification: T · Status: Draft
+A unit test SHALL assert that every concrete exception class in `domain/errors.py` inherits (directly or transitively) from exactly one of the four intermediate classes.
+
+**L3-ERR-006** · Parent: L2-ERR-003 · Verification: T · Status: Draft
+A unit test SHALL enumerate every leaf class of `MessageServiceError` and assert each has an `error_code` attribute whose value is a non-empty `UPPER_SNAKE_CASE` string.
+
+**L3-ERR-007** · Parent: L2-ERR-003 · Verification: T · Status: Draft
+A unit test SHALL assert that no two leaf exception classes share the same `error_code` value.
+
+**L3-ERR-008** · Parent: L2-ERR-004 · Verification: T · Status: Draft
+At service startup, the error-code self-check SHALL import the proto `ErrorCode` enum, collect every declared enum value, and assert each concrete exception's `error_code` is present in that set; mismatch SHALL raise `ConfigurationError` before any RPC is served.
+
+**L3-ERR-009** · Parent: L2-ERR-004 · Verification: T · Status: Draft
+The self-check SHALL also detect proto enum values that no exception class exposes, emitting a WARNING log (not a fatal error) — proto may legitimately declare codes ahead of their Python counterparts during phased rollouts.
+
+**L3-ERR-010** · Parent: L2-ERR-005 · Verification: A · Status: Draft
+A static-analysis script (`scripts/check-error-code-stability.py`) SHALL compare the current set of declared error codes against a checked-in `docs/error-codes.lock` manifest; removals or renames SHALL fail the build, additions SHALL require a manifest update committed alongside.
+
+**L3-ERR-011** · Parent: L2-ERR-005 · Verification: I · Status: Draft
+The `docs/error-codes.lock` manifest SHALL be updated via a helper script (`scripts/update-error-codes-lock.py`) that regenerates it from the current exception hierarchy and marks a review in `docs/reviews/`.
+
+**L3-ERR-012** · Parent: L2-ERR-006 · Verification: I, T · Status: Draft
+Each inbound interface SHALL implement its translation layer as a single function or decorator named `translate_exceptions` (or similar) such that handler code never contains bare `except MessageServiceError` blocks.
+
+**L3-ERR-013** · Parent: L2-ERR-006 · Verification: T · Status: Draft
+Background task translation SHALL distinguish transient failures (retry-after-backoff) from permanent failures (terminate task, log CRITICAL, notify admins via the orphan notification channel).
+
+**L3-ERR-014** · Parent: L2-ERR-007 · Verification: T · Status: Draft
+The gRPC exception translator SHALL map `error_code` to gRPC status via a static dict `ERROR_CODE_TO_GRPC_STATUS: dict[str, grpc.StatusCode]` co-located with the translator; missing mappings SHALL raise at import time.
+
+**L3-ERR-015** · Parent: L2-ERR-007 · Verification: T · Status: Draft
+The client-facing error response SHALL be a `google.rpc.Status` message containing only `code`, `message` (the exception's public message, not the str() form), and `details` containing a structured `ErrorInfo` with `reason=error_code` and `metadata` from the exception's `details` dict.
+
+**L3-ERR-016** · Parent: L2-ERR-007 · Verification: T · Status: Draft
+The exception's `details` dict SHALL be serialized to the response's metadata field only after stripping any keys flagged sensitive (password, token, raw email body, etc.) per the same redaction list used in logging (L3-OBS-006).
+
+**L3-ERR-017** · Parent: L2-ERR-008 · Verification: T · Status: Draft
+Unhandled exceptions SHALL have a correlation identifier generated via `uuid.uuid4().hex` (32 hex chars, no hyphens, per L3-API-014), logged and returned to the client as the sole client-visible information.
+
+**L3-ERR-018** · Parent: L2-ERR-008 · Verification: T · Status: Draft
+The CRITICAL log record for an unhandled exception SHALL include `exc_info=True` (or equivalent structlog handling) so the full traceback is emitted to stdout in JSON form.
+
+**L3-ERR-019** · Parent: L2-ERR-009 · Verification: A · Status: Draft
+The ruff rule set SHALL include `BLE001` (blind-except) and `S110` / `S112` (try-except-pass / try-except-continue); these SHALL NOT be suppressed via `# noqa` except with a mandatory reason comment.
+
+**L3-ERR-020** · Parent: L2-ERR-009 · Verification: A · Status: Draft
+A CI grep check SHALL fail the build on any occurrence of `except:` (bare) or `except Exception:` without an accompanying `log`, `raise`, or `raise ... from` on the next non-comment, non-blank line.
+
+**L3-ERR-021** · Parent: L2-ERR-010 · Verification: A · Status: Draft
+A ruff rule or grep check SHALL flag any occurrence of `except BaseException`, `except SystemExit`, `except KeyboardInterrupt`, or `except GeneratorExit` in production code (`src/`).
+
+**L3-ERR-022** · Parent: L2-ERR-010 · Verification: T · Status: Draft
+A unit test SHALL deliberately raise `KeyboardInterrupt` within a traced code path and assert it propagates through the translation layer without being caught.
+
+---
+
+## L3-OBS (extension): Log severity and level configuration
+
+These L3 statements decompose the L2 requirements that derive from L1-OBS-004 (log severity taxonomy). They are grouped separately from the original L3-OBS section for clarity; the `TRACE-MATRIX.md` presentation interleaves them properly.
+
+**L3-OBS-019** · Parent: L2-OBS-010 · Verification: I, T · Status: Draft
+The level-assignment rules SHALL be documented in `docs/LOGGING-AND-EXCEPTIONS.md` with the exact event classes enumerated per level; the document SHALL be referenced from every logging call site that deviates from the obvious level choice (via an inline comment referencing the rule).
+
+**L3-OBS-020** · Parent: L2-OBS-010 · Verification: T · Status: Draft
+A unit test SHALL construct a representative event of each category (lifecycle, retry, operation-failure, audit-write-failure) and assert the emitted structlog record carries the expected level.
+
+**L3-OBS-021** · Parent: L2-OBS-011 · Verification: T · Status: Draft
+The `observability.log_level` configuration key SHALL accept values `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (case-insensitive at load, normalized to upper at use) with any other value raising `ConfigurationError` at startup.
+
+**L3-OBS-022** · Parent: L2-OBS-011 · Verification: T · Status: Draft
+Changing `observability.log_level` SHALL require service restart; hot-reload is explicitly out of scope for v1 (a ROADMAP item).
+
+**L3-OBS-023** · Parent: L2-OBS-012 · Verification: T · Status: Draft
+The structlog processor pipeline SHALL include a processor that, for records at `ERROR` or `CRITICAL` that also carry an exception (`exc_info` set or `error_code` bound to context), copies the exception's `error_code` attribute to a top-level `error_code` field in the emitted JSON.
+
+**L3-OBS-024** · Parent: L2-OBS-012 · Verification: T · Status: Draft
+A unit test SHALL emit a sample ERROR record raised from a `ValidationError` subclass and assert the JSON output contains `"error_code": "<expected_code>"` as a top-level key.
+
+---
+
 ## Document change history
 
-| Date       | Author | Change                                           |
-|------------|--------|--------------------------------------------------|
-| 2026-04-18 | Joey   | Initial L3 draft; 287 statements across 14 cats. |
+| Date       | Author | Change                                                    |
+|------------|--------|-----------------------------------------------------------|
+| 2026-04-18 | Joey   | Initial L3 draft; 287 statements across 14 cats.          |
+| 2026-04-19 | Joey   | Added L3-ERR (22 stmts) and L3-OBS-019..024 (6 stmts).    |

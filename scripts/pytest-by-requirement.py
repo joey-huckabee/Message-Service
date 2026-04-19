@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def main() -> int:
-    """Collect and run only the tests whose requirement marker matches the filter."""
+    """CLI entry point: run pytest filtered by requirement marker id."""
     if len(sys.argv) < 2:
         print(__doc__)
         return 2

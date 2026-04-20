@@ -6,7 +6,7 @@ specific L3 requirement it verifies. See ``docs/TRACE-MATRIX.md``.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 import pytest
 
@@ -27,9 +27,8 @@ from message_service.domain.state_machines.run_states import (
 
 @pytest.mark.requirement("L3-RUN-030")
 def test_run_state_is_str_enum() -> None:
-    """RunState SHALL be a string-valued enum for JSON-serializable persistence."""
-    assert issubclass(RunState, str)
-    assert issubclass(RunState, Enum)
+    """RunState SHALL be a StrEnum for JSON-serializable persistence."""
+    assert issubclass(RunState, StrEnum)
 
 
 @pytest.mark.requirement("L3-RUN-030")

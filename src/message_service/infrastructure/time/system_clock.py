@@ -14,13 +14,13 @@ L1-RUN-005, L2-RUN-014, L3-RUN-024
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from message_service.application.ports.clock import Clock
 
 
 class SystemClock(Clock):
-    """Production clock backed by ``datetime.now(tz=timezone.utc)``.
+    """Production clock backed by ``datetime.now(tz=UTC)``.
 
     Contains no state and no configuration; instances are interchangeable.
     The production service constructs one at startup and injects it into
@@ -31,9 +31,9 @@ class SystemClock(Clock):
         """Return the wall-clock time in UTC.
 
         Returns:
-            A timezone-aware ``datetime`` with ``tzinfo=timezone.utc``.
+            A timezone-aware ``datetime`` with ``tzinfo=UTC``.
         """
-        return datetime.now(tz=timezone.utc)
+        return datetime.now(tz=UTC)
 
 
 __all__ = ["SystemClock"]

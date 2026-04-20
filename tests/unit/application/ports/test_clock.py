@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -39,7 +39,7 @@ def test_clock_now_is_abstract() -> None:
 @pytest.mark.requirement("L3-RUN-025")
 def test_iso_z_emits_literal_z_suffix() -> None:
     """Output SHALL end with ``Z``, never ``+00:00``."""
-    value = datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc)
+    value = datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)
     formatted = iso_z(value)
     assert formatted.endswith("Z")
     assert "+00:00" not in formatted
@@ -48,14 +48,14 @@ def test_iso_z_emits_literal_z_suffix() -> None:
 @pytest.mark.requirement("L3-RUN-025")
 def test_iso_z_preserves_microseconds() -> None:
     """Microseconds SHALL appear in the output when non-zero."""
-    value = datetime(2026, 4, 19, 12, 0, 0, 123456, tzinfo=timezone.utc)
+    value = datetime(2026, 4, 19, 12, 0, 0, 123456, tzinfo=UTC)
     assert iso_z(value) == "2026-04-19T12:00:00.123456Z"
 
 
 @pytest.mark.requirement("L3-RUN-025")
 def test_iso_z_omits_microseconds_when_zero() -> None:
     """Whole-second times SHALL NOT carry a trailing ``.000000``."""
-    value = datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc)
+    value = datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)
     assert iso_z(value) == "2026-04-19T12:00:00Z"
 
 
@@ -114,10 +114,10 @@ def test_is_iso_z_rejects_invalid_forms(candidate: str) -> None:
 def test_iso_z_output_always_passes_is_iso_z() -> None:
     """Property-style: the formatter's output SHALL always pass the validator."""
     samples = [
-        datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
-        datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc),
-        datetime(2026, 4, 19, 12, 0, 0, 1, tzinfo=timezone.utc),
-        datetime(2099, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc),
+        datetime(1970, 1, 1, 0, 0, 0, tzinfo=UTC),
+        datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC),
+        datetime(2026, 4, 19, 12, 0, 0, 1, tzinfo=UTC),
+        datetime(2099, 12, 31, 23, 59, 59, 999999, tzinfo=UTC),
     ]
     for value in samples:
         formatted = iso_z(value)
@@ -133,5 +133,5 @@ def test_iso_z_output_always_passes_is_iso_z() -> None:
 def test_iso_z_pattern_matches_spec() -> None:
     """The regex SHALL match the exact spec grammar; use a hand-written check."""
     spec = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$")
-    value = datetime(2026, 4, 19, 12, 30, 45, 678901, tzinfo=timezone.utc)
+    value = datetime(2026, 4, 19, 12, 30, 45, 678901, tzinfo=UTC)
     assert spec.match(iso_z(value))

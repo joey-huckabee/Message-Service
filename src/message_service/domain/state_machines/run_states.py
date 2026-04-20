@@ -26,16 +26,16 @@ L3-RUN-006, L3-RUN-007, L3-RUN-009, L3-RUN-028, L3-RUN-030
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Final
 
 from message_service.domain.errors import InvalidStateTransitionError
 
 
-class RunState(str, Enum):
+class RunState(StrEnum):
     """Lifecycle states for a pipeline run.
 
-    String-valued enum for persistence and JSON serialization.
+    StrEnum for JSON-serializable persistence and human-readable values.
 
     Non-terminal states: ``INITIATED``, ``AGGREGATING``, ``READY``, ``SENDING``.
     Terminal states: ``SENT``, ``FAILED``, ``ORPHANED``.
@@ -132,10 +132,10 @@ def transition(
 
 
 __all__ = [
-    "RunState",
-    "TRANSITIONS",
-    "TERMINAL_STATES",
     "NON_TERMINAL_STATES",
+    "TERMINAL_STATES",
+    "TRANSITIONS",
+    "RunState",
     "can_transition",
     "transition",
 ]

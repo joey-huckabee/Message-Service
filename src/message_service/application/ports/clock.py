@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 class Clock(ABC):
@@ -65,9 +65,9 @@ def iso_z(value: datetime) -> str:
         ValueError: If ``value`` has no ``tzinfo`` attribute.
     """
     if value.tzinfo is None:
-        raise ValueError("iso_z requires a timezone-aware datetime; got naive " f"value {value!r}")
+        raise ValueError(f"iso_z requires a timezone-aware datetime; got naive value {value!r}")
     # Convert to UTC regardless of the incoming tz, then format.
-    as_utc = value.astimezone(timezone.utc)
+    as_utc = value.astimezone(UTC)
     # isoformat() yields e.g. "2026-04-19T18:30:15.123456+00:00"; strip
     # the "+00:00" and append "Z" to match L3-RUN-025 exactly.
     return as_utc.isoformat().removesuffix("+00:00") + "Z"
@@ -84,6 +84,6 @@ def is_iso_z(candidate: str) -> bool:
 
 __all__ = [
     "Clock",
-    "iso_z",
     "is_iso_z",
+    "iso_z",
 ]

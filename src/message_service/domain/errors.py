@@ -238,7 +238,7 @@ class ConfigurationError(MessageServiceError):
     error_code: ClassVar[str] = "ERROR_CODE_INTERNAL"
 
 
-__all__ = [
+__all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     # Root
     "MessageServiceError",
     # Validation

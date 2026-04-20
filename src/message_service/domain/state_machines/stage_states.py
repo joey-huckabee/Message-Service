@@ -22,16 +22,16 @@ L3-STAGE-001, L3-STAGE-002, L3-STAGE-003, L3-STAGE-018
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Final
 
 from message_service.domain.errors import InvalidStateTransitionError
 
 
-class StageState(str, Enum):
+class StageState(StrEnum):
     """Lifecycle states for a single stage within a run.
 
-    String-valued enum for persistence and JSON serialization.
+    StrEnum for JSON-serializable persistence and human-readable values.
 
     Non-terminal states: ``PENDING``, ``IN_PROGRESS`` (reserved for v2),
     ``SUBMITTED``, ``RETRIED``.
@@ -125,11 +125,11 @@ def transition(
 
 
 __all__ = [
-    "StageState",
-    "TRANSITIONS",
-    "TERMINAL_STATES",
     "NON_TERMINAL_STATES",
     "RESERVED_FOR_V2",
+    "TERMINAL_STATES",
+    "TRANSITIONS",
+    "StageState",
     "can_transition",
     "transition",
 ]

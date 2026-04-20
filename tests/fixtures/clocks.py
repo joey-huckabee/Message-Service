@@ -6,7 +6,7 @@ on wall-clock time. This keeps tests deterministic and fast.
 Usage::
 
     def test_audit_timestamp_matches_clock(fake_clock: FakeClock) -> None:
-        fake_clock.set(datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc))
+        fake_clock.set(datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC))
         audit.record_event(...)
         assert audit.last_event.timestamp == "2026-04-19T12:00:00Z"
 
@@ -22,7 +22,7 @@ L3-RUN-024 (Clock port ABC has a FakeClock implementation for tests)
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -43,7 +43,7 @@ class FakeClock(Clock):
             arrange step rather than relying on this default.
     """
 
-    default_epoch: datetime = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    default_epoch: datetime = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
 
     def __init__(self, initial: datetime | None = None) -> None:
         """Initialize the fake clock.
@@ -58,7 +58,7 @@ class FakeClock(Clock):
         start = initial if initial is not None else self.default_epoch
         if start.tzinfo is None:
             raise ValueError("FakeClock requires a timezone-aware initial datetime")
-        self._current: datetime = start.astimezone(timezone.utc)
+        self._current: datetime = start.astimezone(UTC)
 
     def now(self) -> datetime:
         """Return the current fake time without advancing it."""
@@ -75,7 +75,7 @@ class FakeClock(Clock):
         """
         if when.tzinfo is None:
             raise ValueError("FakeClock.set() requires a timezone-aware datetime")
-        self._current = when.astimezone(timezone.utc)
+        self._current = when.astimezone(UTC)
 
     def advance(self, delta: timedelta) -> None:
         """Advance the clock by a positive or negative delta.
@@ -109,4 +109,4 @@ def fake_clock_at_epoch() -> FakeClock:
     Useful for tests asserting on specific timestamp values rather than
     on elapsed-time math.
     """
-    return FakeClock(datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc))
+    return FakeClock(datetime(1970, 1, 1, 0, 0, 0, tzinfo=UTC))

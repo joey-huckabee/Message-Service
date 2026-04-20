@@ -6,7 +6,7 @@ downstream test that depends on it.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -47,7 +47,7 @@ def test_repeated_now_calls_return_identical_values() -> None:
 @pytest.mark.requirement("L3-RUN-024")
 def test_default_epoch_is_2026_01_01_utc() -> None:
     """Unconfigured FakeClock starts at the documented default epoch."""
-    assert FakeClock().now() == datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    assert FakeClock().now() == datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
 
 
 # -----------------------------------------------------------------------------
@@ -57,7 +57,7 @@ def test_default_epoch_is_2026_01_01_utc() -> None:
 
 @pytest.mark.requirement("L3-RUN-024")
 def test_set_jumps_to_absolute_time(fake_clock: FakeClock) -> None:
-    target = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+    target = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
     fake_clock.set(target)
     assert fake_clock.now() == target
 
@@ -94,14 +94,14 @@ def test_set_normalizes_non_utc_to_utc(fake_clock: FakeClock) -> None:
     """A non-UTC tz-aware time SHALL be converted to UTC internally."""
     est = timezone(timedelta(hours=-5))
     fake_clock.set(datetime(2026, 4, 19, 7, 0, 0, tzinfo=est))
-    assert fake_clock.now() == datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc)
+    assert fake_clock.now() == datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.mark.requirement("L3-RUN-024")
 def test_init_normalizes_non_utc_to_utc() -> None:
     est = timezone(timedelta(hours=-5))
     clock = FakeClock(datetime(2026, 4, 19, 7, 0, 0, tzinfo=est))
-    assert clock.now() == datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc)
+    assert clock.now() == datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)
 
 
 # -----------------------------------------------------------------------------
@@ -130,7 +130,7 @@ def test_set_rejects_naive_datetime(fake_clock: FakeClock) -> None:
 def test_fake_clock_at_epoch_starts_at_unix_epoch(
     fake_clock_at_epoch: FakeClock,
 ) -> None:
-    assert fake_clock_at_epoch.now() == datetime(1970, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    assert fake_clock_at_epoch.now() == datetime(1970, 1, 1, 0, 0, 0, tzinfo=UTC)
 
 
 # -----------------------------------------------------------------------------
@@ -142,6 +142,6 @@ def test_fake_clock_at_epoch_starts_at_unix_epoch(
 @pytest.mark.requirement("L3-RUN-025")
 def test_fake_clock_output_flows_through_iso_z(fake_clock: FakeClock) -> None:
     """Composability smoke test: FakeClock -> iso_z produces a valid timestamp string."""
-    fake_clock.set(datetime(2026, 4, 19, 12, 0, 0, tzinfo=timezone.utc))
+    fake_clock.set(datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC))
     formatted = iso_z(fake_clock.now())
     assert formatted == "2026-04-19T12:00:00Z"

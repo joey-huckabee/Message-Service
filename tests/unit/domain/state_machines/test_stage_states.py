@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 import pytest
 
@@ -24,8 +24,7 @@ from message_service.domain.state_machines.stage_states import (
 
 @pytest.mark.requirement("L3-STAGE-001")
 def test_stage_state_is_str_enum() -> None:
-    assert issubclass(StageState, str)
-    assert issubclass(StageState, Enum)
+    assert issubclass(StageState, StrEnum)
 
 
 @pytest.mark.requirement("L3-STAGE-001")
@@ -73,9 +72,9 @@ def test_in_progress_is_declared_reserved() -> None:
 def test_in_progress_has_no_inbound_edges() -> None:
     """No state in the transition table SHALL target IN_PROGRESS in v1."""
     for src, dests in TRANSITIONS.items():
-        assert (
-            StageState.IN_PROGRESS not in dests
-        ), f"{src} -> IN_PROGRESS should not be permitted in v1"
+        assert StageState.IN_PROGRESS not in dests, (
+            f"{src} -> IN_PROGRESS should not be permitted in v1"
+        )
 
 
 @pytest.mark.requirement("L3-STAGE-003")

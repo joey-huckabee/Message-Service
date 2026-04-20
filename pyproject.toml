@@ -131,7 +131,7 @@ addopts = [
     "--cov-report=html:.coverage_html",
     "--cov-report=xml:.coverage.xml",
     "--cov-branch",
-    "--cov-fail-under=80",
+    "--cov-fail-under=85",
 ]
 markers = [
     "requirement(id): link a test to an L1/L2/L3 requirement by identifier",

@@ -51,6 +51,7 @@ def _minimal_valid_data(tmp_path: Path) -> dict[str, object]:
         },
         "templates": {
             "manifest_path": str(tmp_path / "manifest.toml"),
+            "email_body_template_ref": {"name": "default_body", "version": "1.0"},
         },
         "tags": {"vocabulary_path": str(tmp_path / "tags.toml")},
         "mail": {

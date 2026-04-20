@@ -1,4 +1,4 @@
-"""Contract tests for all 8 application-layer ports.
+"""Contract tests for all 10 application-layer ports.
 
 Each port is verified for:
 
@@ -28,11 +28,13 @@ from tests.unit.application.ports.contracts.conftest import (
 )
 
 from message_service.application.ports.audit_log import AuditLog
+from message_service.application.ports.background_task_scheduler import BackgroundTaskScheduler
 from message_service.application.ports.mailer import Mailer
 from message_service.application.ports.run_repository import RunRepository
 from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import SubscriptionRepository
 from message_service.application.ports.tag_vocabulary import TagVocabulary
+from message_service.application.ports.template_renderer import TemplateRenderer
 from message_service.application.ports.template_repository import TemplateRepository
 from message_service.application.ports.unit_of_work import UnitOfWork
 
@@ -45,6 +47,8 @@ ALL_PORTS = [
     AuditLog,
     TagVocabulary,
     UnitOfWork,
+    TemplateRenderer,
+    BackgroundTaskScheduler,
 ]
 
 
@@ -120,6 +124,18 @@ def test_unit_of_work_exposes_expected_methods() -> None:
     assert expected == UnitOfWork.__abstractmethods__
 
 
+@pytest.mark.requirement("L2-TMPL-004")
+def test_template_renderer_exposes_expected_methods() -> None:
+    expected = {"render"}
+    assert expected == TemplateRenderer.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-RUN-013")
+def test_background_task_scheduler_exposes_expected_methods() -> None:
+    expected = {"schedule"}
+    assert expected == BackgroundTaskScheduler.__abstractmethods__
+
+
 # -----------------------------------------------------------------------------
 # Async-ness: IO-bound methods are declared async
 # -----------------------------------------------------------------------------
@@ -179,6 +195,24 @@ def test_tag_vocabulary_is_sync() -> None:
         method = inspect.getattr_static(TagVocabulary, method_name)
         assert not inspect.iscoroutinefunction(method), (
             f"TagVocabulary.{method_name} should be sync"
+        )
+
+
+def test_template_renderer_is_sync() -> None:
+    """TemplateRenderer is CPU-bound (Jinja2); rendering is sync."""
+    for method_name in TemplateRenderer.__abstractmethods__:
+        method = inspect.getattr_static(TemplateRenderer, method_name)
+        assert not inspect.iscoroutinefunction(method), (
+            f"TemplateRenderer.{method_name} should be sync"
+        )
+
+
+def test_background_task_scheduler_is_sync() -> None:
+    """BackgroundTaskScheduler.schedule SHALL NOT await; it returns immediately."""
+    for method_name in BackgroundTaskScheduler.__abstractmethods__:
+        method = inspect.getattr_static(BackgroundTaskScheduler, method_name)
+        assert not inspect.iscoroutinefunction(method), (
+            f"BackgroundTaskScheduler.{method_name} should be sync (non-blocking)"
         )
 
 

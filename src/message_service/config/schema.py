@@ -109,12 +109,42 @@ class PersistenceConfig(_FrozenForbid):
 # -----------------------------------------------------------------------------
 
 
+class TemplateRefConfig(_FrozenForbid):
+    """A ``(name, version)`` reference to a template declared in the manifest.
+
+    Serialization-shape peer of
+    :class:`message_service.domain.aggregates.template_ref.TemplateRef` —
+    kept separate so the domain value object stays free of config
+    framework dependencies. The config loader translates this into a
+    :class:`TemplateRef` before handing to use cases.
+    """
+
+    name: str = Field(min_length=1)
+    version: str = Field(min_length=1)
+
+
 class TemplatesConfig(_FrozenForbid):
-    """Template manifest and size limits (L2-TMPL-001, L2-TMPL-014)."""
+    """Template manifest, size limits, and shared template refs.
+
+    Requirement references
+    ----------------------
+    L2-TMPL-001, L2-TMPL-014
+
+    Attributes:
+        manifest_path: Path to the template manifest TOML.
+        max_context_bytes: Reject contexts larger than this (L3-STAGE-014).
+        max_rendered_bytes: Reject rendered output larger than this
+            (L3-TMPL-028).
+        email_body_template_ref: The template used to render the email
+            body for every finalized run. Fixed service-wide in v1
+            (ROADMAP: per-pipeline in a future increment; see
+            ``docs/ROADMAP.md``).
+    """
 
     manifest_path: Path
     max_context_bytes: int = Field(default=1_048_576, ge=1_024)
     max_rendered_bytes: int = Field(default=10_485_760, ge=1_024)
+    email_body_template_ref: TemplateRefConfig
 
 
 class TagsConfig(_FrozenForbid):

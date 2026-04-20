@@ -56,6 +56,7 @@ from typing import Self
 from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.run_repository import RunRepository
 from message_service.application.ports.stage_repository import StageRepository
+from message_service.application.ports.subscription_repository import SubscriptionRepository
 
 
 class UnitOfWork(ABC):
@@ -68,18 +69,24 @@ class UnitOfWork(ABC):
       ``None``).
     * Roll back when :meth:`__aexit__` is called with an exception, or
       when :meth:`rollback` is invoked explicitly.
-    * Ensure :attr:`run_repo`, :attr:`stage_repo`, and :attr:`audit_log`
-      share the same underlying transaction so writes through any of
-      them commit or roll back together.
+    * Ensure :attr:`run_repo`, :attr:`stage_repo`,
+      :attr:`subscription_repo`, and :attr:`audit_log` share the same
+      underlying transaction so writes through any of them commit or
+      roll back together.
 
     Attributes:
         run_repo: :class:`RunRepository` scoped to this transaction.
         stage_repo: :class:`StageRepository` scoped to this transaction.
+        subscription_repo: :class:`SubscriptionRepository` scoped to
+            this transaction. Read by
+            :class:`AssembleAndDeliverUseCase` for recipient resolution
+            (L1-SUB-004).
         audit_log: :class:`AuditLog` scoped to this transaction.
     """
 
     run_repo: RunRepository
     stage_repo: StageRepository
+    subscription_repo: SubscriptionRepository
     audit_log: AuditLog
 
     @abstractmethod

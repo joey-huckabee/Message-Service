@@ -35,6 +35,9 @@ report_directory = "./data/reports"
 
 [templates]
 manifest_path = "./config/templates.manifest.toml"
+[templates.email_body_template_ref]
+name = "default_body"
+version = "1.0"
 
 [tags]
 vocabulary_path = "./config/tags.toml"

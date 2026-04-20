@@ -48,15 +48,15 @@ disposition_actions = ["SEND_PARTIAL_FLAGGED", "NOTIFY_ADMINS"]
 
 [mail]
 # L2-MAIL-003: validated sender address
-from_address = "message-service@example.invalid"
+from_address = "message-service@example.com"
 # L1-MAIL-003: assembly-time size cap
 max_email_size_bytes = 26_214_400   # 25 MiB (typical SMTP relay limit)
 # Administrator notification list (receives orphan and size-exceeded alerts)
-admin_recipients = ["ops@example.invalid"]
+admin_recipients = ["ops@example.com"]
 
 [mail.smtp]
 # L2-MAIL-002: SMTP connection parameters
-host = "smtp.example.invalid"
+host = "smtp.example.com"
 port = 587
 username = "message-service"
 password = "${env:MSG_SERVICE_SMTP_PASSWORD}"

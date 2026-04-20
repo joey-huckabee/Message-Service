@@ -163,7 +163,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|--------|
 | L1-SWEEP-001 | L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-003 | Draft |
 | L1-SWEEP-002 | L2-SWEEP-004, L2-SWEEP-005, L2-SWEEP-006 | Draft |
-| L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009 | Draft |
+| L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -175,7 +175,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-SWEEP-004 | L3-SWEEP-006 | _(TBD)_ | Draft |
 | L2-SWEEP-005 | L3-SWEEP-007, L3-SWEEP-008 | _(TBD)_ | Draft |
 | L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | _(TBD)_ | Draft |
-| L2-SWEEP-007 | L3-SWEEP-011, L3-SWEEP-012 | _(TBD)_ | Draft |
+| L2-SWEEP-007 | L3-SWEEP-011, L3-SWEEP-012 | `tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_multiple_actions`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_must_be_non_empty`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_rejects_unknown_action` | Implemented |
 | L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014 | _(TBD)_ | Draft |
 | L2-SWEEP-009 | L3-SWEEP-015 | _(TBD)_ | Draft |
 
@@ -231,7 +231,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Draft |
+| L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Implemented |
 | L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Draft |
 | L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Draft |
 | L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
@@ -243,7 +243,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-MAIL-001 | L3-MAIL-001, L3-MAIL-020 | _(TBD)_ | Draft |
 | L2-MAIL-002 | L3-MAIL-002, L3-MAIL-003, L3-MAIL-022 | _(TBD)_ | Draft |
-| L2-MAIL-003 | L3-MAIL-004 | _(TBD)_ | Draft |
+| L2-MAIL-003 | L3-MAIL-004 | `tests/unit/config/test_schema.py::test_invalid_admin_recipient_rejected`<br>`tests/unit/config/test_schema.py::test_invalid_from_address_rejected` | Implemented |
 | L2-MAIL-004 | L3-MAIL-005, L3-MAIL-006 | _(TBD)_ | Draft |
 | L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | _(TBD)_ | Draft |
 | L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | _(TBD)_ | Draft |
@@ -316,7 +316,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Draft |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Draft |
 | L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009 | Draft |
-| L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Draft |
+| L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -332,7 +332,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016 | _(TBD)_ | Draft |
 | L2-OBS-009 | L3-OBS-017 | _(TBD)_ | Draft |
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | _(TBD)_ | Draft |
-| L2-OBS-011 | L3-OBS-021, L3-OBS-022 | _(TBD)_ | Draft |
+| L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Implemented |
 | L2-OBS-012 | L3-OBS-023, L3-OBS-024 | _(TBD)_ | Draft |
 
 ### L1-ERR: Error handling and exception taxonomy
@@ -367,22 +367,22 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-CFG-001 | L2-CFG-001, L2-CFG-002, L2-CFG-003 | Draft |
-| L1-CFG-002 | L2-CFG-004, L2-CFG-005, L2-CFG-006 | Draft |
-| L1-CFG-003 | L2-CFG-007, L2-CFG-008 | Draft |
+| L1-CFG-001 | L2-CFG-001, L2-CFG-002, L2-CFG-003 | Implemented |
+| L1-CFG-002 | L2-CFG-004, L2-CFG-005, L2-CFG-006 | Implemented |
+| L1-CFG-003 | L2-CFG-007, L2-CFG-008 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-CFG-001 | L3-CFG-001, L3-CFG-002 | _(TBD)_ | Draft |
-| L2-CFG-002 | L3-CFG-003, L3-CFG-016 | _(TBD)_ | Draft |
-| L2-CFG-003 | L3-CFG-004, L3-CFG-015 | _(TBD)_ | Draft |
-| L2-CFG-004 | L3-CFG-005, L3-CFG-006 | _(TBD)_ | Draft |
-| L2-CFG-005 | L3-CFG-007, L3-CFG-008 | _(TBD)_ | Draft |
+| L2-CFG-002 | L3-CFG-003, L3-CFG-016 | `tests/unit/config/test_schema.py::test_config_is_frozen`<br>`tests/unit/config/test_schema.py::test_nested_config_is_frozen` | Implemented |
+| L2-CFG-003 | L3-CFG-004, L3-CFG-015 | `tests/unit/config/test_loader.py::test_directory_instead_of_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_invalid_toml_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_load_config_accepts_string_path`<br>`tests/unit/config/test_loader.py::test_missing_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_non_utf8_file_raises_configuration_error` | Implemented |
+| L2-CFG-004 | L3-CFG-005, L3-CFG-006 | `tests/unit/config/test_loader.py::test_load_config_returns_frozen_config`<br>`tests/unit/config/test_loader.py::test_unknown_section_rejected_with_extra_forbid`<br>`tests/unit/config/test_schema.py::test_config_model_has_all_declared_sections`<br>`tests/unit/config/test_schema.py::test_grpc_port_out_of_range_rejected`<br>`tests/unit/config/test_schema.py::test_grpc_port_within_range_accepted`<br>`tests/unit/config/test_schema.py::test_optional_sections_fill_from_defaults`<br>`tests/unit/config/test_schema.py::test_unknown_nested_key_is_rejected`<br>`tests/unit/config/test_schema.py::test_unknown_top_level_key_is_rejected` | Implemented |
+| L2-CFG-005 | L3-CFG-007, L3-CFG-008 | `tests/unit/config/test_loader.py::test_format_validation_errors_numbering_starts_at_one`<br>`tests/unit/config/test_loader.py::test_format_validation_errors_produces_numbered_lines`<br>`tests/unit/config/test_loader.py::test_schema_violation_raises_validation_error` | Implemented |
 | L2-CFG-006 | L3-CFG-009 | _(TBD)_ | Draft |
-| L2-CFG-007 | L3-CFG-010, L3-CFG-011 | _(TBD)_ | Draft |
-| L2-CFG-008 | L3-CFG-012, L3-CFG-013, L3-CFG-014 | _(TBD)_ | Draft |
+| L2-CFG-007 | L3-CFG-010, L3-CFG-011 | `tests/unit/config/test_loader.py::test_absolute_paths_pass_through`<br>`tests/unit/config/test_loader.py::test_all_four_path_fields_are_resolved`<br>`tests/unit/config/test_loader.py::test_relative_paths_resolved_against_config_dir` | Implemented |
+| L2-CFG-008 | L3-CFG-012, L3-CFG-013, L3-CFG-014 | `tests/unit/config/test_loader.py::test_env_var_substitution_in_substitutable_field`<br>`tests/unit/config/test_loader.py::test_env_var_substitution_multiple_vars_in_one_value`<br>`tests/unit/config/test_loader.py::test_missing_env_var_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_substitution_does_not_apply_to_non_substitutable_field`<br>`tests/unit/config/test_schema.py::test_non_substitutable_fields_do_not_carry_marker`<br>`tests/unit/config/test_schema.py::test_substitutable_marker_is_on_smtp_credentials` | Implemented |
 
 ### L1-DEP: Deployment
 
@@ -419,19 +419,19 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | STAGE | 4 | 9 | 18 | 2 | 3 |
 | TMPL | 5 | 14 | 28 | 0 | 0 |
 | AGGR | 4 | 10 | 20 | 0 | 0 |
-| SWEEP | 3 | 9 | 18 | 0 | 0 |
+| SWEEP | 3 | 9 | 18 | 1 | 0 |
 | SUB | 4 | 10 | 20 | 0 | 0 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
-| MAIL | 5 | 13 | 26 | 0 | 0 |
+| MAIL | 5 | 13 | 26 | 1 | 0 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 3 | 10 | 23 | 0 | 0 |
-| OBS | 4 | 12 | 24 | 0 | 0 |
+| OBS | 4 | 12 | 24 | 0 | 1 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
-| CFG | 3 | 8 | 16 | 0 | 0 |
+| CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 0 | 0 |
-| **Total** | **57** | **157** | **315** | **5** | **11** |
+| **Total** | **57** | **157** | **315** | **10** | **23** |
 
-**Requirements verified by at least one test**: 16 of 472 (3.4%).
+**Requirements verified by at least one test**: 33 of 472 (7.0%).
 
 ### Orphan check
 

@@ -73,7 +73,7 @@ A CI lint rule (see L2-PERS-010) enforces the dependency direction.
 
 ## Technology stack
 
-- **Python 3.10+** baseline (tested on 3.10–3.13)
+- **Python 3.12+** baseline (tested on 3.12 and 3.13)
 - **gRPC** via grpcio 1.78, grpcio-tools 1.80 (unary RPCs in v1)
 - **FastAPI 0.136 + Starlette 0.47** for the dashboard
 - **Pydantic 2.12** for config schemas

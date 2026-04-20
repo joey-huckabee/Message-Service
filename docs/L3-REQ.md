@@ -253,7 +253,7 @@ A static check SHALL confirm no production code path references `StageState.IN_P
 ## L3-TMPL: Template governance and sandboxing
 
 **L3-TMPL-001** · Parent: L2-TMPL-001 · Verification: T · Status: Draft
-The template manifest SHALL be parsed using `tomllib` (3.11+) or `tomli` (3.10); a test SHALL verify both paths on the CI matrix.
+The template manifest SHALL be parsed using the `tomllib` standard library module.
 
 **L3-TMPL-002** · Parent: L2-TMPL-001 · Verification: T · Status: Draft
 Manifest parse failures SHALL raise `ConfigurationError` with TOML parser error location in `details`.
@@ -859,7 +859,7 @@ CLI argument parsing SHALL use Typer; the resolved path SHALL be logged at INFO 
 When both `--config` and `MSG_SERVICE_CONFIG` are provided, the CLI flag SHALL win; a test asserts this precedence with both set to different paths.
 
 **L3-CFG-004** · Parent: L2-CFG-003 · Verification: I, T · Status: Draft
-TOML parsing SHALL import `tomllib` on Python 3.11+ and `tomli` on 3.10 via `try: import tomllib except ImportError: import tomli as tomllib` in `config/loader.py`.
+TOML parsing SHALL use the `tomllib` standard library module via a direct `import tomllib` statement in `config/loader.py`. The minimum Python version (L2-DEP-007) guarantees `tomllib` availability; no third-party TOML shim is required.
 
 **L3-CFG-005** · Parent: L2-CFG-004 · Verification: I · Status: Draft
 The top-level Pydantic model SHALL be named `Config` in `config/schema.py`, composed of nested models per TOML section (`GrpcConfig`, `DashboardConfig`, `PersistenceConfig`, `MailConfig`, etc.).
@@ -938,7 +938,7 @@ Shutdown SHALL set an `asyncio.Event` that all long-running tasks observe; new R
 In-flight gRPC calls SHALL have `service.shutdown_grace_period_seconds` (default 30) to complete before being force-cancelled; a test SHALL exercise this with a synthetic long-running RPC.
 
 **L3-DEP-013** · Parent: L2-DEP-007 · Verification: I · Status: Draft
-`pyproject.toml` SHALL declare `python = ">=3.10,<4.0"` in `[tool.poetry.dependencies]`.
+`pyproject.toml` SHALL declare `python = ">=3.12,<4.0"` in `[tool.poetry.dependencies]`.
 
 **L3-DEP-014** · Parent: L2-DEP-008 · Verification: I · Status: Draft
 `poetry.lock` SHALL be committed; a pre-commit hook SHALL fail if `pyproject.toml` is modified without a corresponding lockfile update.

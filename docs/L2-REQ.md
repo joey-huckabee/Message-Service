@@ -1474,8 +1474,8 @@ L2s are organized by category, with L1 parents shown as subsection headers to ma
 #### L2-CFG-003
 
 **Parent**: L1-CFG-001
-**Statement**: TOML parsing SHALL use the `tomllib` standard library module on Python 3.11+ and the `tomli` library on Python 3.10; selection SHALL be automatic based on Python version.
-**Rationale**: `tomllib` was added to the standard library in 3.11; `tomli` is the identical API shim for 3.10.
+**Statement**: TOML parsing SHALL use the `tomllib` standard library module.
+**Rationale**: `tomllib` is available in the standard library on Python 3.11+, and the project's minimum Python version is 3.12 (see L2-DEP-008); no third-party TOML shim is required.
 **Verification Method**: Inspection (I)
 **Verification Artifact**: (TBD)
 **Status**: Draft
@@ -1596,8 +1596,8 @@ L2s are organized by category, with L1 parents shown as subsection headers to ma
 #### L2-DEP-007
 
 **Parent**: L1-DEP-003
-**Statement**: The `pyproject.toml` file SHALL declare `python = ">=3.10,<4.0"` in `[tool.poetry.dependencies]`, matching the minimum version documented in L1-DEP-003 and leaving room for future compatibility.
-**Rationale**: Explicit version constraint prevents accidental use of versions outside the tested range.
+**Statement**: The `pyproject.toml` file SHALL declare `python = ">=3.12,<4.0"` in `[tool.poetry.dependencies]`, matching the minimum version documented in L1-DEP-003 and leaving room for future compatibility.
+**Rationale**: Explicit version constraint prevents accidental use of versions outside the tested range. Python 3.12 is the current stable release with support through October 2028; older versions are EOL or near-EOL by the project's target deployment window.
 **Verification Method**: Inspection (I)
 **Verification Artifact**: (TBD)
 **Status**: Draft

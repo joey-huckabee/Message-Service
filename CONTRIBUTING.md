@@ -296,8 +296,8 @@ Conventions established by prior increments; keep new code consistent.
 
 | Topic                             | Rule                                                                           |
 |-----------------------------------|--------------------------------------------------------------------------------|
-| Python version                    | 3.10+, so no `match` over complex patterns that need 3.11, no `StrEnum`        |
-| Enum style                        | `class Foo(str, Enum):` — not `StrEnum` (3.11+)                                |
+| Python version                    | 3.12+, so `StrEnum`, `datetime.UTC`, and `tomllib` are all stdlib              |
+| Enum style                        | `class Foo(StrEnum):` for string-valued enums                                  |
 | Filesystem paths                  | `pathlib.Path` only; ruff PTH rule enforces                                    |
 | Timestamps                        | Injected `Clock`; persist via `iso_z()` with `"Z"` suffix, not `+00:00`        |
 | Dependencies                      | Flow inward; `domain/` imports nothing from `infrastructure/` or `interfaces/` |

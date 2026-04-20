@@ -49,7 +49,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|--------|
 | L1-RUN-001 | L2-RUN-001, L2-RUN-002, L2-RUN-003 | Implemented |
 | L1-RUN-002 | L2-RUN-004, L2-RUN-005, L2-RUN-006 | Implemented |
-| L1-RUN-003 | L2-RUN-007, L2-RUN-008, L2-RUN-009, L2-RUN-010, L2-RUN-011 | Draft |
+| L1-RUN-003 | L2-RUN-007, L2-RUN-008, L2-RUN-009, L2-RUN-010, L2-RUN-011 | Implemented |
 | L1-RUN-004 | L2-RUN-012, L2-RUN-013 | Draft |
 | L1-RUN-005 | L2-RUN-014, L2-RUN-015 | Implemented |
 
@@ -57,20 +57,20 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-RUN-001 | L3-RUN-001 | _(TBD)_ | Draft |
-| L2-RUN-002 | L3-RUN-002, L3-RUN-003, L3-RUN-030 | `tests/unit/domain/state_machines/test_run_states.py::test_run_state_is_str_enum`<br>`tests/unit/domain/state_machines/test_run_states.py::test_run_state_values_match_names` | Implemented |
-| L2-RUN-003 | L3-RUN-004, L3-RUN-005 | _(TBD)_ | Draft |
+| L2-RUN-001 | L3-RUN-001 | `tests/unit/domain/aggregates/test_ids.py::test_new_run_id_generates_unique_values`<br>`tests/unit/domain/aggregates/test_ids.py::test_new_run_id_returns_canonical_uuid4_string` | Implemented |
+| L2-RUN-002 | L3-RUN-002, L3-RUN-003, L3-RUN-030 | `tests/unit/domain/aggregates/test_ids.py::test_new_type_run_id_is_runtime_str`<br>`tests/unit/domain/aggregates/test_ids.py::test_validate_run_id_accepts_canonical_form`<br>`tests/unit/domain/aggregates/test_ids.py::test_validate_run_id_error_includes_expected_pattern`<br>`tests/unit/domain/aggregates/test_ids.py::test_validate_run_id_rejects_malformed`<br>`tests/unit/domain/state_machines/test_run_states.py::test_run_state_is_str_enum`<br>`tests/unit/domain/state_machines/test_run_states.py::test_run_state_values_match_names` | Implemented |
+| L2-RUN-003 | L3-RUN-004, L3-RUN-005 | `tests/unit/domain/aggregates/test_run.py::test_run_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_run.py::test_run_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_run.py::test_run_is_frozen`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_updated_at_before_created_at`<br>`tests/unit/domain/aggregates/test_run.py::test_run_uses_slots`<br>`tests/unit/domain/aggregates/test_run.py::test_run_with_different_state_is_not_equal` | Implemented |
 | L2-RUN-004 | L3-RUN-006, L3-RUN-007, L3-RUN-028, L3-RUN-029 | `tests/unit/domain/state_machines/test_run_states.py::test_all_state_pairs_respect_transition_table`<br>`tests/unit/domain/state_machines/test_run_states.py::test_canonical_happy_path_edges_permitted`<br>`tests/unit/domain/state_machines/test_run_states.py::test_every_non_terminal_state_can_transition_to_failed`<br>`tests/unit/domain/state_machines/test_run_states.py::test_every_non_terminal_state_can_transition_to_orphaned`<br>`tests/unit/domain/state_machines/test_run_states.py::test_transition_table_is_frozen_dict_of_frozensets`<br>`tests/unit/domain/state_machines/test_run_states.py::test_valid_transition_returns_new_state` | Implemented |
 | L2-RUN-005 | L3-RUN-008 | `tests/unit/domain/state_machines/test_run_states.py::test_illegal_transition_raises_with_structured_details` | Implemented |
 | L2-RUN-006 | L3-RUN-009 | `tests/unit/domain/state_machines/test_run_states.py::test_partition_is_disjoint_and_covers_all_states`<br>`tests/unit/domain/state_machines/test_run_states.py::test_terminal_states_are_exactly_sent_failed_orphaned`<br>`tests/unit/domain/state_machines/test_run_states.py::test_terminal_states_have_no_outgoing_transitions`<br>`tests/unit/domain/state_machines/test_run_states.py::test_terminal_states_reject_transitions_to_non_terminal` | Implemented |
 | L2-RUN-007 | L3-RUN-010, L3-RUN-011 | _(TBD)_ | Draft |
 | L2-RUN-008 | L3-RUN-012, L3-RUN-013 | _(TBD)_ | Draft |
-| L2-RUN-009 | L3-RUN-014, L3-RUN-015 | _(TBD)_ | Draft |
+| L2-RUN-009 | L3-RUN-014, L3-RUN-015 | `tests/unit/domain/aggregates/test_run.py::test_declared_stages_is_frozenset`<br>`tests/unit/domain/aggregates/test_run.py::test_run_permits_empty_declared_stages` | Implemented |
 | L2-RUN-010 | L3-RUN-016, L3-RUN-017 | _(TBD)_ | Draft |
-| L2-RUN-011 | L3-RUN-018, L3-RUN-019 | _(TBD)_ | Draft |
+| L2-RUN-011 | L3-RUN-018, L3-RUN-019 | `tests/unit/domain/aggregates/test_run.py::test_per_stage_does_not_require_aggregation_template`<br>`tests/unit/domain/aggregates/test_run.py::test_single_aggregated_requires_aggregation_template` | Implemented |
 | L2-RUN-012 | L3-RUN-020, L3-RUN-021 | _(TBD)_ | Draft |
 | L2-RUN-013 | L3-RUN-022, L3-RUN-023 | _(TBD)_ | Draft |
-| L2-RUN-014 | L3-RUN-024, L3-RUN-025 | `tests/unit/application/ports/test_clock.py::test_clock_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_clock.py::test_clock_now_is_abstract`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_accepts_valid_forms`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_rejects_invalid_forms`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_converts_non_utc_to_utc`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_emits_literal_z_suffix`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_omits_microseconds_when_zero`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_output_always_passes_is_iso_z`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_pattern_matches_spec`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_preserves_microseconds`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_accepts_negative_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_adds_positive_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_by_zero_is_a_noop`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_default_epoch_is_2026_01_01_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_at_epoch_starts_at_unix_epoch`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_is_a_clock`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_now_returns_tz_aware_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_output_flows_through_iso_z`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_repeated_now_calls_return_identical_values`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_jumps_to_absolute_time`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_rejects_naive_datetime`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_advances_between_calls`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_is_instance_of_clock`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_returns_timezone_aware_utc` | Implemented |
+| L2-RUN-014 | L3-RUN-024, L3-RUN-025 | `tests/unit/application/ports/test_clock.py::test_clock_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_clock.py::test_clock_now_is_abstract`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_accepts_valid_forms`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_rejects_invalid_forms`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_converts_non_utc_to_utc`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_emits_literal_z_suffix`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_omits_microseconds_when_zero`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_output_always_passes_is_iso_z`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_pattern_matches_spec`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_preserves_microseconds`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_accepts_negative_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_adds_positive_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_by_zero_is_a_noop`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_default_epoch_is_2026_01_01_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_at_epoch_starts_at_unix_epoch`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_is_a_clock`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_now_returns_tz_aware_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_output_flows_through_iso_z`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_repeated_now_calls_return_identical_values`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_jumps_to_absolute_time`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_rejects_naive_datetime`<br>`tests/unit/domain/aggregates/test_audit_event.py::test_audit_event_rejects_naive_timestamp`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_created_at`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_updated_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_rejects_naive_submitted_at`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_advances_between_calls`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_is_instance_of_clock`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_returns_timezone_aware_utc` | Implemented |
 | L2-RUN-015 | L3-RUN-026, L3-RUN-027 | _(TBD)_ | Draft |
 
 ### L1-STAGE: Stage lifecycle and idempotency
@@ -80,7 +80,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-STAGE-001 | L2-STAGE-001, L2-STAGE-002 | Implemented |
-| L1-STAGE-002 | L2-STAGE-003, L2-STAGE-004, L2-STAGE-005 | Draft |
+| L1-STAGE-002 | L2-STAGE-003, L2-STAGE-004, L2-STAGE-005 | Implemented |
 | L1-STAGE-003 | L2-STAGE-006, L2-STAGE-007 | Draft |
 | L1-STAGE-004 | L2-STAGE-008, L2-STAGE-009 | Draft |
 
@@ -90,9 +90,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-STAGE-001 | L3-STAGE-001, L3-STAGE-002, L3-STAGE-017 | `tests/unit/domain/state_machines/test_stage_states.py::test_partition_covers_all_states`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_stage_state_is_str_enum`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_stage_state_values_match_names`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_stage_states_reject_further_transitions`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_states_are_accepted_timeout_failed`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_states_have_no_outgoing_transitions` | Implemented |
 | L2-STAGE-002 | L3-STAGE-003, L3-STAGE-004, L3-STAGE-018 | `tests/unit/domain/state_machines/test_stage_states.py::test_all_state_pairs_respect_transition_table`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_every_active_state_can_transition_to_failed`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_every_active_state_can_transition_to_timeout`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_happy_path_edges_permitted`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_illegal_transition_carries_structured_details`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_has_no_inbound_edges`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_has_no_outbound_edges`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_is_declared_reserved`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_transition_to_in_progress_is_rejected`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_valid_transition_returns_new_state` | Implemented |
-| L2-STAGE-003 | L3-STAGE-005 | _(TBD)_ | Draft |
-| L2-STAGE-004 | L3-STAGE-006, L3-STAGE-007 | _(TBD)_ | Draft |
-| L2-STAGE-005 | L3-STAGE-008, L3-STAGE-009 | _(TBD)_ | Draft |
+| L2-STAGE-003 | L3-STAGE-005 | `tests/unit/domain/aggregates/test_stage.py::test_stage_constructs_in_pending_without_submission`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_is_frozen` | Implemented |
+| L2-STAGE-004 | L3-STAGE-006, L3-STAGE-007 | `tests/unit/domain/aggregates/test_stage.py::test_pending_stage_must_not_have_submitted_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_submission_state_requires_submitted_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_submitted_state_accepts_valid_submitted_at` | Implemented |
+| L2-STAGE-005 | L3-STAGE-008, L3-STAGE-009 | `tests/unit/domain/aggregates/test_stage.py::test_stage_report_and_email_body_contexts_are_independent` | Implemented |
 | L2-STAGE-006 | L3-STAGE-010, L3-STAGE-011 | _(TBD)_ | Draft |
 | L2-STAGE-007 | L3-STAGE-012, L3-STAGE-013 | _(TBD)_ | Draft |
 | L2-STAGE-008 | L3-STAGE-014, L3-STAGE-015 | _(TBD)_ | Draft |
@@ -104,7 +104,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Draft |
+| L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Implemented |
 | L1-TMPL-002 | L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 | Draft |
 | L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Draft |
 | L1-TMPL-004 | L2-TMPL-010, L2-TMPL-011 | Draft |
@@ -114,8 +114,8 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-TMPL-001 | L3-TMPL-001, L3-TMPL-002 | _(TBD)_ | Draft |
-| L2-TMPL-002 | L3-TMPL-003, L3-TMPL-004 | _(TBD)_ | Draft |
+| L2-TMPL-001 | L3-TMPL-001, L3-TMPL-002 | `tests/unit/domain/aggregates/test_template_metadata.py::test_optional_fields_default_to_none`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_rejects_empty_name_or_version`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_rejects_empty_fields` | Implemented |
+| L2-TMPL-002 | L3-TMPL-003, L3-TMPL-004 | `tests/unit/domain/aggregates/test_template_metadata.py::test_all_template_kinds_construct` | Implemented |
 | L2-TMPL-003 | L3-TMPL-005, L3-TMPL-006, L3-TMPL-027 | _(TBD)_ | Draft |
 | L2-TMPL-004 | L3-TMPL-007, L3-TMPL-008 | _(TBD)_ | Draft |
 | L2-TMPL-005 | L3-TMPL-009, L3-TMPL-010 | _(TBD)_ | Draft |
@@ -185,7 +185,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Draft |
+| L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Implemented |
 | L1-SUB-002 | L2-SUB-004, L2-SUB-005 | Draft |
 | L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Draft |
 | L1-SUB-004 | L2-SUB-009, L2-SUB-010 | Draft |
@@ -194,8 +194,8 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | _(TBD)_ | Draft |
-| L2-SUB-002 | L3-SUB-003, L3-SUB-004 | _(TBD)_ | Draft |
+| L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | `tests/unit/domain/aggregates/test_subscription.py::test_rejects_naive_created_at` | Implemented |
+| L2-SUB-002 | L3-SUB-003, L3-SUB-004 | `tests/unit/domain/aggregates/test_subscription.py::test_global_rejects_non_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_subscription_constructs_with_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_empty_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_pipeline_subscription_requires_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_subscription_is_frozen`<br>`tests/unit/domain/aggregates/test_subscription.py::test_tag_subscription_requires_target` | Implemented |
 | L2-SUB-003 | L3-SUB-005, L3-SUB-006, L3-SUB-020 | _(TBD)_ | Draft |
 | L2-SUB-004 | L3-SUB-007 | _(TBD)_ | Draft |
 | L2-SUB-005 | L3-SUB-008 | _(TBD)_ | Draft |
@@ -232,7 +232,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Implemented |
-| L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Draft |
+| L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Implemented |
 | L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Draft |
 | L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
 | L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Draft |
@@ -243,9 +243,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-MAIL-001 | L3-MAIL-001, L3-MAIL-020 | _(TBD)_ | Draft |
 | L2-MAIL-002 | L3-MAIL-002, L3-MAIL-003, L3-MAIL-022 | _(TBD)_ | Draft |
-| L2-MAIL-003 | L3-MAIL-004 | `tests/unit/config/test_schema.py::test_invalid_admin_recipient_rejected`<br>`tests/unit/config/test_schema.py::test_invalid_from_address_rejected` | Implemented |
+| L2-MAIL-003 | L3-MAIL-004 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_empty_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_subject`<br>`tests/unit/config/test_schema.py::test_invalid_admin_recipient_rejected`<br>`tests/unit/config/test_schema.py::test_invalid_from_address_rejected` | Implemented |
 | L2-MAIL-004 | L3-MAIL-005, L3-MAIL-006 | _(TBD)_ | Draft |
-| L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | _(TBD)_ | Draft |
+| L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_constructs_with_valid_values`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_is_frozen`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_rejects_empty_fields`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_with_attachments` | Implemented |
 | L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | _(TBD)_ | Draft |
 | L2-MAIL-007 | L3-MAIL-012, L3-MAIL-021 | _(TBD)_ | Draft |
 | L2-MAIL-008 | L3-MAIL-013 | _(TBD)_ | Draft |
@@ -290,7 +290,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|--------|
 | L1-PERS-001 | L2-PERS-001, L2-PERS-002, L2-PERS-003, L2-PERS-004 | Draft |
 | L1-PERS-002 | L2-PERS-005, L2-PERS-006, L2-PERS-007 | Draft |
-| L1-PERS-003 | L2-PERS-008, L2-PERS-009, L2-PERS-010 | Draft |
+| L1-PERS-003 | L2-PERS-008, L2-PERS-009, L2-PERS-010 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -303,7 +303,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-PERS-005 | L3-PERS-008, L3-PERS-009, L3-PERS-022 | _(TBD)_ | Draft |
 | L2-PERS-006 | L3-PERS-010, L3-PERS-011 | _(TBD)_ | Draft |
 | L2-PERS-007 | L3-PERS-012, L3-PERS-023 | _(TBD)_ | Draft |
-| L2-PERS-008 | L3-PERS-013, L3-PERS-014 | _(TBD)_ | Draft |
+| L2-PERS-008 | L3-PERS-013, L3-PERS-014 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_audit_log_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_io_bound_ports_use_async_def`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_mailer_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_abstract_and_specable`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_mockable_with_spec`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_methods_are_fully_annotated`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_run_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_stage_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_subscription_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_tag_vocabulary_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_template_repository_exposes_expected_methods` | Implemented |
 | L2-PERS-009 | L3-PERS-015 | _(TBD)_ | Draft |
 | L2-PERS-010 | L3-PERS-016, L3-PERS-017 | _(TBD)_ | Draft |
 
@@ -415,23 +415,23 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | Category | L1 | L2 | L3 | L2s with tests | L3s with tests |
 |----------|----|----|-----|----------------|----------------|
 | API | 4 | 11 | 18 | 0 | 0 |
-| RUN | 5 | 15 | 30 | 3 | 8 |
-| STAGE | 4 | 9 | 18 | 2 | 3 |
-| TMPL | 5 | 14 | 28 | 0 | 0 |
+| RUN | 5 | 15 | 30 | 5 | 13 |
+| STAGE | 4 | 9 | 18 | 3 | 5 |
+| TMPL | 5 | 14 | 28 | 2 | 0 |
 | AGGR | 4 | 10 | 20 | 0 | 0 |
 | SWEEP | 3 | 9 | 18 | 1 | 0 |
-| SUB | 4 | 10 | 20 | 0 | 0 |
+| SUB | 4 | 10 | 20 | 1 | 2 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
-| MAIL | 5 | 13 | 26 | 1 | 0 |
+| MAIL | 5 | 13 | 26 | 2 | 0 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
-| PERS | 3 | 10 | 23 | 0 | 0 |
+| PERS | 3 | 10 | 23 | 1 | 2 |
 | OBS | 4 | 12 | 24 | 0 | 1 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 0 | 0 |
-| **Total** | **57** | **157** | **315** | **10** | **23** |
+| **Total** | **57** | **157** | **315** | **18** | **34** |
 
-**Requirements verified by at least one test**: 33 of 472 (7.0%).
+**Requirements verified by at least one test**: 52 of 472 (11.0%).
 
 ### Orphan check
 

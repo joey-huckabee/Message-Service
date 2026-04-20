@@ -1,0 +1,190 @@
+"""Contract tests for all 7 application-layer ports.
+
+Each port is verified for:
+
+* ABC enforcement (cannot instantiate without implementing all
+  abstract methods).
+* ``MagicMock(spec=Port)`` exposes every abstract method so use-case
+  tests can substitute mocks.
+* Every abstract method carries full type annotations (mypy depends on
+  these).
+* Async methods are declared ``async def``.
+
+Requirement references
+----------------------
+L2-PERS-008 (ports live in application/ports as ABCs)
+L3-PERS-013, L3-PERS-014 (MagicMock spec-compat for use-case tests)
+"""
+
+from __future__ import annotations
+
+import inspect
+from unittest.mock import MagicMock
+
+import pytest
+from tests.unit.application.ports.contracts.conftest import (
+    assert_all_abstract_methods_annotated,
+    assert_port_is_abstract_and_specable,
+)
+
+from message_service.application.ports.audit_log import AuditLog
+from message_service.application.ports.mailer import Mailer
+from message_service.application.ports.run_repository import RunRepository
+from message_service.application.ports.stage_repository import StageRepository
+from message_service.application.ports.subscription_repository import SubscriptionRepository
+from message_service.application.ports.tag_vocabulary import TagVocabulary
+from message_service.application.ports.template_repository import TemplateRepository
+
+ALL_PORTS = [
+    RunRepository,
+    StageRepository,
+    TemplateRepository,
+    SubscriptionRepository,
+    Mailer,
+    AuditLog,
+    TagVocabulary,
+]
+
+
+# -----------------------------------------------------------------------------
+# Generic structural checks applied to every port
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L2-PERS-008")
+@pytest.mark.parametrize("port_cls", ALL_PORTS, ids=lambda p: p.__name__)
+def test_port_is_abstract_and_specable(port_cls: type) -> None:
+    """Every port SHALL be an ABC usable as a MagicMock spec."""
+    assert_port_is_abstract_and_specable(port_cls)
+
+
+@pytest.mark.requirement("L3-PERS-014")
+@pytest.mark.parametrize("port_cls", ALL_PORTS, ids=lambda p: p.__name__)
+def test_port_methods_are_fully_annotated(port_cls: type) -> None:
+    """Every abstract method SHALL have full type annotations."""
+    assert_all_abstract_methods_annotated(port_cls)
+
+
+# -----------------------------------------------------------------------------
+# Per-port method-set verification
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_run_repository_exposes_expected_methods() -> None:
+    expected = {"save", "get", "update_state", "list_in_states", "list_expired"}
+    assert expected == RunRepository.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_stage_repository_exposes_expected_methods() -> None:
+    expected = {"save", "get", "list_by_run", "update_state", "list_pending_by_run"}
+    assert expected == StageRepository.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_template_repository_exposes_expected_methods() -> None:
+    expected = {"get", "exists", "list_by_kind"}
+    assert expected == TemplateRepository.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_subscription_repository_exposes_expected_methods() -> None:
+    expected = {"list_recipients_for_run", "list_for_user", "add", "remove"}
+    assert expected == SubscriptionRepository.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_mailer_exposes_expected_methods() -> None:
+    expected = {"send"}
+    assert expected == Mailer.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_audit_log_exposes_expected_methods() -> None:
+    expected = {"record", "query"}
+    assert expected == AuditLog.__abstractmethods__
+
+
+@pytest.mark.requirement("L2-PERS-008")
+def test_tag_vocabulary_exposes_expected_methods() -> None:
+    expected = {"contains", "all_tags"}
+    assert expected == TagVocabulary.__abstractmethods__
+
+
+# -----------------------------------------------------------------------------
+# Async-ness: IO-bound methods are declared async
+# -----------------------------------------------------------------------------
+
+
+_ASYNC_METHODS: list[tuple[type, set[str]]] = [
+    (
+        RunRepository,
+        {"save", "get", "update_state", "list_in_states", "list_expired"},
+    ),
+    (
+        StageRepository,
+        {"save", "get", "list_by_run", "update_state", "list_pending_by_run"},
+    ),
+    (
+        SubscriptionRepository,
+        {"list_recipients_for_run", "list_for_user", "add", "remove"},
+    ),
+    (Mailer, {"send"}),
+    (AuditLog, {"record", "query"}),
+]
+
+
+@pytest.mark.requirement("L2-PERS-008")
+@pytest.mark.parametrize(
+    ("port_cls", "async_methods"),
+    _ASYNC_METHODS,
+    ids=lambda x: x.__name__ if inspect.isclass(x) else repr(x),
+)
+def test_io_bound_ports_use_async_def(port_cls: type, async_methods: set[str]) -> None:
+    """I/O-bound port methods SHALL be declared ``async def``."""
+    for method_name in async_methods:
+        method = inspect.getattr_static(port_cls, method_name)
+        assert inspect.iscoroutinefunction(method), (
+            f"{port_cls.__name__}.{method_name} SHOULD be async def"
+        )
+
+
+# -----------------------------------------------------------------------------
+# Purely-sync ports do NOT use async (in-memory lookups, zero I/O)
+# -----------------------------------------------------------------------------
+
+
+def test_template_repository_is_sync() -> None:
+    """TemplateRepository loads at startup; lookups are in-memory, not async."""
+    for method_name in TemplateRepository.__abstractmethods__:
+        method = inspect.getattr_static(TemplateRepository, method_name)
+        assert not inspect.iscoroutinefunction(method), (
+            f"TemplateRepository.{method_name} should be sync"
+        )
+
+
+def test_tag_vocabulary_is_sync() -> None:
+    """TagVocabulary is an in-memory frozen set; lookups are sync."""
+    for method_name in TagVocabulary.__abstractmethods__:
+        method = inspect.getattr_static(TagVocabulary, method_name)
+        assert not inspect.iscoroutinefunction(method), (
+            f"TagVocabulary.{method_name} should be sync"
+        )
+
+
+# -----------------------------------------------------------------------------
+# MagicMock compatibility smoke test per port
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-PERS-013")
+@pytest.mark.parametrize("port_cls", ALL_PORTS, ids=lambda p: p.__name__)
+def test_port_is_mockable_with_spec(port_cls: type) -> None:
+    """Use-case tests SHALL be able to create MagicMock(spec=Port)."""
+    mock = MagicMock(spec=port_cls)
+    # Calling a non-existent method should raise AttributeError — that's
+    # the whole point of spec=. We verify by poking a deliberately wrong
+    # method name.
+    with pytest.raises(AttributeError):
+        mock.this_method_does_not_exist_on_the_port()

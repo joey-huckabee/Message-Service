@@ -19,6 +19,7 @@ from message_service.domain.aggregates.audit_event import (
     AuditEvent,
     AuditOutcome,
 )
+from message_service.domain.aggregates.declared_stage import DeclaredStage
 from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.subscription import (
@@ -36,6 +37,7 @@ __all__ = [
     "AuditAction",
     "AuditEvent",
     "AuditOutcome",
+    "DeclaredStage",
     "Run",
     "Stage",
     "Subscription",

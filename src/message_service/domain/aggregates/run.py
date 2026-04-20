@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
+from message_service.domain.aggregates.declared_stage import DeclaredStage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import RunState
@@ -70,8 +71,15 @@ class Run:
         tags: Controlled-vocabulary tags attached to this run
             (L2-SUB-006). Used for subscription-based recipient
             resolution.
-        declared_stages: The stages the pipeline promised to submit.
-            Fixed at BeginRun; cannot grow (L3-RUN-015 allows empty).
+        declared_stages: The stages the pipeline promised to submit, in
+            declaration order. A :class:`tuple` of
+            :class:`~message_service.domain.aggregates.declared_stage.DeclaredStage`
+            preserves the caller-supplied ordering for presentation
+            (L1-RUN-ordering). Empty is permitted (L3-RUN-015).
+            Stage ids within the tuple MUST be unique; duplicates raise
+            ``ValueError`` at construction (enforced by the use case
+            via :class:`~message_service.domain.errors.DuplicateStageIdError`
+            before ``Run`` construction).
         state: Current lifecycle state. Mutated only via
             :mod:`~message_service.domain.state_machines.run_states`.
         attachment_mode: Chosen at BeginRun; governs assembly behavior.
@@ -92,7 +100,7 @@ class Run:
     run_id: RunId
     pipeline_type: str
     tags: frozenset[str]
-    declared_stages: frozenset[StageId]
+    declared_stages: tuple[DeclaredStage, ...]
     state: RunState
     attachment_mode: AttachmentMode
     created_at: datetime
@@ -104,8 +112,8 @@ class Run:
         """Validate aggregate invariants at construction time.
 
         Raises:
-            ValueError: If any timezone, ordering, or consistency
-                invariant is violated.
+            ValueError: If any timezone, ordering, duplicate-stage, or
+                consistency invariant is violated.
         """
         if self.created_at.tzinfo is None:
             raise ValueError("Run.created_at must be timezone-aware")
@@ -120,6 +128,30 @@ class Run:
             raise ValueError(
                 "Run with attachment_mode=SINGLE_AGGREGATED requires aggregation_template_ref"
             )
+        # Stage-id uniqueness within declared_stages (defense-in-depth;
+        # the use case raises DuplicateStageIdError first, but aggregate
+        # invariants stand independently of the use-case path).
+        seen_ids: set[StageId] = set()
+        for ds in self.declared_stages:
+            if ds.stage_id in seen_ids:
+                raise ValueError(
+                    f"Run.declared_stages contains duplicate stage_id: {ds.stage_id!r}"
+                )
+            seen_ids.add(ds.stage_id)
+
+    @property
+    def declared_stage_ids(self) -> frozenset[StageId]:
+        """Return the set of declared stage ids for O(1) membership.
+
+        Computed on access rather than cached because (a) the Run is
+        frozen so the tuple won't change, and (b) the frozenset
+        constructor from a small tuple is cheap.
+
+        Returns:
+            Frozen set of the ``stage_id`` values in
+            ``declared_stages``.
+        """
+        return frozenset(ds.stage_id for ds in self.declared_stages)
 
 
 __all__ = ["AttachmentMode", "Run"]

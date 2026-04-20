@@ -1,4 +1,4 @@
-"""Contract tests for all 7 application-layer ports.
+"""Contract tests for all 8 application-layer ports.
 
 Each port is verified for:
 
@@ -34,6 +34,7 @@ from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import SubscriptionRepository
 from message_service.application.ports.tag_vocabulary import TagVocabulary
 from message_service.application.ports.template_repository import TemplateRepository
+from message_service.application.ports.unit_of_work import UnitOfWork
 
 ALL_PORTS = [
     RunRepository,
@@ -43,6 +44,7 @@ ALL_PORTS = [
     Mailer,
     AuditLog,
     TagVocabulary,
+    UnitOfWork,
 ]
 
 
@@ -112,6 +114,12 @@ def test_tag_vocabulary_exposes_expected_methods() -> None:
     assert expected == TagVocabulary.__abstractmethods__
 
 
+@pytest.mark.requirement("L3-RUN-004")
+def test_unit_of_work_exposes_expected_methods() -> None:
+    expected = {"__aenter__", "__aexit__", "commit", "rollback"}
+    assert expected == UnitOfWork.__abstractmethods__
+
+
 # -----------------------------------------------------------------------------
 # Async-ness: IO-bound methods are declared async
 # -----------------------------------------------------------------------------
@@ -132,6 +140,7 @@ _ASYNC_METHODS: list[tuple[type, set[str]]] = [
     ),
     (Mailer, {"send"}),
     (AuditLog, {"record", "query"}),
+    (UnitOfWork, {"__aenter__", "__aexit__", "commit", "rollback"}),
 ]
 
 

@@ -8,7 +8,7 @@ license = "Proprietary"
 packages = [{ include = "message_service", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
+python = ">=3.12,<4.0"
 
 # gRPC
 grpcio = "^1.78"
@@ -16,7 +16,7 @@ grpcio-tools = "^1.80"
 grpcio-status = "^1.80"
 grpcio-health-checking = "^1.80"
 grpcio-reflection = "^1.80"
-protobuf = "^5.29"
+protobuf = "^6.33"
 # message-service-proto is referenced externally; uncomment and set the appropriate
 # source when the proto repo is available.
 # message-service-proto = { git = "ssh://git@<host>/message-service-proto.git", rev = "v0.1.0" }
@@ -29,9 +29,9 @@ itsdangerous = "^2.2"
 jinja2 = "^3.1"
 
 # Configuration
-pydantic = "^2.12"
+pydantic = { version = "^2.12", extras = ["email"] }
 pydantic-settings = "^2.7"
-tomli = { version = "^2.2", python = "<3.11" }
+# tomli removed: tomllib is stdlib on 3.11+; Python floor is now 3.12.
 
 # Template schema validation
 jsonschema = "^4.25"
@@ -76,7 +76,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -105,7 +105,7 @@ convention = "google"
 "tests/**/*.py" = ["D"]  # tests need not be documented
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 strict = true
 files = ["src", "tests"]
 plugins = ["pydantic.mypy"]

@@ -37,6 +37,32 @@ the old snapshot. Non-trivial: need a template-snapshot token carried
 through the assembly workflow so ``BeginRun`` and ``FinalizeRun`` of
 the same run see consistent template metadata.
 
+## Assembly and composition
+
+### R-AGGR-001 — Custom email body contributions from stages
+**Current behavior**: The email body template receives only stage
+identifiers (``stage_id``, ``stage_order``, ``had_content``) — not
+any stage-supplied email body content. ``AssembleAndDeliverUseCase``
+passes a fixed-shape context to
+``templates.email_body_template_ref``.
+
+**Specified future behavior**: L1-AGGR-001 and L2-AGGR-003 describe a
+richer model where each ``SubmitStageReport`` may carry an
+``email_body_contribution`` with a ``position`` enum
+(``BEFORE_STAGES_SUMMARY`` / ``AFTER_STAGES_SUMMARY``), and the
+assembly process orders contributions accordingly (L3-AGGR-005). The
+``Stage`` aggregate already has an ``email_body_context_json``
+column, so the storage side is ready; the use case just isn't reading
+it yet.
+
+**Future work**: extend
+``AssembleAndDeliverUseCase._render_email_body`` to read each stage's
+``email_body_context_json``, group by ``position``, and pass the
+structured payload into the template. Also wire the
+``position`` field through the proto → command → aggregate path.
+Entirely additive; existing email body templates keep working because
+the v1 context fields are preserved.
+
 ## Delivery and coordination
 
 ### R-DELIVER-001 — Outbox-backed background tasks
@@ -130,3 +156,5 @@ dashboard use cases.
 
 - 2026-04-20: Initial version, seeded with items deferred through
   Increment 7a.
+- 2026-04-20: Added R-AGGR-001 (custom email body contributions,
+  deferred in Increment 7b).

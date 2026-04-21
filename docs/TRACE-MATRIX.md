@@ -71,7 +71,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-RUN-012 | L3-RUN-020, L3-RUN-021 | `tests/unit/application/use_cases/test_finalize_run.py::test_non_aggregating_run_raises_invalid_state` | Implemented |
 | L2-RUN-013 | L3-RUN-022, L3-RUN-023 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_background_task_scheduler_exposes_expected_methods`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_background_task_scheduled_after_commit`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_execute_returns_before_background_runs`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_scheduled_task_has_descriptive_name` | Implemented |
 | L2-RUN-014 | L3-RUN-024, L3-RUN-025 | `tests/unit/application/ports/test_clock.py::test_clock_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_clock.py::test_clock_now_is_abstract`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_accepts_valid_forms`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_rejects_invalid_forms`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_converts_non_utc_to_utc`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_emits_literal_z_suffix`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_omits_microseconds_when_zero`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_output_always_passes_is_iso_z`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_pattern_matches_spec`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_preserves_microseconds`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_accepts_negative_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_adds_positive_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_by_zero_is_a_noop`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_default_epoch_is_2026_01_01_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_at_epoch_starts_at_unix_epoch`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_is_a_clock`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_now_returns_tz_aware_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_output_flows_through_iso_z`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_repeated_now_calls_return_identical_values`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_jumps_to_absolute_time`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_rejects_naive_datetime`<br>`tests/unit/application/use_cases/test_begin_run.py::test_run_and_stages_share_clock_timestamp`<br>`tests/unit/domain/aggregates/test_audit_event.py::test_audit_event_rejects_naive_timestamp`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_created_at`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_updated_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_rejects_naive_submitted_at`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_advances_between_calls`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_is_instance_of_clock`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_returns_timezone_aware_utc` | Implemented |
-| L2-RUN-015 | L3-RUN-026, L3-RUN-027 | `tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_recorded_before_run_save`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_recorded_before_state_update`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_first_submission_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_recorded_before_stage_save` | Implemented |
+| L2-RUN-015 | L3-RUN-026, L3-RUN-027 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_audit_precedes_state_update_on_ready_to_sending`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_recorded_before_run_save`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_recorded_before_state_update`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_first_submission_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_recorded_before_stage_save` | Implemented |
 
 ### L1-STAGE: Stage lifecycle and idempotency
 
@@ -136,8 +136,8 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-AGGR-001 | L2-AGGR-001, L2-AGGR-002, L2-AGGR-003 | Draft |
-| L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Draft |
-| L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Draft |
+| L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Implemented |
+| L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Implemented |
 | L1-AGGR-004 | L2-AGGR-009, L2-AGGR-010 | Draft |
 
 **L2 → L3 → Verification Artifacts**
@@ -147,10 +147,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | _(TBD)_ | Draft |
 | L2-AGGR-002 | L3-AGGR-003, L3-AGGR-018 | _(TBD)_ | Draft |
 | L2-AGGR-003 | L3-AGGR-004, L3-AGGR-005 | _(TBD)_ | Draft |
-| L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | _(TBD)_ | Draft |
-| L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | _(TBD)_ | Draft |
-| L2-AGGR-006 | L3-AGGR-010, L3-AGGR-011 | _(TBD)_ | Draft |
-| L2-AGGR-007 | L3-AGGR-012 | _(TBD)_ | Draft |
+| L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Implemented |
+| L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_pending_stages_excluded_from_assembly`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_produces_one_attachment_per_non_empty_stage`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_whitespace_only_excluded_as_empty`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_with_all_empty_produces_zero_attachments` | Implemented |
+| L2-AGGR-006 | L3-AGGR-010, L3-AGGR-011 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_caps_at_255_bytes`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_per_stage_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_sanitizes_both_components`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_single_aggregated_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sanitize_filename_replaces_disallowed_chars_with_underscore` | Implemented |
+| L2-AGGR-007 | L3-AGGR-012 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
 | L2-AGGR-008 | L3-AGGR-013, L3-AGGR-014 | _(TBD)_ | Draft |
 | L2-AGGR-009 | L3-AGGR-015 | _(TBD)_ | Draft |
 | L2-AGGR-010 | L3-AGGR-016 | _(TBD)_ | Draft |
@@ -235,7 +235,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Implemented |
 | L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Draft |
 | L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
-| L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Draft |
+| L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -252,7 +252,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-MAIL-009 | L3-MAIL-014 | _(TBD)_ | Draft |
 | L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016 | _(TBD)_ | Draft |
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
-| L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | _(TBD)_ | Draft |
+| L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | _(TBD)_ | Draft |
 
 ### L1-DASH: Dashboard
@@ -418,20 +418,20 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | RUN | 5 | 15 | 30 | 9 | 23 |
 | STAGE | 4 | 9 | 18 | 8 | 8 |
 | TMPL | 5 | 14 | 28 | 3 | 0 |
-| AGGR | 4 | 10 | 20 | 0 | 0 |
+| AGGR | 4 | 10 | 20 | 4 | 5 |
 | SWEEP | 3 | 9 | 18 | 1 | 0 |
 | SUB | 4 | 10 | 20 | 1 | 2 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
-| MAIL | 5 | 13 | 26 | 2 | 0 |
+| MAIL | 5 | 13 | 26 | 3 | 0 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 3 | 10 | 23 | 1 | 2 |
 | OBS | 4 | 12 | 24 | 0 | 1 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 0 | 0 |
-| **Total** | **57** | **157** | **315** | **28** | **47** |
+| **Total** | **57** | **157** | **315** | **33** | **52** |
 
-**Requirements verified by at least one test**: 75 of 472 (15.9%).
+**Requirements verified by at least one test**: 85 of 472 (18.0%).
 
 ### Orphan check
 

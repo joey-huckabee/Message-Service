@@ -106,28 +106,28 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|--------|
 | L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Implemented |
 | L1-TMPL-002 | L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 | Implemented |
-| L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Draft |
+| L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Implemented |
 | L1-TMPL-004 | L2-TMPL-010, L2-TMPL-011 | Draft |
-| L1-TMPL-005 | L2-TMPL-012, L2-TMPL-013, L2-TMPL-014 | Draft |
+| L1-TMPL-005 | L2-TMPL-012, L2-TMPL-013, L2-TMPL-014 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-TMPL-001 | L3-TMPL-001, L3-TMPL-002 | `tests/unit/domain/aggregates/test_template_metadata.py::test_optional_fields_default_to_none`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_rejects_empty_name_or_version`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_rejects_empty_fields` | Implemented |
+| L2-TMPL-001 | L3-TMPL-001, L3-TMPL-002 | `tests/unit/domain/aggregates/test_template_metadata.py::test_optional_fields_default_to_none`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_rejects_empty_name_or_version`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_rejects_empty_fields`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_accepts_all_template_kinds`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_accepts_empty_manifest`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_allows_multiple_versions_of_same_name`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_preserves_absolute_source_path`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_raises_on_malformed_toml`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_raises_when_file_missing`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_reads_minimal_manifest`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_duplicate_name_version`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_missing_required_field`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_unknown_kind`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_unknown_template_key`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_unknown_top_level_key`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_resolves_relative_source_path`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_repository_exists_returns_false_on_unknown`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_repository_get_raises_on_unknown` | Implemented |
 | L2-TMPL-002 | L3-TMPL-003, L3-TMPL-004 | `tests/unit/domain/aggregates/test_template_metadata.py::test_all_template_kinds_construct` | Implemented |
 | L2-TMPL-003 | L3-TMPL-005, L3-TMPL-006, L3-TMPL-027 | _(TBD)_ | Draft |
 | L2-TMPL-004 | L3-TMPL-007, L3-TMPL-008 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_template_renderer_exposes_expected_methods` | Implemented |
 | L2-TMPL-005 | L3-TMPL-009, L3-TMPL-010 | _(TBD)_ | Draft |
 | L2-TMPL-006 | L3-TMPL-011, L3-TMPL-012 | _(TBD)_ | Draft |
-| L2-TMPL-007 | L3-TMPL-013, L3-TMPL-014, L3-TMPL-028 | _(TBD)_ | Draft |
-| L2-TMPL-008 | L3-TMPL-015, L3-TMPL-016 | _(TBD)_ | Draft |
-| L2-TMPL-009 | L3-TMPL-017 | _(TBD)_ | Draft |
+| L2-TMPL-007 | L3-TMPL-013, L3-TMPL-014, L3-TMPL-028 | `tests/unit/infrastructure/templating/test_renderer.py::test_sandbox_has_no_range_global` | Implemented |
+| L2-TMPL-008 | L3-TMPL-015, L3-TMPL-016 | `tests/unit/infrastructure/templating/test_renderer.py::test_allowed_filter_works`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_removed_filter_raises` | Implemented |
+| L2-TMPL-009 | L3-TMPL-017 | `tests/unit/infrastructure/templating/test_renderer.py::test_undefined_variable_raises_template_render_error` | Implemented |
 | L2-TMPL-010 | L3-TMPL-018, L3-TMPL-019 | _(TBD)_ | Draft |
 | L2-TMPL-011 | L3-TMPL-020 | _(TBD)_ | Draft |
 | L2-TMPL-012 | L3-TMPL-021, L3-TMPL-022 | _(TBD)_ | Draft |
 | L2-TMPL-013 | L3-TMPL-023, L3-TMPL-024 | _(TBD)_ | Draft |
-| L2-TMPL-014 | L3-TMPL-025, L3-TMPL-026 | _(TBD)_ | Draft |
+| L2-TMPL-014 | L3-TMPL-025, L3-TMPL-026 | `tests/unit/infrastructure/templating/test_renderer.py::test_non_json_serializable_context_raises_template_render_error`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_context_raises_before_template_invoked`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_render_raises` | Implemented |
 
 ### L1-AGGR: Aggregation and composition
 
@@ -187,7 +187,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|--------|
 | L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Implemented |
 | L1-SUB-002 | L2-SUB-004, L2-SUB-005 | Draft |
-| L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Draft |
+| L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Implemented |
 | L1-SUB-004 | L2-SUB-009, L2-SUB-010 | Draft |
 
 **L2 → L3 → Verification Artifacts**
@@ -199,7 +199,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-SUB-003 | L3-SUB-005, L3-SUB-006, L3-SUB-020 | _(TBD)_ | Draft |
 | L2-SUB-004 | L3-SUB-007 | _(TBD)_ | Draft |
 | L2-SUB-005 | L3-SUB-008 | _(TBD)_ | Draft |
-| L2-SUB-006 | L3-SUB-009, L3-SUB-010 | _(TBD)_ | Draft |
+| L2-SUB-006 | L3-SUB-009, L3-SUB-010 | `tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_all_tags_returns_frozenset`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_contains_is_case_sensitive`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_accepts_empty_vocabulary`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_accepts_well_formed_tag_names`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_raises_on_malformed_toml`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_raises_when_file_missing`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_reads_multiple_tags`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_duplicate_tag_names`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_malformed_tag_name`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_tag_without_name`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_unknown_tag_key`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_unknown_top_level_key` | Implemented |
 | L2-SUB-007 | L3-SUB-011, L3-SUB-012 | _(TBD)_ | Draft |
 | L2-SUB-008 | L3-SUB-013, L3-SUB-014 | _(TBD)_ | Draft |
 | L2-SUB-009 | L3-SUB-015, L3-SUB-016 | _(TBD)_ | Draft |
@@ -417,10 +417,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | API | 4 | 11 | 18 | 0 | 0 |
 | RUN | 5 | 15 | 30 | 9 | 23 |
 | STAGE | 4 | 9 | 18 | 8 | 8 |
-| TMPL | 5 | 14 | 28 | 3 | 0 |
+| TMPL | 5 | 14 | 28 | 7 | 2 |
 | AGGR | 4 | 10 | 20 | 4 | 5 |
 | SWEEP | 3 | 9 | 18 | 1 | 0 |
-| SUB | 4 | 10 | 20 | 1 | 2 |
+| SUB | 4 | 10 | 20 | 2 | 4 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
 | MAIL | 5 | 13 | 26 | 3 | 0 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
@@ -429,9 +429,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 0 | 0 |
-| **Total** | **57** | **157** | **315** | **33** | **52** |
+| **Total** | **57** | **157** | **315** | **38** | **56** |
 
-**Requirements verified by at least one test**: 85 of 472 (18.0%).
+**Requirements verified by at least one test**: 94 of 472 (19.9%).
 
 ### Orphan check
 

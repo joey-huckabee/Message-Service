@@ -233,7 +233,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|--------|
 | L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Implemented |
 | L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Implemented |
-| L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Draft |
+| L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Implemented |
 | L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
 | L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Implemented |
 
@@ -241,14 +241,14 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-MAIL-001 | L3-MAIL-001, L3-MAIL-020 | _(TBD)_ | Draft |
-| L2-MAIL-002 | L3-MAIL-002, L3-MAIL-003, L3-MAIL-022 | _(TBD)_ | Draft |
+| L2-MAIL-001 | L3-MAIL-001, L3-MAIL-020 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_each_send_constructs_a_new_smtp_client` | Implemented |
+| L2-MAIL-002 | L3-MAIL-002, L3-MAIL-003, L3-MAIL-022 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_starttls_skipped_when_disabled` | Implemented |
 | L2-MAIL-003 | L3-MAIL-004 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_empty_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_subject`<br>`tests/unit/config/test_schema.py::test_invalid_admin_recipient_rejected`<br>`tests/unit/config/test_schema.py::test_invalid_from_address_rejected` | Implemented |
-| L2-MAIL-004 | L3-MAIL-005, L3-MAIL-006 | _(TBD)_ | Draft |
-| L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_constructs_with_valid_values`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_is_frozen`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_rejects_empty_fields`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_with_attachments` | Implemented |
-| L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | _(TBD)_ | Draft |
+| L2-MAIL-004 | L3-MAIL-005, L3-MAIL-006 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_421_treated_as_permanent_no_retry`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_4xx_response_codes`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_connect_timeout_is_transient`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_gaierror_is_transient`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_smtp_server_disconnected_is_transient`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_dns_failure_is_transient` | Implemented |
+| L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_constructs_with_valid_values`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_is_frozen`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_rejects_empty_fields`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_with_attachments`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_5xx_is_permanent`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_authentication_error_is_permanent`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_permanent_failure_does_not_retry` | Implemented |
+| L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_capped_at_max_interval`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_schedule_follows_exponential_formula`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_exhausts_retries`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_retries_then_succeeds` | Implemented |
 | L2-MAIL-007 | L3-MAIL-012, L3-MAIL-021 | _(TBD)_ | Draft |
-| L2-MAIL-008 | L3-MAIL-013 | _(TBD)_ | Draft |
+| L2-MAIL-008 | L3-MAIL-013 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_oversize_email_raises_before_smtp_traffic` | Implemented |
 | L2-MAIL-009 | L3-MAIL-014 | _(TBD)_ | Draft |
 | L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016 | _(TBD)_ | Draft |
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
@@ -422,16 +422,16 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | SWEEP | 3 | 9 | 18 | 1 | 0 |
 | SUB | 4 | 10 | 20 | 2 | 4 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
-| MAIL | 5 | 13 | 26 | 3 | 0 |
+| MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 3 | 10 | 23 | 1 | 2 |
 | OBS | 4 | 12 | 24 | 0 | 1 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 0 | 0 |
-| **Total** | **57** | **157** | **315** | **38** | **56** |
+| **Total** | **57** | **157** | **315** | **40** | **62** |
 
-**Requirements verified by at least one test**: 94 of 472 (19.9%).
+**Requirements verified by at least one test**: 102 of 472 (21.6%).
 
 ### Orphan check
 

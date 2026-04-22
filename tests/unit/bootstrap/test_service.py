@@ -1,0 +1,296 @@
+"""Unit tests for :mod:`message_service.bootstrap.service`.
+
+These tests verify the composition root: given a valid :class:`Config`,
+:func:`build_service` produces a :class:`Service` whose adapter
+instances are of the expected concrete types and whose use cases are
+wired with values pulled from the config. Full end-to-end behavior is
+covered by ``tests/integration/test_full_pipeline.py``; the bootstrap
+tests focus on the wiring itself.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from message_service.bootstrap import Service, build_service, shutdown_service
+from message_service.config.loader import load_config
+from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
+from message_service.infrastructure.persistence.unit_of_work import (
+    SqliteUnitOfWorkFactory,
+)
+from message_service.infrastructure.scheduler.asyncio_scheduler import (
+    AsyncioBackgroundTaskScheduler,
+)
+from message_service.infrastructure.tags.vocabulary_loader import InMemoryTagVocabulary
+from message_service.infrastructure.templating.manifest_loader import (
+    InMemoryTemplateRepository,
+)
+from message_service.infrastructure.templating.renderer import (
+    Jinja2SandboxedTemplateRenderer,
+)
+from message_service.infrastructure.time.system_clock import SystemClock
+
+# -----------------------------------------------------------------------------
+# Fixtures — build a minimal valid config on disk
+# -----------------------------------------------------------------------------
+
+
+def _write_config(tmp_path: Path) -> Path:
+    """Construct the smallest valid config directory tree and return the TOML path."""
+    # Templates
+    (tmp_path / "body.html.j2").write_text("<p>{{ run_id }}</p>")
+    (tmp_path / "frag.html.j2").write_text("<p>{{ v }}</p>")
+    (tmp_path / "templates.toml").write_text(
+        """
+[[template]]
+name = "email_body"
+version = "1.0"
+kind = "EMAIL_BODY"
+source_path = "body.html.j2"
+
+[[template]]
+name = "frag"
+version = "1.0"
+kind = "REPORT_FRAGMENT"
+source_path = "frag.html.j2"
+"""
+    )
+    # Tags
+    (tmp_path / "tags.toml").write_text(
+        """
+[[tag]]
+name = "production"
+
+[[tag]]
+name = "critical"
+"""
+    )
+    # Top-level config
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        f"""
+[grpc]
+host = "0.0.0.0"
+port = 50051
+
+[dashboard]
+host = "0.0.0.0"
+port = 8080
+
+[persistence]
+sqlite_path = "{(tmp_path / "svc.db").as_posix()}"
+
+[persistence.filesystem]
+report_directory = "{(tmp_path / "reports").as_posix()}"
+
+[templates]
+manifest_path = "{(tmp_path / "templates.toml").as_posix()}"
+max_context_bytes = 524288
+max_rendered_bytes = 5242880
+
+[templates.email_body_template_ref]
+name = "email_body"
+version = "1.0"
+
+[tags]
+vocabulary_path = "{(tmp_path / "tags.toml").as_posix()}"
+
+[pipelines]
+registered = ["etl-nightly", "backup-daily"]
+
+[mail]
+from_address = "svc@example.com"
+max_email_size_bytes = 10485760
+
+[mail.smtp]
+host = "smtp.example.com"
+port = 587
+username = "svc-user"
+password = "secret"
+use_starttls = true
+
+[mail.retry]
+max_retries = 3
+initial_interval_seconds = 1
+max_interval_seconds = 60
+"""
+    )
+    return config_path
+
+
+@pytest.fixture
+async def service(tmp_path: Path) -> Service:
+    """Build a fully-composed Service from a minimal valid config."""
+    config_path = _write_config(tmp_path)
+    config = load_config(config_path)
+    svc = await build_service(config)
+    return svc
+
+
+# -----------------------------------------------------------------------------
+# Composition — correct concrete types for every port
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L1-CFG-001")
+async def test_build_service_returns_service(service: Service) -> None:
+    assert isinstance(service, Service)
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_clock_is_system_clock(service: Service) -> None:
+    assert isinstance(service.clock, SystemClock)
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_tag_vocabulary_loaded_from_toml(service: Service) -> None:
+    assert isinstance(service.tag_vocabulary, InMemoryTagVocabulary)
+    assert service.tag_vocabulary.contains("production")
+    assert service.tag_vocabulary.contains("critical")
+    assert not service.tag_vocabulary.contains("unknown")
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_template_repo_loaded_from_manifest(service: Service) -> None:
+    from message_service.domain.aggregates.template_ref import TemplateRef
+
+    assert isinstance(service.template_repo, InMemoryTemplateRepository)
+    assert service.template_repo.exists(TemplateRef(name="email_body", version="1.0"))
+    assert service.template_repo.exists(TemplateRef(name="frag", version="1.0"))
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_template_renderer_has_configured_size_limits(service: Service) -> None:
+    assert isinstance(service.template_renderer, Jinja2SandboxedTemplateRenderer)
+    # Verified indirectly via the renderer's private fields. These are
+    # the config values we wrote above.
+    assert service.template_renderer._max_context_bytes == 524_288
+    assert service.template_renderer._max_rendered_bytes == 5_242_880
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_mailer_configured_from_mail_section(service: Service) -> None:
+    assert isinstance(service.mailer, AiosmtplibMailer)
+    assert service.mailer._host == "smtp.example.com"
+    assert service.mailer._port == 587
+    assert service.mailer._username == "svc-user"
+    assert service.mailer._use_starttls is True
+    assert service.mailer._max_retries == 3
+    assert service.mailer._max_email_size_bytes == 10_485_760
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_is_asyncio_background_scheduler(service: Service) -> None:
+    assert isinstance(service.scheduler, AsyncioBackgroundTaskScheduler)
+    assert service.scheduler.active_task_count == 0
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_uow_factory_is_sqlite(service: Service) -> None:
+    assert isinstance(service.uow_factory, SqliteUnitOfWorkFactory)
+    await shutdown_service(service, timeout=1.0)
+
+
+# -----------------------------------------------------------------------------
+# Use cases — the four are all built and are usable through a UoW
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_uow_factory_produces_working_uow(service: Service) -> None:
+    """The UoW factory returned by the service SHALL yield a functional UoW
+    that can transact against the migrated DB."""
+    async with service.uow_factory() as uow:
+        # The migration ran, so the tables exist. A read against an
+        # empty audit_log should return an empty sequence, not raise.
+        events = await uow.audit_log.query()
+        assert list(events) == []
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_use_cases_all_populated(service: Service) -> None:
+    """All four use cases SHALL be non-None after build."""
+    assert service.begin_run is not None
+    assert service.submit_stage_report is not None
+    assert service.finalize_run is not None
+    assert service.assemble_and_deliver is not None
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_registry_reflects_config(service: Service) -> None:
+    """BeginRun use case's pipeline registry SHALL equal the configured list."""
+    # BeginRun stores the registry as a private frozenset; we can access
+    # it for verification.
+    assert service.begin_run._pipeline_registry == frozenset({"etl-nightly", "backup-daily"})
+    await shutdown_service(service, timeout=1.0)
+
+
+# -----------------------------------------------------------------------------
+# Shutdown
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_shutdown_closes_scheduler_and_connection(service: Service) -> None:
+    """After shutdown, the scheduler SHALL reject new work and the connection SHALL be closed."""
+    await shutdown_service(service, timeout=1.0)
+
+    # Scheduler is in shutdown mode.
+    async def _dummy() -> None:
+        pass
+
+    with pytest.raises(RuntimeError, match="shutting down"):
+        service.scheduler.schedule(_dummy())
+
+    # The UoW factory's connection is closed; opening a UoW now
+    # raises.
+    with pytest.raises(Exception):  # noqa: B017 — any aiosqlite close-related error
+        async with service.uow_factory():
+            pass
+
+
+@pytest.mark.asyncio
+async def test_shutdown_drains_inflight_background_tasks(service: Service) -> None:
+    """shutdown_service SHALL await in-flight background tasks before closing the connection."""
+    import asyncio
+
+    completed = asyncio.Event()
+
+    async def background_work() -> None:
+        await asyncio.sleep(0.05)
+        completed.set()
+
+    service.scheduler.schedule(background_work())
+
+    await shutdown_service(service, timeout=2.0)
+
+    assert completed.is_set()
+
+
+# -----------------------------------------------------------------------------
+# Migrations applied at build
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_migrations_applied_at_startup(service: Service) -> None:
+    """build_service SHALL apply migrations so the schema is ready on first UoW."""
+    async with service.uow_factory() as uow:
+        # If the runs table didn't exist, this would raise sqlite3.OperationalError.
+        async with uow._conn.execute("SELECT COUNT(*) FROM runs") as cur:
+            row = await cur.fetchone()
+        assert row is not None
+        assert row[0] == 0
+    await shutdown_service(service, timeout=1.0)

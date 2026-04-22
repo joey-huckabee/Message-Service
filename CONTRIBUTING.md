@@ -64,6 +64,141 @@ Expect: all tests passing (currently 99).
 
 ---
 
+## Optional setup: SLOC tools
+
+These tools are optional. They are not part of the required pre-commit flow,
+but they are the supported way to report source-lines-of-code (SLOC) for this
+repo.
+
+Reporting policy:
+
+- `cloc` is the canonical/public-facing SLOC number.
+- `tokei` is the fast local cross-check.
+- `scc` is the fast CI/analytics cross-check.
+
+Official upstream sources:
+
+- `cloc`: <https://github.com/AlDanial/cloc>
+- `tokei`: <https://github.com/XAMPPRocky/tokei>
+- `scc`: <https://github.com/boyter/scc>
+
+Recommended installation on Windows:
+
+```powershell
+# cloc
+winget install AlDanial.Cloc
+# If the winget package misbehaves, install the Windows executable from the
+# cloc GitHub Releases page instead.
+
+# tokei
+winget install XAMPPRocky.tokei
+
+# scc
+winget install --id benboyter.scc --source winget
+```
+
+Alternative package managers on Windows (upstream-documented):
+
+```powershell
+# cloc
+choco install cloc
+scoop install cloc
+
+# tokei
+scoop install tokei
+
+# scc
+choco install scc
+scoop install scc
+```
+
+After install, verify the commands are on `PATH`:
+
+```powershell
+cloc --version
+tokei --version
+scc --version
+```
+
+---
+
+## SLOC reporting
+
+Unless explicitly stated otherwise, SLOC for this repo means Python source in:
+
+- `src/message_service`
+- `tests`
+- `scripts`
+
+Excluded from SLOC reporting:
+
+- `docs/`
+- `config/`
+- `.venv/`
+- `.pytest_cache/`
+- `.mypy_cache/`
+- `.ruff_cache/`
+- `.coverage`
+- `.coverage.xml`
+- `.coverage_html/`
+- `poetry.lock`
+
+### Canonical SLOC (`cloc`)
+
+Use this when publishing a number in status reports, reviews, or external
+documents:
+
+```powershell
+cloc src\message_service tests scripts --include-ext=py --exclude-dir=__pycache__,.venv,.pytest_cache,.mypy_cache,.ruff_cache,.coverage_html
+```
+
+JSON output:
+
+```powershell
+cloc src\message_service tests scripts --include-ext=py --exclude-dir=__pycache__,.venv,.pytest_cache,.mypy_cache,.ruff_cache,.coverage_html --json > sloc-cloc.json
+```
+
+### Cross-check (`tokei`)
+
+Use this for a fast local sanity check:
+
+```powershell
+tokei src\message_service tests scripts -e __pycache__ -e .venv -e .pytest_cache -e .mypy_cache -e .ruff_cache -e .coverage_html
+```
+
+JSON output:
+
+```powershell
+tokei src\message_service tests scripts -e __pycache__ -e .venv -e .pytest_cache -e .mypy_cache -e .ruff_cache -e .coverage_html -o json > sloc-tokei.json
+```
+
+### Cross-check (`scc`)
+
+Use this when you want a fast repo-wide count and richer analytics:
+
+```powershell
+scc src\message_service tests scripts --include-ext py --exclude-dir __pycache__,.venv,.pytest_cache,.mypy_cache,.ruff_cache,.coverage_html
+```
+
+JSON output:
+
+```powershell
+scc src\message_service tests scripts --include-ext py --exclude-dir __pycache__,.venv,.pytest_cache,.mypy_cache,.ruff_cache,.coverage_html --format json > sloc-scc.json
+```
+
+### Reporting convention
+
+When publishing SLOC for this repo, report these separately:
+
+- Production SLOC: `src/message_service`
+- Test SLOC: `tests`
+- Support-script SLOC: `scripts`
+
+If the three tools disagree, use `cloc` as the official number and mention that
+`tokei` and `scc` were used only as cross-checks.
+
+---
+
 ## The pre-commit hooks, explained
 
 `.pre-commit-config.yaml` runs these in order. Understanding what each one does tells you which of the TL;DR commands to re-run when one fails.

@@ -226,3 +226,7 @@ __marimo__/
 # OS-specific
 Thumbs.db
 Desktop.ini
+
+# Real config with secrets -- must not be committed
+/config.toml
+/.local/

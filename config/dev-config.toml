@@ -1,0 +1,104 @@
+# -----------------------------------------------------------------------------
+# Message-Service -- DEVELOPMENT config
+# -----------------------------------------------------------------------------
+# Runs the service on your laptop against a local SQLite file and a local
+# MailHog/MailCatcher SMTP on port 1025 (no auth, no TLS). Safe to commit.
+#
+# Launch with:
+#   poetry run python -m message_service --config config/dev-config.toml
+#
+# ISO paths use forward slashes on every OS including Windows.
+
+# --- Listeners ---------------------------------------------------------------
+
+[grpc]
+host = "127.0.0.1"
+port = 50051
+
+[dashboard]
+host = "127.0.0.1"
+port = 8080
+
+# --- Persistence -------------------------------------------------------------
+
+[persistence]
+# Paths are resolved relative to this config file's directory
+# (config/), so `../` reaches the repo root.
+sqlite_path = "../.local/dev/message-service.db"
+connection_pool_size = 16
+
+[persistence.filesystem]
+# Rendered HTML reports (and any per-stage attachments saved to disk).
+report_directory = "../.local/dev/reports"
+
+# --- Templates ---------------------------------------------------------------
+
+[templates]
+manifest_path = "dev-templates.toml"
+max_context_bytes = 1_048_576       # 1 MiB
+max_rendered_bytes = 10_485_760     # 10 MiB
+
+[templates.email_body_template_ref]
+name = "email_body"
+version = "1.0"
+
+# --- Tags + Pipelines --------------------------------------------------------
+
+[tags]
+vocabulary_path = "dev-tags.toml"
+
+[pipelines]
+registered = ["etl-nightly", "backup-daily", "report-weekly"]
+
+# --- Sweeper -----------------------------------------------------------------
+# Tight timings so orphan transitions are easy to observe during dev.
+
+[sweeper]
+run_timeout_seconds = 300            # 5 min -- runs stuck longer get swept
+poll_interval_seconds = 10           # tick every 10 s
+disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+
+# --- Mail --------------------------------------------------------------------
+# Point at MailHog / MailCatcher / any local dev SMTP on localhost:1025.
+# If you don't have one running the service starts fine; failed sends show
+# up as FAILED runs with structured audit entries.
+
+[mail]
+from_address = "message-service-dev@example.com"
+max_email_size_bytes = 26_214_400    # 25 MiB
+admin_recipients = ["admin@example.com"]
+
+[mail.smtp]
+host = "127.0.0.1"
+port = 1025
+username = ""                        # MailHog accepts any
+password = ""
+use_starttls = false                 # dev SMTP doesn't do TLS
+
+[mail.retry]
+max_retries = 2                      # don't hammer dev SMTP
+initial_interval_seconds = 1
+max_interval_seconds = 10
+
+# --- Auth (dashboard) --------------------------------------------------------
+
+[auth]
+session_idle_timeout_seconds = 3600  # 1 h
+
+[auth.argon2]
+memory_cost = 65_536                 # KiB
+time_cost = 3
+parallelism = 4
+
+# --- Observability -----------------------------------------------------------
+
+[observability]
+log_level = "DEBUG"                  # verbose during dev
+
+[observability.audit]
+retention_days = 30                  # short retention for dev
+
+# --- Service -----------------------------------------------------------------
+
+[service]
+shutdown_grace_period_seconds = 5    # quick Ctrl+C

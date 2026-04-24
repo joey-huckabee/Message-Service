@@ -1,0 +1,14 @@
+# Dev tag vocabulary -- referenced by config/dev-config.toml.
+# BeginRun requests using any tag NOT in this list will be rejected.
+
+[[tag]]
+name = "production"
+
+[[tag]]
+name = "staging"
+
+[[tag]]
+name = "critical"
+
+[[tag]]
+name = "non-critical"

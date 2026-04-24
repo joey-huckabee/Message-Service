@@ -1,0 +1,180 @@
+# -----------------------------------------------------------------------------
+# Message-Service -- PRODUCTION config template
+# -----------------------------------------------------------------------------
+# Copy this file to `config.toml` at the repo root (or wherever you deploy
+# the service), fill in the real values, and launch with:
+#
+#   poetry run python -m message_service --config config.toml
+#
+# or via the env-var fallback:
+#
+#   MESSAGE_SERVICE_CONFIG=/etc/message-service/config.toml \
+#       poetry run python -m message_service
+#
+# SECRETS POLICY
+# --------------
+# Fields of type `SubstitutableStr` (documented per-field below) support
+# the syntax `${env:VAR_NAME}` for environment-variable substitution.
+# Currently only [mail.smtp].username and [mail.smtp].password are
+# substitutable. Anything else is taken literally.
+#
+# DO NOT COMMIT THIS FILE WITH REAL SECRETS. Your `.gitignore` should
+# include `/config.toml` at the repo root (but NOT `config/`).
+#
+# -----------------------------------------------------------------------------
+
+# --- Listeners ---------------------------------------------------------------
+
+[grpc]
+# Bind 0.0.0.0 behind a reverse proxy / firewall; bind the internal
+# interface if your deployment has one. Plaintext per L1-API-003;
+# transport security is handled by the network layer.
+host = "0.0.0.0"
+port = 50051
+
+[dashboard]
+# FastAPI dashboard listener. Expose only on the management interface.
+host = "0.0.0.0"
+port = 8080
+
+# --- Persistence -------------------------------------------------------------
+
+[persistence]
+# Absolute path to the SQLite file. Must be on durable local storage
+# (not tmpfs, not a network mount -- SQLite and NFS do not agree).
+sqlite_path = "/var/lib/message-service/message-service.db"
+
+# Current value is advisory; v1 uses a single shared connection. See
+# ROADMAP item R-PERS-001.
+connection_pool_size = 16
+
+[persistence.filesystem]
+# Rendered reports are written here before being attached to emails.
+# Must be writable by the service user.
+report_directory = "/var/lib/message-service/reports"
+
+# --- Templates ---------------------------------------------------------------
+
+[templates]
+manifest_path = "/etc/message-service/templates.toml"
+max_context_bytes = 1_048_576       # 1 MiB -- L3-STAGE-014 limit
+max_rendered_bytes = 10_485_760     # 10 MiB -- L3-TMPL-028 limit
+
+# Template used for every run's email body. Must exist in the manifest
+# with this (name, version).
+[templates.email_body_template_ref]
+name = "email_body"
+version = "1.0"
+
+# --- Tags + Pipelines --------------------------------------------------------
+
+[tags]
+# Controlled-vocabulary file. Runs tagged with anything not in this
+# file are rejected at BeginRun.
+vocabulary_path = "/etc/message-service/tags.toml"
+
+[pipelines]
+# Every pipeline_type a client might send in BeginRun must appear here.
+# Unknown types are rejected with UnknownPipelineTypeError (gRPC
+# INVALID_ARGUMENT).
+registered = [
+    "etl-nightly",
+    "etl-hourly",
+    "backup-daily",
+    # Add one line per pipeline your ETL jobs use.
+]
+
+# --- Sweeper -----------------------------------------------------------------
+# The orphan sweeper periodically transitions runs stuck in active
+# states (INITIATED, AGGREGATING, READY, SENDING) to ORPHANED and
+# invokes the configured disposition actions in list order.
+
+[sweeper]
+# Age threshold (since last transition). Tune per pipeline SLA.
+run_timeout_seconds = 3_600          # 1 h
+
+# How often the sweeper checks. A smaller value reduces detection
+# latency at the cost of more DB polling.
+poll_interval_seconds = 60
+
+# Actions taken per orphaned run, in this order. Currently-supported:
+#   "NOTIFY_ADMINS"        -- logs at WARNING level (hooks to your log pipeline)
+#   "DISCARD_SILENTLY"     -- no further action; audit event is the record
+#   "SEND_PARTIAL_FLAGGED" -- NOT YET IMPLEMENTED -- will raise
+#   "NOTIFY_SUBSCRIBERS"   -- NOT YET IMPLEMENTED -- will raise
+# See ROADMAP for timing of the two deferred handlers.
+disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+
+# --- Mail --------------------------------------------------------------------
+
+[mail]
+# Envelope sender. Must be a valid email address.
+from_address = "message-service@example.com"
+
+# Reject outbound emails larger than this before handing to SMTP,
+# to surface size failures as structured FAILED runs rather than
+# SMTP 5xx rejections after the fact.
+max_email_size_bytes = 26_214_400    # 25 MiB
+
+# Recipients for NOTIFY_ADMINS (once that handler does real mail;
+# currently log-only). List may be empty.
+admin_recipients = [
+    "ops-team@example.com",
+    "oncall-sre@example.com",
+]
+
+[mail.smtp]
+host = "smtp.example.com"
+port = 587
+
+# These TWO fields support ${env:VAR} substitution (SubstitutableStr).
+# Put the real values in your secret store; point the vars at them
+# via systemd EnvironmentFile, Vault agent, or equivalent.
+username = "${env:MESSAGE_SERVICE_SMTP_USERNAME}"
+password = "${env:MESSAGE_SERVICE_SMTP_PASSWORD}"
+
+# STARTTLS upgrade from plaintext. Use true unless you have a specific
+# reason (internal relay with IP allowlisting, etc.).
+use_starttls = true
+
+[mail.retry]
+# Exponential-backoff parameters for transient SMTP failures.
+# Effective delay = min(max, initial * 2^(n-1)).
+max_retries = 5
+initial_interval_seconds = 2
+max_interval_seconds = 300           # 5 min cap
+
+# --- Auth (dashboard) --------------------------------------------------------
+# Used by the FastAPI dashboard; not involved in gRPC ingest.
+
+[auth]
+# Session expires after this long of no dashboard activity.
+session_idle_timeout_seconds = 3_600 # 1 h
+
+[auth.argon2]
+# Argon2id parameters. Defaults are OWASP 2023 recommendations;
+# tune upward if your hardware can afford it.
+memory_cost = 65_536                 # KiB
+time_cost = 3
+parallelism = 4
+
+# --- Observability -----------------------------------------------------------
+
+[observability]
+# One of: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
+# Use INFO in production; DEBUG is noisy.
+log_level = "INFO"
+
+[observability.audit]
+# How long SUCCESS/FAILURE audit rows are kept before the retention
+# sweeper prunes them. Regulated environments may need 7+ years.
+retention_days = 365
+
+# --- Service -----------------------------------------------------------------
+
+[service]
+# How long `shutdown_service` will wait for in-flight background tasks
+# (sweeper loop, in-flight AssembleAndDeliver deliveries) to finish
+# before cancelling them. Tune up if you send large reports; tune
+# down for aggressive deploys.
+shutdown_grace_period_seconds = 30

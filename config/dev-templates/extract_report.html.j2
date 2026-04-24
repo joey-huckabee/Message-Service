@@ -1,0 +1,11 @@
+<section>
+  <h2>Extract</h2>
+  <dl>
+    <dt>Records pulled</dt>
+    <dd>{{ record_count | default("?") }}</dd>
+    <dt>Source</dt>
+    <dd>{{ source | default("?") | escape }}</dd>
+    <dt>Duration</dt>
+    <dd>{{ duration_seconds | default("?") }} s</dd>
+  </dl>
+</section>

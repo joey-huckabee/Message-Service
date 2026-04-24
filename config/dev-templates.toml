@@ -1,0 +1,26 @@
+# Dev template manifest -- referenced by config/dev-config.toml.
+# Source paths are resolved relative to this file's directory.
+
+[[template]]
+name = "email_body"
+version = "1.0"
+kind = "EMAIL_BODY"
+source_path = "dev-templates/email_body.html.j2"
+
+[[template]]
+name = "extract_report"
+version = "1.0"
+kind = "REPORT_FRAGMENT"
+source_path = "dev-templates/extract_report.html.j2"
+
+[[template]]
+name = "transform_report"
+version = "1.0"
+kind = "REPORT_FRAGMENT"
+source_path = "dev-templates/transform_report.html.j2"
+
+[[template]]
+name = "aggregation"
+version = "1.0"
+kind = "AGGREGATION"
+source_path = "dev-templates/aggregation.html.j2"

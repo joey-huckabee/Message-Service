@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ pipeline_type }} - Run {{ run_id }} - Full Report</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 800px;
+        margin: 2em auto;
+        color: #222;
+      }
+      section {
+        border-left: 3px solid #888;
+        padding-left: 1em;
+        margin: 1.5em 0;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        column-gap: 1em;
+      }
+      dt {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>{{ pipeline_type }}</h1>
+    <p>
+      Run <code>{{ run_id }}</code>
+      {% if tags %}- tags:
+        {% for t in tags %}<code>{{ t }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+      {% endif %}
+    </p>
+    {% for stage in stages %}
+      {{ stage.rendered_html | safe }}
+    {% endfor %}
+  </body>
+</html>

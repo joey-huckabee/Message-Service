@@ -9,6 +9,7 @@ per-repo test suites.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -30,18 +31,22 @@ from message_service.infrastructure.persistence.unit_of_work import (
 @pytest.fixture
 async def factory(
     tmp_path: Path,
-) -> SqliteUnitOfWorkFactory:
-    """Build a factory against a fresh migrated DB."""
+) -> AsyncIterator[SqliteUnitOfWorkFactory]:
+    """Build a factory against a fresh migrated DB; close it on teardown."""
     db = tmp_path / "test.db"
     conn = await open_connection(db)
     await apply_migrations(conn)
-    return SqliteUnitOfWorkFactory(
+    uow_factory = SqliteUnitOfWorkFactory(
         conn=conn,
         run_repo_factory=lambda c: MagicMock(),
         stage_repo_factory=lambda c: MagicMock(),
         subscription_repo_factory=lambda c: MagicMock(),
         audit_log_factory=lambda c: MagicMock(),
     )
+    try:
+        yield uow_factory
+    finally:
+        await uow_factory.close()
 
 
 async def _user_count(factory: SqliteUnitOfWorkFactory) -> int:

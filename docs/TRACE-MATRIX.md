@@ -20,10 +20,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-API-001 | L2-API-001, L2-API-002, L2-API-003 | Draft |
+| L1-API-001 | L2-API-001, L2-API-002, L2-API-003 | Implemented |
 | L1-API-002 | L2-API-004, L2-API-005 | Draft |
 | L1-API-003 | L2-API-006, L2-API-007 | Draft |
-| L1-API-004 | L2-API-008, L2-API-009, L2-API-010, L2-API-011 | Draft |
+| L1-API-004 | L2-API-008, L2-API-009, L2-API-010, L2-API-011 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -31,13 +31,13 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-API-001 | L3-API-001, L3-API-002 | _(TBD)_ | Draft |
 | L2-API-002 | L3-API-003, L3-API-004 | _(TBD)_ | Draft |
-| L2-API-003 | L3-API-005 | _(TBD)_ | Draft |
+| L2-API-003 | L3-API-005 | `tests/unit/interfaces/grpc/test_servicer.py::test_begin_run_happy_path`<br>`tests/unit/interfaces/grpc/test_servicer.py::test_servicer_registers_exactly_three_rpc_methods` | Implemented |
 | L2-API-004 | L3-API-006 | _(TBD)_ | Draft |
 | L2-API-005 | L3-API-007 | _(TBD)_ | Draft |
 | L2-API-006 | L3-API-008 | _(TBD)_ | Draft |
 | L2-API-007 | L3-API-009, L3-API-010 | _(TBD)_ | Draft |
-| L2-API-008 | L3-API-011, L3-API-012 | _(TBD)_ | Draft |
-| L2-API-009 | L3-API-013 | _(TBD)_ | Draft |
+| L2-API-008 | L3-API-011, L3-API-012 | `tests/unit/interfaces/grpc/test_servicer.py::test_unknown_pipeline_translates_to_invalid_argument` | Implemented |
+| L2-API-009 | L3-API-013 | `tests/unit/interfaces/grpc/test_servicer.py::test_submit_to_unknown_run_translates_to_not_found` | Implemented |
 | L2-API-010 | L3-API-014, L3-API-015, L3-API-016 | _(TBD)_ | Draft |
 | L2-API-011 | L3-API-017, L3-API-018 | _(TBD)_ | Draft |
 
@@ -135,7 +135,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-AGGR-001 | L2-AGGR-001, L2-AGGR-002, L2-AGGR-003 | Draft |
+| L1-AGGR-001 | L2-AGGR-001, L2-AGGR-002, L2-AGGR-003 | Implemented |
 | L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Implemented |
 | L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Implemented |
 | L1-AGGR-004 | L2-AGGR-009, L2-AGGR-010 | Draft |
@@ -144,7 +144,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | _(TBD)_ | Draft |
+| L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | `tests/unit/interfaces/grpc/test_servicer.py::test_nested_struct_round_trips_into_stage_context` | Implemented |
 | L2-AGGR-002 | L3-AGGR-003, L3-AGGR-018 | _(TBD)_ | Draft |
 | L2-AGGR-003 | L3-AGGR-004, L3-AGGR-005 | _(TBD)_ | Draft |
 | L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Implemented |
@@ -414,11 +414,11 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | Category | L1 | L2 | L3 | L2s with tests | L3s with tests |
 |----------|----|----|-----|----------------|----------------|
-| API | 4 | 11 | 18 | 0 | 0 |
+| API | 4 | 11 | 18 | 3 | 1 |
 | RUN | 5 | 15 | 30 | 9 | 23 |
 | STAGE | 4 | 9 | 18 | 8 | 8 |
 | TMPL | 5 | 14 | 28 | 7 | 2 |
-| AGGR | 4 | 10 | 20 | 4 | 5 |
+| AGGR | 4 | 10 | 20 | 4 | 6 |
 | SWEEP | 3 | 9 | 18 | 1 | 0 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
@@ -429,9 +429,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 0 | 0 |
-| **Total** | **57** | **157** | **315** | **42** | **68** |
+| **Total** | **57** | **157** | **315** | **45** | **70** |
 
-**Requirements verified by at least one test**: 110 of 472 (23.3%).
+**Requirements verified by at least one test**: 115 of 472 (24.4%).
 
 ### Orphan check
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -27,10 +27,13 @@ _T0 = datetime(2026, 4, 21, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture
-async def conn() -> aiosqlite.Connection:
+async def conn() -> AsyncIterator[aiosqlite.Connection]:
     c = await open_connection(Path(":memory:"))
-    await apply_migrations(c)
-    return c
+    try:
+        await apply_migrations(c)
+        yield c
+    finally:
+        await c.close()
 
 
 @pytest.fixture

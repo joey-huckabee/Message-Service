@@ -30,6 +30,7 @@ L2-RUN-003 (transactional audit+state)
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -115,11 +116,14 @@ class _FixedClock(Clock):
 
 
 @pytest.fixture
-async def sqlite_conn() -> aiosqlite.Connection:
-    """Fresh migrated SQLite :memory: database."""
+async def sqlite_conn() -> AsyncIterator[aiosqlite.Connection]:
+    """Fresh migrated SQLite :memory: database; closed on teardown."""
     conn = await open_connection(Path(":memory:"))
-    await apply_migrations(conn)
-    return conn
+    try:
+        await apply_migrations(conn)
+        yield conn
+    finally:
+        await conn.close()
 
 
 @pytest.fixture

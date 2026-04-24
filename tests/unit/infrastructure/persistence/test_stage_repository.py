@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -47,12 +48,15 @@ async def _seed_run(conn: aiosqlite.Connection, run_id: RunId = _RID) -> None:
 
 
 @pytest.fixture
-async def conn() -> aiosqlite.Connection:
+async def conn() -> AsyncIterator[aiosqlite.Connection]:
     c = await open_connection(Path(":memory:"))
-    await apply_migrations(c)
-    await _seed_run(c)
-    await c.commit()
-    return c
+    try:
+        await apply_migrations(c)
+        await _seed_run(c)
+        await c.commit()
+        yield c
+    finally:
+        await c.close()
 
 
 @pytest.fixture

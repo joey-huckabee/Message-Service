@@ -10,6 +10,7 @@ tests focus on the wiring itself.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -121,12 +122,23 @@ max_interval_seconds = 60
 
 
 @pytest.fixture
-async def service(tmp_path: Path) -> Service:
-    """Build a fully-composed Service from a minimal valid config."""
+async def service(tmp_path: Path) -> AsyncIterator[Service]:
+    """Build a fully-composed Service from a minimal valid config.
+
+    Teardown calls :func:`shutdown_service` unconditionally. Both
+    :func:`shutdown_service` itself and its underlying primitives
+    (``scheduler.begin_shutdown``, ``uow_factory.close``) are
+    idempotent, so tests that end with an explicit
+    ``await shutdown_service(service, ...)`` still work — the
+    fixture-level second call is a safe no-op.
+    """
     config_path = _write_config(tmp_path)
     config = load_config(config_path)
     svc = await build_service(config)
-    return svc
+    try:
+        yield svc
+    finally:
+        await shutdown_service(svc, timeout=1.0)
 
 
 # -----------------------------------------------------------------------------

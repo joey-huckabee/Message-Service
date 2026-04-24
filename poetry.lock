@@ -1184,6 +1184,24 @@ files = [
 ]
 
 [[package]]
+name = "message-service-proto"
+version = "0.1.0"
+description = "Protobuf and gRPC stubs for the Message-Service interface."
+optional = false
+python-versions = ">=3.12,<4.0"
+groups = ["main"]
+files = []
+develop = true
+
+[package.dependencies]
+grpcio = "^1.78"
+protobuf = "^6.33"
+
+[package.source]
+type = "directory"
+url = "../Message-Service-Proto"
+
+[[package]]
 name = "mypy"
 version = "1.20.1"
 description = "Optional static typing for Python"
@@ -2393,4 +2411,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "2e108d6ba19b5dd69051a8578a379732e812d174b19d21c7c1d03ae0795e99f0"
+content-hash = "bdc5bce1afe6b3c19cb1751ff5ee7dab9cb9354b509699669af1b363b7225dc8"

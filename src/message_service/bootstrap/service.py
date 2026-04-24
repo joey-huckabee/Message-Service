@@ -37,6 +37,8 @@ from dataclasses import dataclass
 import aiosqlite
 import structlog
 
+from message_service.application.ports.clock import Clock
+from message_service.application.ports.mailer import Mailer
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
@@ -116,11 +118,11 @@ class Service:
     """
 
     config: Config
-    clock: SystemClock
+    clock: Clock
     tag_vocabulary: InMemoryTagVocabulary
     template_repo: InMemoryTemplateRepository
     template_renderer: Jinja2SandboxedTemplateRenderer
-    mailer: AiosmtplibMailer
+    mailer: Mailer
     scheduler: AsyncioBackgroundTaskScheduler
     uow_factory: SqliteUnitOfWorkFactory
     begin_run: BeginRunUseCase

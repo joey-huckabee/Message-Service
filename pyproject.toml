@@ -17,9 +17,7 @@ grpcio-status = "^1.80"
 grpcio-health-checking = "^1.80"
 grpcio-reflection = "^1.80"
 protobuf = "^6.33"
-# message-service-proto is referenced externally; uncomment and set the appropriate
-# source when the proto repo is available.
-# message-service-proto = { git = "ssh://git@<host>/message-service-proto.git", rev = "v0.1.0" }
+message-service-proto = { path = "../message-service-proto", develop = true }
 
 # FastAPI + ASGI
 fastapi = "^0.136"
@@ -118,6 +116,8 @@ module = [
     "grpc_reflection.*",
     "prometheus_client.*",
     "aiosmtplib.*",
+    "google.protobuf.*",
+    "message_service_proto.*",
 ]
 ignore_missing_imports = true
 

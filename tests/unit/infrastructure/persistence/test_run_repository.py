@@ -305,7 +305,7 @@ async def test_list_in_states_empty_input_returns_empty(
 
 
 @pytest.mark.asyncio
-@pytest.mark.requirement("L3-RUN-025")
+@pytest.mark.requirement("L2-SWEEP-004")
 async def test_list_expired_returns_runs_older_than_cutoff_in_active_states(
     repo: SqliteRunRepository, conn: aiosqlite.Connection
 ) -> None:
@@ -338,6 +338,37 @@ async def test_list_expired_returns_runs_older_than_cutoff_in_active_states(
     expired_ids = [r.run_id for r in expired]
     # Only the one both older than cutoff and in an active state.
     assert expired_ids == ["00000000-0000-4000-8000-000000000001"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-004")
+async def test_list_expired_uses_updated_at_not_created_at(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """A run created long ago but with a recent transition SHALL NOT be
+    treated as expired.
+
+    L2-SWEEP-004 mandates the comparison is against ``updated_at``, not
+    ``created_at``. A long-lived run that just transitioned is healthy.
+    """
+    # Created 3 hours ago, but transitioned 30 minutes ago.
+    long_running = _make_run(
+        run_id="00000000-0000-4000-8000-0000000000aa",
+        created_at=_T0 - timedelta(hours=3),
+        updated_at=_T0 - timedelta(minutes=30),
+        state=RunState.AGGREGATING,
+    )
+    await repo.save(long_running)
+    await conn.commit()
+
+    # Cutoff is 1 hour ago — older than created_at but younger than
+    # updated_at. If the SQL used created_at, this run would match.
+    cutoff = _T0 - timedelta(hours=1)
+    expired = await repo.list_expired(
+        cutoff=cutoff,
+        active_states=frozenset({RunState.AGGREGATING}),
+    )
+    assert list(expired) == []
 
 
 @pytest.mark.asyncio

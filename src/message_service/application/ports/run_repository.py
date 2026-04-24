@@ -151,18 +151,26 @@ class RunRepository(ABC):
         cutoff: datetime,
         active_states: frozenset[RunState],
     ) -> Sequence[Run]:
-        """List runs older than ``cutoff`` and still in an active state.
+        """List runs whose last transition is older than ``cutoff``.
+
+        The comparison is against ``updated_at`` (L2-SWEEP-004), so a
+        long-lived run that just transitioned is not treated as
+        expired even if ``created_at`` is older than the cutoff.
 
         Args:
-            cutoff: Runs with ``created_at < cutoff`` AND ``state in
+            cutoff: Runs with ``updated_at < cutoff`` AND ``state in
                 active_states`` are returned. ``cutoff`` is computed by
                 the sweeper as ``clock.now() - run_timeout_seconds``.
+                Per L2-SWEEP-004 the comparison is against the
+                ``last-transition`` timestamp (``updated_at``), not
+                ``created_at``.
             active_states: Typically
                 ``frozenset({RunState.INITIATED, RunState.AGGREGATING,
                 RunState.READY, RunState.SENDING})``.
 
         Returns:
-            A sequence of expired runs. Empty sequence if none.
+            A sequence of expired runs ordered oldest-transition first.
+            Empty sequence if none.
 
         Raises:
             PersistenceError: Infrastructure failure.

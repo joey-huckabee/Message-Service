@@ -109,8 +109,8 @@ SELECT
     tags_json, declared_stages_json, subscription_predicate_tags_json,
     created_at, updated_at
 FROM runs
-WHERE created_at < ? AND state IN ({placeholders})
-ORDER BY created_at ASC
+WHERE updated_at < ? AND state IN ({placeholders})
+ORDER BY updated_at ASC
 """
 
 
@@ -183,7 +183,13 @@ class SqliteRunRepository(RunRepository):
     async def list_expired(
         self, cutoff: datetime, active_states: frozenset[RunState]
     ) -> Sequence[Run]:
-        """List runs with ``created_at < cutoff`` in any active state."""
+        """List runs whose last transition is older than ``cutoff``.
+
+        Per L2-SWEEP-004 the comparison is against ``updated_at``
+        (the "last transition" timestamp), not ``created_at``, so a
+        run that transitions briskly but stalls mid-lifecycle is
+        correctly excluded until its latest transition itself ages out.
+        """
         if not active_states:
             return ()
 

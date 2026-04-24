@@ -22,6 +22,13 @@ repos:
     rev: v1.20.1
     hooks:
       - id: mypy
+        # Run mypy against the full project, not just the staged file
+        # list pre-commit would otherwise forward. Single-file mypy
+        # invocations can't resolve the message_service package because
+        # it lives in src/ and mirrors-mypy runs in an isolated env.
+        # The whole-project run is what matches `poetry run mypy src tests`.
+        pass_filenames: false
+        args: [src, tests, --config-file, pyproject.toml]
         additional_dependencies:
           - pytest
           - pydantic
@@ -35,4 +42,3 @@ repos:
           - jinja2
           - prometheus-client
           - argon2-cffi
-        args: [--config-file, pyproject.toml]

@@ -30,6 +30,7 @@ L3-AGGR-002 (Struct → dict conversion)
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -295,8 +296,18 @@ async def grpc_client(
     try:
         yield stub
     finally:
+        # Order matters for Windows ProactorEventLoop cleanup: close
+        # the client side first so the server sees EOF and can release
+        # its completion-port handles. Then stop the server with
+        # grace=0 (graceful drain already happened via channel close),
+        # then yield control to the event loop so pending cleanup
+        # callbacks run before the test loop shuts down. Without this
+        # final sleep(0), Windows' ProactorEventLoop GC's sockets
+        # during pytest's cleanup stack, producing
+        # PytestUnraisableExceptionWarning.
         await channel.close()
-        await server.stop(grace=1.0)
+        await server.stop(grace=0)
+        await asyncio.sleep(0)
 
 
 # -----------------------------------------------------------------------------

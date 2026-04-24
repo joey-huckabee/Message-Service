@@ -41,9 +41,16 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
     conn = await open_connection(db)
     try:
         applied = await apply_migrations(conn)
-        assert [m.version for m in applied] == [1]
-        # All five domain tables present.
-        for table in ("users", "runs", "stages", "subscriptions", "audit_log"):
+        assert [m.version for m in applied] == [1, 2]
+        # Domain tables from 001 plus the sweeper outbox from 002.
+        for table in (
+            "users",
+            "runs",
+            "stages",
+            "subscriptions",
+            "audit_log",
+            "sweeper_actions",
+        ):
             assert await _table_exists(conn, table)
         # Plus the bookkeeping table.
         assert await _table_exists(conn, "_migrations")
@@ -62,7 +69,155 @@ async def test_reapply_is_noop(tmp_path: Path) -> None:
         second = await apply_migrations(conn)
         assert second == []  # no-op
         # Bookkeeping table records each applied migration exactly once.
-        assert await _applied_versions(conn) == [1]
+        assert await _applied_versions(conn) == [1, 2]
+    finally:
+        await conn.close()
+
+
+# -----------------------------------------------------------------------------
+# 002_sweeper_actions schema details (L3-SWEEP-010)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-010")
+async def test_sweeper_actions_schema_shape(tmp_path: Path) -> None:
+    """The outbox table SHALL have the columns dispatcher logic depends on."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute("PRAGMA table_info(sweeper_actions)") as cur:
+            rows = await cur.fetchall()
+        # PRAGMA table_info: (cid, name, type, notnull, dflt_value, pk)
+        cols = {
+            row[1]: {"type": row[2], "notnull": bool(row[3]), "pk": bool(row[5])} for row in rows
+        }
+        assert set(cols.keys()) == {
+            "action_id",
+            "run_id",
+            "action_name",
+            "enqueued_at",
+            "claimed_at",
+            "completed_at",
+            "attempts",
+            "last_error",
+        }
+        # Primary key + non-null discipline matches the dispatcher contract:
+        # claimed_at/completed_at/last_error are mutated in place over the
+        # row's lifecycle, so they must permit NULL.
+        assert cols["action_id"]["pk"] is True
+        assert cols["run_id"]["notnull"] is True
+        assert cols["action_name"]["notnull"] is True
+        assert cols["enqueued_at"]["notnull"] is True
+        assert cols["claimed_at"]["notnull"] is False
+        assert cols["completed_at"]["notnull"] is False
+        assert cols["last_error"]["notnull"] is False
+        assert cols["attempts"]["notnull"] is True
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-010")
+async def test_sweeper_actions_pending_index_is_partial(tmp_path: Path) -> None:
+    """The dispatcher's claim query relies on a partial index over
+    unclaimed rows; the index SHALL filter on ``claimed_at IS NULL`` so
+    completed rows do not bloat the index."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type='index' AND name='idx_sweeper_actions_pending'"
+        ) as cur:
+            row = await cur.fetchone()
+        assert row is not None, "expected partial index idx_sweeper_actions_pending"
+        sql = row[0]
+        assert "WHERE claimed_at IS NULL" in sql
+        assert "enqueued_at" in sql
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-010")
+async def test_sweeper_actions_check_constraints_block_invalid_writes(
+    tmp_path: Path,
+) -> None:
+    """The CHECK constraints SHALL block: unknown action_name; completed_at
+    set without claimed_at; claimed_at strictly before enqueued_at."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        # Need a parent run for the FK.
+        await conn.execute(
+            "INSERT INTO runs ("
+            "  run_id, pipeline_type, state, attachment_mode, "
+            "  aggregation_template_name, aggregation_template_version, "
+            "  tags_json, declared_stages_json, "
+            "  subscription_predicate_tags_json, created_at, updated_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "00000000-0000-4000-8000-000000000001",
+                "etl-default",
+                "ORPHANED",
+                "PER_STAGE",
+                None,
+                None,
+                "[]",
+                "[]",
+                "[]",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        await conn.commit()
+
+        # Unknown action_name.
+        with pytest.raises(aiosqlite.IntegrityError):
+            await conn.execute(
+                "INSERT INTO sweeper_actions (run_id, action_name, enqueued_at) VALUES (?, ?, ?)",
+                (
+                    "00000000-0000-4000-8000-000000000001",
+                    "DEFINITELY_NOT_AN_ACTION",
+                    "2026-01-01T00:00:00Z",
+                ),
+            )
+        await conn.rollback()
+
+        # completed_at set without claimed_at.
+        with pytest.raises(aiosqlite.IntegrityError):
+            await conn.execute(
+                "INSERT INTO sweeper_actions "
+                "(run_id, action_name, enqueued_at, claimed_at, completed_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    "00000000-0000-4000-8000-000000000001",
+                    "NOTIFY_ADMINS",
+                    "2026-01-01T00:00:00Z",
+                    None,
+                    "2026-01-01T00:00:01Z",
+                ),
+            )
+        await conn.rollback()
+
+        # claimed_at before enqueued_at.
+        with pytest.raises(aiosqlite.IntegrityError):
+            await conn.execute(
+                "INSERT INTO sweeper_actions "
+                "(run_id, action_name, enqueued_at, claimed_at) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    "00000000-0000-4000-8000-000000000001",
+                    "NOTIFY_ADMINS",
+                    "2026-01-01T00:00:05Z",
+                    "2026-01-01T00:00:00Z",
+                ),
+            )
+        await conn.rollback()
     finally:
         await conn.close()
 

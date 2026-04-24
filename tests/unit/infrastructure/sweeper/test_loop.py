@@ -48,7 +48,7 @@ class _StubUseCase:
             exc = self.next_exception
             self.next_exception = None
             raise exc
-        return self.next_result or TickResult(0, 0, 0)
+        return self.next_result or TickResult(orphaned_count=0, enqueued_actions=0)
 
 
 # -----------------------------------------------------------------------------
@@ -221,7 +221,7 @@ async def test_no_orphans_tick_increments_correct_label(
 ) -> None:
     before = _counter_value("no_orphans_found")
 
-    stub_use_case.next_result = TickResult(0, 0, 0)
+    stub_use_case.next_result = TickResult(orphaned_count=0, enqueued_actions=0)
     loop = SweeperLoop(
         use_case=stub_use_case,  # type: ignore[arg-type]
         scheduler=scheduler,
@@ -243,7 +243,7 @@ async def test_orphans_detected_tick_increments_correct_label(
 ) -> None:
     before = _counter_value("orphans_detected")
 
-    stub_use_case.next_result = TickResult(3, 6, 0)
+    stub_use_case.next_result = TickResult(orphaned_count=3, enqueued_actions=6)
     loop = SweeperLoop(
         use_case=stub_use_case,  # type: ignore[arg-type]
         scheduler=scheduler,

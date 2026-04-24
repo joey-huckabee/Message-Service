@@ -81,6 +81,9 @@ from message_service.infrastructure.persistence.stage_repository import (
 from message_service.infrastructure.persistence.subscription_repository import (
     SqliteSubscriptionRepository,
 )
+from message_service.infrastructure.persistence.sweeper_action_repository import (
+    SqliteSweeperActionRepository,
+)
 from message_service.infrastructure.persistence.unit_of_work import (
     SqliteUnitOfWorkFactory,
 )
@@ -212,6 +215,7 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         stage_repo_factory=lambda c: SqliteStageRepository(c),
         subscription_repo_factory=lambda c: SqliteSubscriptionRepository(c, clock=clock),
         audit_log_factory=lambda c: SqliteAuditLog(c),
+        sweeper_action_repo_factory=lambda c: SqliteSweeperActionRepository(c),
     )
 
     assemble = AssembleAndDeliverUseCase(

@@ -17,23 +17,27 @@ Per-tick logic:
       concurrent request-handler transaction).
    b. Transition state to ``ORPHANED``.
    c. Record a ``SWEEP_ORPHAN`` audit event.
-   d. Commit.
+   d. Insert one ``sweeper_actions`` outbox row per configured
+      disposition action (L3-SWEEP-010), in configured order
+      (L2-SWEEP-009 / L3-SWEEP-015), inside the same transaction.
+   e. Commit.
 
-4. After the commit, dispatch to each registered disposition handler
-   whose identifier appears in the configured policy list, in
-   config-file order (L2-SWEEP-009).
+The handler invocation lives elsewhere: a separate dispatcher loop
+(arrives in 14b.3) claims pending outbox rows and runs the registered
+:class:`DispositionHandler` for each. That two-phase split is what
+gives **L2-SWEEP-006** its exactly-once contract: a crash anywhere
+between enqueue and dispatch leaves a recoverable record on disk.
 
-Handler failures are logged but do not roll back the ORPHANED
-transition — once committed, the run IS orphaned regardless of
-whether notifications succeed.
-
-L2-SWEEP-006 requires transition + audit to be atomic: they share
-a single UoW, so either both persist or neither does.
+The use case still receives the handlers map at construction so it
+can validate at startup that every configured action id has a
+registered handler (L3-SWEEP-012); the runtime path uses only the
+keys.
 
 Requirement references
 ----------------------
 L1-SWEEP-001, L1-SWEEP-002, L1-SWEEP-003
 L2-SWEEP-004, L2-SWEEP-005, L2-SWEEP-006, L2-SWEEP-008, L2-SWEEP-009
+L3-SWEEP-009 (atomic transition), L3-SWEEP-010 (outbox enqueue)
 """
 
 from __future__ import annotations
@@ -88,17 +92,15 @@ class TickResult:
     Attributes:
         orphaned_count: Number of runs transitioned to ORPHANED this
             tick. Zero when no orphans were found.
-        dispatched_actions: Total disposition-handler invocations
+        enqueued_actions: Total ``sweeper_actions`` rows inserted
             across all orphaned runs. Equals
-            ``orphaned_count * len(disposition_actions)`` in the
-            nominal case; lower if any handlers raised.
-        handler_failures: Count of disposition-handler invocations
-            that raised. Useful for alerting.
+            ``orphaned_count * len(disposition_actions)`` exactly —
+            inserts that fail roll back the entire orphan transaction
+            for that run, so partial counts cannot occur.
     """
 
     orphaned_count: int
-    dispatched_actions: int
-    handler_failures: int
+    enqueued_actions: int
 
 
 class SweeperUseCase:
@@ -180,11 +182,7 @@ class SweeperUseCase:
 
         if not candidates:
             _log.debug("sweeper_tick_no_orphans")
-            return TickResult(
-                orphaned_count=0,
-                dispatched_actions=0,
-                handler_failures=0,
-            )
+            return TickResult(orphaned_count=0, enqueued_actions=0)
 
         _log.info(
             "sweeper_tick_found_orphans",
@@ -193,39 +191,39 @@ class SweeperUseCase:
         )
 
         orphaned_count = 0
-        dispatched_actions = 0
-        handler_failures = 0
+        enqueued_actions = 0
 
         for candidate in candidates:
-            committed = await self._transition_and_audit(candidate.run_id)
+            committed = await self._transition_audit_and_enqueue(candidate.run_id)
             if not committed:
                 # Either the run was no longer present, or a concurrent
                 # transaction finalized it first. Either way nothing
                 # to do.
                 continue
             orphaned_count += 1
-
-            # Dispatch AFTER commit (L2-SWEEP-006's atomic transition
-            # contract covers the ORPHANED write; handler invocations
-            # are best-effort beyond that boundary).
-            d, f = await self._dispatch_handlers(candidate)
-            dispatched_actions += d
-            handler_failures += f
+            enqueued_actions += len(self._disposition_actions)
 
         return TickResult(
             orphaned_count=orphaned_count,
-            dispatched_actions=dispatched_actions,
-            handler_failures=handler_failures,
+            enqueued_actions=enqueued_actions,
         )
 
     # -- Helpers ------------------------------------------------------------
 
-    async def _transition_and_audit(self, run_id: RunId) -> bool:
-        """Transition ``run_id`` to ORPHANED + record audit in one UoW.
+    async def _transition_audit_and_enqueue(self, run_id: RunId) -> bool:
+        """Transition + audit + outbox enqueue in one UoW (L2-SWEEP-006).
 
-        Returns ``True`` if the transition committed, ``False`` if the
+        Three writes share a single transaction so they commit together
+        or roll back together:
+
+        * ``runs.state`` updated to ``ORPHANED``
+        * ``audit_log`` row recording ``SWEEP_ORPHAN``
+        * One ``sweeper_actions`` row per configured disposition action
+
+        Returns ``True`` if the transaction committed, ``False`` if the
         run was not in an eligible state (concurrent finalizer won,
-        or the run disappeared entirely).
+        or the run disappeared entirely). Ineligible cases are
+        unrecoverable for this tick, not errors.
         """
         async with self._uow_factory() as uow:
             try:
@@ -267,36 +265,22 @@ class SweeperUseCase:
                     "prior_state": prior_state.value,
                     "new_state": next_state.value,
                     "last_transition_at": run.updated_at.isoformat(),
+                    "enqueued_actions": list(self._disposition_actions),
                 },
             )
             await uow.audit_log.record(audit_event)
-            return True
 
-    async def _dispatch_handlers(self, run: Run) -> tuple[int, int]:
-        """Invoke each configured handler in order.
-
-        Returns ``(dispatched_count, failure_count)``. A handler that
-        raises counts toward the failure total but does not stop
-        dispatch of subsequent handlers — each action is independent.
-        """
-        dispatched = 0
-        failures = 0
-
-        for action_id in self._disposition_actions:
-            handler = self._handlers[action_id]
-            try:
-                await handler.handle(run)
-                dispatched += 1
-            except Exception as exc:
-                failures += 1
-                _log.error(
-                    "sweeper_disposition_handler_failed",
-                    run_id=str(run.run_id),
-                    action=action_id,
-                    error=str(exc),
-                    exc_info=True,
+            # Outbox enqueue, in configured order (L2-SWEEP-009 /
+            # L3-SWEEP-015). The dispatcher reads back rows ordered by
+            # enqueued_at; same-timestamp rows are then ordered by
+            # action_id (auto-increment) which mirrors insert order.
+            for action_id in self._disposition_actions:
+                await uow.sweeper_action_repo.enqueue(
+                    run_id=run_id,
+                    action_name=action_id,
+                    enqueued_at=now,
                 )
-        return dispatched, failures
+            return True
 
 
 __all__ = ["SweeperUseCase", "TickResult"]

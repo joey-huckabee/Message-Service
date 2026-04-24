@@ -156,8 +156,7 @@ class SweeperLoop:
                 "sweeper_tick_completed",
                 outcome=outcome,
                 orphaned_count=result.orphaned_count,
-                dispatched_actions=result.dispatched_actions,
-                handler_failures=result.handler_failures,
+                enqueued_actions=result.enqueued_actions,
             )
         else:
             _log.debug("sweeper_tick_completed", outcome=outcome)

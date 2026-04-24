@@ -24,6 +24,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import aiosqlite
 import pytest
 
 from message_service.bootstrap import Service, build_service, shutdown_service
@@ -234,11 +235,12 @@ async def test_fresh_run_is_not_swept(service: Service) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-009")
-async def test_disposition_handlers_invoked_in_config_order(
+async def test_disposition_actions_enqueued_in_config_order(
     service: Service,
 ) -> None:
-    """Orphan sweeping SHALL invoke configured handlers; they run without
-    error for the two v1 handlers (``NOTIFY_ADMINS``, ``DISCARD_SILENTLY``)."""
+    """Orphan sweeping SHALL enqueue one ``sweeper_actions`` row per
+    configured action, in configured order. Handler invocation is the
+    dispatcher's job (14b.3) and is not asserted here."""
     stale = _make_stale_run(
         run_id="00000000-0000-4000-8000-0000000000cc",
         staleness_seconds=300,
@@ -249,6 +251,24 @@ async def test_disposition_handlers_invoked_in_config_order(
     result = await service.sweeper.tick()
 
     # Config has ["NOTIFY_ADMINS", "DISCARD_SILENTLY"] — both are
-    # v1 real handlers and both should dispatch cleanly.
-    assert result.dispatched_actions == 2
-    assert result.handler_failures == 0
+    # registered, so both should enqueue cleanly.
+    assert result.orphaned_count == 1
+    assert result.enqueued_actions == 2
+
+    # Verify the outbox shape: one pending row per action, in order.
+    # A fresh aiosqlite connection avoids reaching into the UoW's
+    # private connection attribute.
+    side_conn = await aiosqlite.connect(service.config.persistence.sqlite_path)
+    try:
+        async with side_conn.execute(
+            "SELECT action_name, claimed_at, completed_at "
+            "FROM sweeper_actions WHERE run_id = ? ORDER BY action_id",
+            (str(stale.run_id),),
+        ) as cur:
+            rows = await cur.fetchall()
+    finally:
+        await side_conn.close()
+    assert [r[0] for r in rows] == ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+    for _, claimed_at, completed_at in rows:
+        assert claimed_at is None
+        assert completed_at is None

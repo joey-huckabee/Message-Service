@@ -17,6 +17,7 @@ import pytest
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.disposition_handler import DispositionHandler
 from message_service.application.use_cases.sweeper import SweeperUseCase, TickResult
+from message_service.config.schema import DispositionAction
 from message_service.domain.aggregates.audit_event import AuditAction
 from message_service.domain.aggregates.declared_stage import DeclaredStage
 from message_service.domain.aggregates.run import AttachmentMode, Run
@@ -33,6 +34,9 @@ from message_service.infrastructure.persistence.stage_repository import (
 )
 from message_service.infrastructure.persistence.subscription_repository import (
     SqliteSubscriptionRepository,
+)
+from message_service.infrastructure.persistence.sweeper_action_repository import (
+    SqliteSweeperActionRepository,
 )
 from message_service.infrastructure.persistence.unit_of_work import (
     SqliteUnitOfWorkFactory,
@@ -109,6 +113,7 @@ def uow_factory(sqlite_conn: aiosqlite.Connection, clock: _FixedClock) -> Sqlite
         stage_repo_factory=lambda c: SqliteStageRepository(c),
         subscription_repo_factory=lambda c: SqliteSubscriptionRepository(c, clock=clock),
         audit_log_factory=lambda c: SqliteAuditLog(c),
+        sweeper_action_repo_factory=lambda c: SqliteSweeperActionRepository(c),
     )
 
 
@@ -164,7 +169,7 @@ async def test_tick_with_empty_repo_returns_zero_counts(
         handlers_by_id={},
     )
     result = await sweeper.tick()
-    assert result == TickResult(0, 0, 0)
+    assert result == TickResult(orphaned_count=0, enqueued_actions=0)
 
 
 @pytest.mark.asyncio
@@ -316,50 +321,77 @@ async def test_tick_sweeps_multiple_runs_independently(
 
 
 # -----------------------------------------------------------------------------
-# Handler dispatch order + invocation
+# Outbox enqueue (L2-SWEEP-006, L3-SWEEP-010)
 # -----------------------------------------------------------------------------
 
 
+async def _outbox_rows(
+    sqlite_conn: aiosqlite.Connection, run_id: str
+) -> list[tuple[str, str | None, str | None]]:
+    """Return ``(action_name, claimed_at, completed_at)`` for the run's rows
+    in insert order."""
+    async with sqlite_conn.execute(
+        "SELECT action_name, claimed_at, completed_at "
+        "FROM sweeper_actions WHERE run_id = ? ORDER BY action_id",
+        (run_id,),
+    ) as cur:
+        rows = await cur.fetchall()
+    return [(r[0], r[1], r[2]) for r in rows]
+
+
 @pytest.mark.asyncio
-@pytest.mark.requirement("L2-SWEEP-009")
-async def test_handlers_dispatched_in_config_order(
+@pytest.mark.requirement("L3-SWEEP-010")
+async def test_actions_enqueued_in_config_order(
     uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
     clock: _FixedClock,
 ) -> None:
-    """Handlers SHALL be invoked in the order they appear in the configured list."""
+    """One outbox row per configured action, inserted in configured order
+    (L2-SWEEP-009 / L3-SWEEP-015), all in the pending state (claimed_at /
+    completed_at NULL)."""
+    run_id = "00000000-0000-4000-8000-00000000000a"
     await _seed_run(
         uow_factory,
         _make_run(
-            run_id="00000000-0000-4000-8000-00000000000a",
+            run_id=run_id,
             state=RunState.AGGREGATING,
             created_at=_T0 - timedelta(hours=3),
             updated_at=_T0 - timedelta(hours=2),
         ),
     )
 
-    call_log: list[tuple[str, str]] = []
-    h_a = _RecordingHandler("NOTIFY_ADMINS", call_log)
-    h_b = _RecordingHandler("DISCARD_SILENTLY", call_log)
-
     sweeper = SweeperUseCase(
         uow_factory=uow_factory,
         clock=clock,
         run_timeout_seconds=3600,
         disposition_actions=["NOTIFY_ADMINS", "DISCARD_SILENTLY"],
-        handlers_by_id={"NOTIFY_ADMINS": h_a, "DISCARD_SILENTLY": h_b},
+        handlers_by_id={
+            "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", []),
+            "DISCARD_SILENTLY": _RecordingHandler("DISCARD_SILENTLY", []),
+        },
     )
     result = await sweeper.tick()
 
-    assert result.dispatched_actions == 2
-    assert [action for action, _ in call_log] == ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+    assert result.orphaned_count == 1
+    assert result.enqueued_actions == 2
+
+    rows = await _outbox_rows(sqlite_conn, run_id)
+    assert [r[0] for r in rows] == ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+    # All pending: claimed_at and completed_at NULL.
+    for _, claimed_at, completed_at in rows:
+        assert claimed_at is None
+        assert completed_at is None
 
 
 @pytest.mark.asyncio
-async def test_handler_failure_does_not_stop_later_handlers(
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_handlers_are_not_invoked_in_tick(
     uow_factory: SqliteUnitOfWorkFactory,
     clock: _FixedClock,
 ) -> None:
-    """If one handler raises, subsequent handlers SHALL still be invoked."""
+    """The tick path SHALL NOT invoke disposition handlers — that work is
+    deferred to the outbox dispatcher (14b.3). A handler instance passed
+    into the constructor MUST never have ``handle`` called from a tick."""
     await _seed_run(
         uow_factory,
         _make_run(
@@ -371,31 +403,36 @@ async def test_handler_failure_does_not_stop_later_handlers(
     )
 
     call_log: list[tuple[str, str]] = []
-    h_fail = _RecordingHandler("NOTIFY_ADMINS", call_log, should_raise=True)
-    h_ok = _RecordingHandler("DISCARD_SILENTLY", call_log)
-
     sweeper = SweeperUseCase(
         uow_factory=uow_factory,
         clock=clock,
         run_timeout_seconds=3600,
         disposition_actions=["NOTIFY_ADMINS", "DISCARD_SILENTLY"],
-        handlers_by_id={"NOTIFY_ADMINS": h_fail, "DISCARD_SILENTLY": h_ok},
+        handlers_by_id={
+            "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", call_log),
+            "DISCARD_SILENTLY": _RecordingHandler("DISCARD_SILENTLY", call_log),
+        },
     )
-    result = await sweeper.tick()
+    await sweeper.tick()
 
-    assert result.orphaned_count == 1
-    assert result.dispatched_actions == 1
-    assert result.handler_failures == 1
-    # Both handlers were called, even though the first raised.
-    assert len(call_log) == 2
+    assert call_log == []
 
 
 @pytest.mark.asyncio
-async def test_handler_failure_does_not_roll_back_orphan_transition(
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_failed_enqueue_rolls_back_orphan_transition(
     uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
     clock: _FixedClock,
 ) -> None:
-    """Even when a handler raises, the ORPHANED transition SHALL remain committed."""
+    """If an outbox insert fails inside the orphan UoW, the entire
+    transaction (transition + audit + earlier action rows) SHALL roll back.
+
+    Simulated by passing an action_name that the DB CHECK constraint
+    rejects. The constructor's startup validation passes because the
+    handler is registered; the failure happens at INSERT time inside the
+    UoW. Exactly-once requires this to leave NO partial state behind.
+    """
     run = _make_run(
         run_id="00000000-0000-4000-8000-00000000000c",
         state=RunState.AGGREGATING,
@@ -404,32 +441,42 @@ async def test_handler_failure_does_not_roll_back_orphan_transition(
     )
     await _seed_run(uow_factory, run)
 
-    call_log: list[tuple[str, str]] = []
-    h_fail = _RecordingHandler("NOTIFY_ADMINS", call_log, should_raise=True)
+    bogus: DispositionAction = "DEFINITELY_NOT_AN_ACTION"  # type: ignore[assignment]
     sweeper = SweeperUseCase(
         uow_factory=uow_factory,
         clock=clock,
         run_timeout_seconds=3600,
-        disposition_actions=["NOTIFY_ADMINS"],
-        handlers_by_id={"NOTIFY_ADMINS": h_fail},
+        disposition_actions=[bogus],
+        handlers_by_id={bogus: _RecordingHandler("ignored", [])},
     )
-    await sweeper.tick()
+    with pytest.raises(Exception):  # noqa: B017 — aiosqlite.IntegrityError or wrapped variant
+        await sweeper.tick()
 
+    # ORPHANED transition rolled back: run is still in its pre-sweep state.
     async with uow_factory() as uow:
         reloaded = await uow.run_repo.get(run.run_id)
-    assert reloaded.state is RunState.ORPHANED
+    assert reloaded.state is RunState.AGGREGATING
+    # No audit row written.
+    async with uow_factory() as uow:
+        events = await uow.audit_log.query(action=AuditAction.SWEEP_ORPHAN)
+    assert events == []
+    # No outbox rows persisted.
+    rows = await _outbox_rows(sqlite_conn, str(run.run_id))
+    assert rows == []
 
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-SWEEP-011")
 async def test_empty_disposition_actions_still_transitions_to_orphaned(
     uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
     clock: _FixedClock,
 ) -> None:
     """Empty ``disposition_actions`` is permitted (L3-SWEEP-011).
 
-    The orphaned run still gets the state transition; no handlers are
-    dispatched. Equivalent in effect to a single ``DISCARD_SILENTLY``.
+    The orphaned run still gets the state transition and audit; no
+    outbox rows are written. Equivalent in effect to a single
+    ``DISCARD_SILENTLY``.
     """
     run = _make_run(
         run_id="00000000-0000-4000-8000-00000000000d",
@@ -449,12 +496,14 @@ async def test_empty_disposition_actions_still_transitions_to_orphaned(
     result = await sweeper.tick()
 
     assert result.orphaned_count == 1
-    assert result.dispatched_actions == 0
-    assert result.handler_failures == 0
+    assert result.enqueued_actions == 0
 
     async with uow_factory() as uow:
         reloaded = await uow.run_repo.get(run.run_id)
     assert reloaded.state is RunState.ORPHANED
+
+    rows = await _outbox_rows(sqlite_conn, str(run.run_id))
+    assert rows == []
 
 
 # -----------------------------------------------------------------------------

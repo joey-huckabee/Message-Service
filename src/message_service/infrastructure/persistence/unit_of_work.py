@@ -42,6 +42,9 @@ from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import (
     SubscriptionRepository,
 )
+from message_service.application.ports.sweeper_action_repository import (
+    SweeperActionRepository,
+)
 from message_service.application.ports.unit_of_work import UnitOfWork
 from message_service.domain.errors import PersistenceError
 
@@ -56,6 +59,7 @@ RunRepoFactory = Callable[[aiosqlite.Connection], RunRepository]
 StageRepoFactory = Callable[[aiosqlite.Connection], StageRepository]
 SubscriptionRepoFactory = Callable[[aiosqlite.Connection], SubscriptionRepository]
 AuditLogFactory = Callable[[aiosqlite.Connection], AuditLog]
+SweeperActionRepoFactory = Callable[[aiosqlite.Connection], SweeperActionRepository]
 
 
 class SqliteUnitOfWork(UnitOfWork):
@@ -73,8 +77,9 @@ class SqliteUnitOfWork(UnitOfWork):
         stage_repo_factory: StageRepoFactory,
         subscription_repo_factory: SubscriptionRepoFactory,
         audit_log_factory: AuditLogFactory,
+        sweeper_action_repo_factory: SweeperActionRepoFactory,
     ) -> None:
-        """Construct with a live connection and the four repo factories.
+        """Construct with a live connection and the five repo factories.
 
         Args:
             conn: Shared :class:`aiosqlite.Connection`. This UoW will
@@ -85,12 +90,15 @@ class SqliteUnitOfWork(UnitOfWork):
             subscription_repo_factory: Same for
                 :class:`SubscriptionRepository`.
             audit_log_factory: Same for :class:`AuditLog`.
+            sweeper_action_repo_factory: Same for
+                :class:`SweeperActionRepository`.
         """
         self._conn = conn
         self._run_repo_factory = run_repo_factory
         self._stage_repo_factory = stage_repo_factory
         self._subscription_repo_factory = subscription_repo_factory
         self._audit_log_factory = audit_log_factory
+        self._sweeper_action_repo_factory = sweeper_action_repo_factory
         self._entered: bool = False
         self._finalized: bool = False
 
@@ -123,6 +131,7 @@ class SqliteUnitOfWork(UnitOfWork):
         self.stage_repo = self._stage_repo_factory(self._conn)
         self.subscription_repo = self._subscription_repo_factory(self._conn)
         self.audit_log = self._audit_log_factory(self._conn)
+        self.sweeper_action_repo = self._sweeper_action_repo_factory(self._conn)
         return self
 
     async def __aexit__(
@@ -240,6 +249,7 @@ class SqliteUnitOfWorkFactory:
         stage_repo_factory: StageRepoFactory,
         subscription_repo_factory: SubscriptionRepoFactory,
         audit_log_factory: AuditLogFactory,
+        sweeper_action_repo_factory: SweeperActionRepoFactory,
     ) -> None:
         """Construct with the shared connection and repo factories."""
         self._conn = conn
@@ -247,6 +257,7 @@ class SqliteUnitOfWorkFactory:
         self._stage_repo_factory = stage_repo_factory
         self._subscription_repo_factory = subscription_repo_factory
         self._audit_log_factory = audit_log_factory
+        self._sweeper_action_repo_factory = sweeper_action_repo_factory
 
     def __call__(self) -> SqliteUnitOfWork:
         """Produce a fresh UoW bound to the shared connection."""
@@ -256,6 +267,7 @@ class SqliteUnitOfWorkFactory:
             stage_repo_factory=self._stage_repo_factory,
             subscription_repo_factory=self._subscription_repo_factory,
             audit_log_factory=self._audit_log_factory,
+            sweeper_action_repo_factory=self._sweeper_action_repo_factory,
         )
 
     async def close(self) -> None:
@@ -275,4 +287,5 @@ __all__ = [
     "SqliteUnitOfWorkFactory",
     "StageRepoFactory",
     "SubscriptionRepoFactory",
+    "SweeperActionRepoFactory",
 ]

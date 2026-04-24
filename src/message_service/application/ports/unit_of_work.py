@@ -57,6 +57,9 @@ from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.run_repository import RunRepository
 from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import SubscriptionRepository
+from message_service.application.ports.sweeper_action_repository import (
+    SweeperActionRepository,
+)
 
 
 class UnitOfWork(ABC):
@@ -82,12 +85,17 @@ class UnitOfWork(ABC):
             :class:`AssembleAndDeliverUseCase` for recipient resolution
             (L1-SUB-004).
         audit_log: :class:`AuditLog` scoped to this transaction.
+        sweeper_action_repo: :class:`SweeperActionRepository` scoped to
+            this transaction. Used by :class:`SweeperUseCase` to enqueue
+            disposition outbox rows in the same transaction as the
+            ORPHANED transition (L2-SWEEP-006).
     """
 
     run_repo: RunRepository
     stage_repo: StageRepository
     subscription_repo: SubscriptionRepository
     audit_log: AuditLog
+    sweeper_action_repo: SweeperActionRepository
 
     @abstractmethod
     async def __aenter__(self) -> Self:

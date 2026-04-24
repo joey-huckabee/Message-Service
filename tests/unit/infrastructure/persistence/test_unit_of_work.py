@@ -42,6 +42,7 @@ async def factory(
         stage_repo_factory=lambda c: MagicMock(),
         subscription_repo_factory=lambda c: MagicMock(),
         audit_log_factory=lambda c: MagicMock(),
+        sweeper_action_repo_factory=lambda c: MagicMock(),
     )
     try:
         yield uow_factory

@@ -21,6 +21,7 @@ from message_service.domain.aggregates.audit_event import AuditAction
 from message_service.domain.aggregates.declared_stage import DeclaredStage
 from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.domain.errors import ConfigurationError
 from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import RunState
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
@@ -428,7 +429,7 @@ def test_constructor_rejects_action_without_registered_handler(
     uow_factory: SqliteUnitOfWorkFactory,
     clock: _FixedClock,
 ) -> None:
-    with pytest.raises(ValueError, match="no handler registered"):
+    with pytest.raises(ConfigurationError, match="no handler registered") as exc_info:
         SweeperUseCase(
             uow_factory=uow_factory,
             clock=clock,
@@ -436,3 +437,5 @@ def test_constructor_rejects_action_without_registered_handler(
             disposition_actions=["SEND_PARTIAL_FLAGGED"],
             handlers_by_id={},  # no handler for SEND_PARTIAL_FLAGGED
         )
+    assert exc_info.value.details["missing_actions"] == ["SEND_PARTIAL_FLAGGED"]
+    assert exc_info.value.details["registered_actions"] == []

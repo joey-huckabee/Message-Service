@@ -1,36 +1,28 @@
-"""Stub :class:`DispositionHandler` implementations for v1.
+""":class:`DispositionHandler` implementations for v1.
 
-These implementations satisfy the :class:`DispositionHandler`
-interface for all four configured actions but defer the actual
-behavior for two of them (``SEND_PARTIAL_FLAGGED`` and
-``NOTIFY_SUBSCRIBERS``) to a later increment, since those require
-reusing the :class:`AssembleAndDeliverUseCase` machinery with a
-"this report is partial" marker — a design discussion we want to
-have on its own turn rather than bundle into the sweeper plumbing.
+The two implemented handlers below cover the action ids that bootstrap
+registers and that ``config.sweeper.disposition_actions`` may safely
+reference today:
 
-Implementations provided:
-
-* :class:`DiscardSilentlyHandler` — real. Drops the run on the
-  floor; the ORPHANED state transition is the entire story. The
-  sweeper's audit event from the ORPHAN transition serves as the
-  record.
+* :class:`DiscardSilentlyHandler` — drops the run on the floor; the
+  ORPHANED state transition is the entire story. The sweeper's audit
+  event from the ORPHAN transition serves as the record.
 * :class:`NotifyAdminsHandler` — log-only v1. Emits a structured
   ``sweeper_admin_notification`` log entry at WARNING level with the
-  run id, prior state, and tags. Deployments that aggregate logs
-  can alert on the event; a future increment can add real
-  out-of-band admin mail or webhook dispatch.
+  run id, prior state, and tags. Deployments that aggregate logs can
+  alert on the event; a future increment can add real out-of-band
+  admin mail or webhook dispatch.
 
-Deferred handlers — raising :class:`NotImplementedError` so the
-sweeper use case's validation catches any config that references
-them before runtime:
-
-* :class:`SendPartialFlaggedHandler` — reuses AssembleAndDeliver
-  with an ``is_partial`` flag baked into the email body context.
-* :class:`NotifySubscribersHandler` — sends an out-of-band "your
-  subscribed run orphaned" note to the run's subscribed users.
-
-When Joey is ready to implement the deferred ones, these two
-classes become the target files to flesh out.
+Two action ids in the :data:`~message_service.config.schema.DispositionAction`
+literal — ``SEND_PARTIAL_FLAGGED`` and ``NOTIFY_SUBSCRIBERS`` — are
+deliberately not registered. Configs that reference them are rejected
+by :class:`~message_service.application.use_cases.sweeper.SweeperUseCase`'s
+constructor at startup (raises
+:class:`~message_service.domain.errors.ConfigurationError`), surfacing
+the misconfiguration loud-and-early rather than at first orphan. When a
+later increment implements those actions, add the corresponding handler
+classes here and register them in
+:func:`message_service.bootstrap.service.build_service`.
 
 Requirement references
 ----------------------
@@ -88,43 +80,26 @@ class NotifyAdminsHandler(DispositionHandler):
         )
 
 
-class SendPartialFlaggedHandler(DispositionHandler):
-    """Placeholder for the partial-report delivery handler.
+def build_disposition_handler_registry() -> dict[DispositionAction, DispositionHandler]:
+    """Return the registry of action ids to implemented handlers.
 
-    Deferred to a subsequent increment. Raising rather than silently
-    no-op'ing so misconfiguration is loud.
+    Single source of truth for which :data:`DispositionAction` identifiers
+    are actually runnable in this build. :func:`message_service.bootstrap.
+    service.build_service` consumes the result directly; the
+    :class:`SweeperUseCase` constructor uses the keys to reject configs
+    that reference unimplemented actions at startup.
+
+    A new dict is returned on each call so callers can mutate without
+    affecting subsequent constructions.
     """
-
-    action_id: ClassVar[DispositionAction] = "SEND_PARTIAL_FLAGGED"
-
-    async def handle(self, run: Run) -> None:  # noqa: D102
-        raise NotImplementedError(
-            "SEND_PARTIAL_FLAGGED disposition is not yet implemented; "
-            "remove it from sweeper.disposition_actions or await the "
-            "next increment."
-        )
-
-
-class NotifySubscribersHandler(DispositionHandler):
-    """Placeholder for the subscribers-orphan-notification handler.
-
-    Deferred to a subsequent increment. Raising rather than silently
-    no-op'ing so misconfiguration is loud.
-    """
-
-    action_id: ClassVar[DispositionAction] = "NOTIFY_SUBSCRIBERS"
-
-    async def handle(self, run: Run) -> None:  # noqa: D102
-        raise NotImplementedError(
-            "NOTIFY_SUBSCRIBERS disposition is not yet implemented; "
-            "remove it from sweeper.disposition_actions or await the "
-            "next increment."
-        )
+    return {
+        "DISCARD_SILENTLY": DiscardSilentlyHandler(),
+        "NOTIFY_ADMINS": NotifyAdminsHandler(),
+    }
 
 
 __all__ = [
     "DiscardSilentlyHandler",
     "NotifyAdminsHandler",
-    "NotifySubscribersHandler",
-    "SendPartialFlaggedHandler",
+    "build_disposition_handler_registry",
 ]

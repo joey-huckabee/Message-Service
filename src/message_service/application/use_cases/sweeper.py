@@ -51,6 +51,7 @@ from message_service.domain.aggregates.audit_event import (
     AuditOutcome,
 )
 from message_service.domain.errors import (
+    ConfigurationError,
     InvalidStateTransitionError,
     RunNotFoundError,
 )
@@ -133,12 +134,20 @@ class SweeperUseCase:
                 bootstrap.
 
         Raises:
-            ValueError: ``disposition_actions`` contains an identifier
-                for which no handler is registered.
+            ConfigurationError: ``disposition_actions`` contains an
+                identifier for which no handler is registered. Surfaces
+                at bootstrap time so misconfiguration fails loud-and-early
+                rather than per-orphan at runtime (cf. L3-SWEEP-012).
         """
         missing = [a for a in disposition_actions if a not in handlers_by_id]
         if missing:
-            raise ValueError(f"no handler registered for disposition action(s): {missing}")
+            raise ConfigurationError(
+                f"no handler registered for disposition action(s): {missing}",
+                details={
+                    "missing_actions": list(missing),
+                    "registered_actions": sorted(handlers_by_id.keys()),
+                },
+            )
         self._uow_factory = uow_factory
         self._clock = clock
         self._run_timeout = timedelta(seconds=run_timeout_seconds)

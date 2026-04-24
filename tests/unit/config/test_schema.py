@@ -216,11 +216,11 @@ def test_sweeper_disposition_rejects_unknown_action(tmp_path: Path) -> None:
 @pytest.mark.requirement("L2-SWEEP-007")
 def test_sweeper_disposition_accepts_multiple_actions(tmp_path: Path) -> None:
     data = _minimal_valid_data(tmp_path)
-    data["sweeper"] = {"disposition_actions": ["SEND_PARTIAL_FLAGGED", "NOTIFY_ADMINS"]}
+    data["sweeper"] = {"disposition_actions": ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]}
     cfg = Config.model_validate(data)
     assert cfg.sweeper.disposition_actions == [
-        "SEND_PARTIAL_FLAGGED",
         "NOTIFY_ADMINS",
+        "DISCARD_SILENTLY",
     ]
 
 

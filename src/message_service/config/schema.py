@@ -182,7 +182,14 @@ class SweeperConfig(_FrozenForbid):
     run_timeout_seconds: int = Field(default=3_600, ge=1)
     poll_interval_seconds: int = Field(default=60, ge=1)
     disposition_actions: list[DispositionAction] = Field(
-        default_factory=lambda: ["SEND_PARTIAL_FLAGGED", "NOTIFY_ADMINS"],  # type: ignore[arg-type]
+        # The default SHALL only reference action ids that bootstrap actually
+        # registers a handler for; otherwise a service started with the
+        # shipped default would fail at first orphan. The two deferred
+        # actions (SEND_PARTIAL_FLAGGED, NOTIFY_SUBSCRIBERS) remain valid
+        # identifiers in the Literal above so that operators can opt in
+        # later without a schema change, but referencing them today raises
+        # ConfigurationError at startup (see SweeperUseCase.__init__).
+        default_factory=lambda: ["NOTIFY_ADMINS", "DISCARD_SILENTLY"],  # type: ignore[arg-type]
         min_length=1,
     )
 

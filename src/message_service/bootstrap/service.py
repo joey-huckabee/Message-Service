@@ -69,10 +69,7 @@ from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
 )
 from message_service.infrastructure.sweeper.handlers import (
-    DiscardSilentlyHandler,
-    NotifyAdminsHandler,
-    NotifySubscribersHandler,
-    SendPartialFlaggedHandler,
+    build_disposition_handler_registry,
 )
 from message_service.infrastructure.sweeper.loop import SweeperLoop
 from message_service.infrastructure.tags.vocabulary_loader import (
@@ -263,17 +260,18 @@ async def build_service(config: Config) -> Service:
         background_task_factory=lambda run_id: assemble_and_deliver.execute(run_id),
     )
 
-    # 9. Sweeper. The handlers are registered by DispositionAction id
-    # — a table of every available action — but only those appearing
-    # in ``config.sweeper.disposition_actions`` are invoked. The
-    # SweeperUseCase constructor validates that every configured
-    # action has a matching handler.
-    handlers_by_id: dict[DispositionAction, DispositionHandler] = {
-        "DISCARD_SILENTLY": DiscardSilentlyHandler(),
-        "NOTIFY_ADMINS": NotifyAdminsHandler(),
-        "SEND_PARTIAL_FLAGGED": SendPartialFlaggedHandler(),
-        "NOTIFY_SUBSCRIBERS": NotifySubscribersHandler(),
-    }
+    # 9. Sweeper. The registry from infrastructure/sweeper/handlers.py
+    # lists only the action ids whose handlers are actually implemented;
+    # ``SEND_PARTIAL_FLAGGED`` and ``NOTIFY_SUBSCRIBERS`` are still valid
+    # identifiers in the ``DispositionAction`` literal but referencing
+    # them in ``config.sweeper.disposition_actions`` causes the
+    # ``SweeperUseCase`` constructor to raise ``ConfigurationError`` at
+    # startup. That fail-loud-early posture replaces the previous
+    # placeholder handlers that raised ``NotImplementedError`` per
+    # orphan at runtime.
+    handlers_by_id: dict[DispositionAction, DispositionHandler] = (
+        build_disposition_handler_registry()
+    )
     sweeper = SweeperUseCase(
         uow_factory=uow_factory,
         clock=clock,

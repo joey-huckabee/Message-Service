@@ -44,7 +44,7 @@ vocabulary_path = "./config/tags.toml"
 run_timeout_seconds = 3600          # 1 hour
 poll_interval_seconds = 60
 # L2-SWEEP-007: disposition policy (any combination)
-disposition_actions = ["SEND_PARTIAL_FLAGGED", "NOTIFY_ADMINS"]
+disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
 
 [mail]
 # L2-MAIL-003: validated sender address

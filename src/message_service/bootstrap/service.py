@@ -38,6 +38,7 @@ import aiosqlite
 import structlog
 
 from message_service.application.ports.clock import Clock
+from message_service.application.ports.disposition_handler import DispositionHandler
 from message_service.application.ports.mailer import Mailer
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
@@ -47,7 +48,8 @@ from message_service.application.use_cases.finalize_run import FinalizeRunUseCas
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
-from message_service.config.schema import Config
+from message_service.application.use_cases.sweeper import SweeperUseCase
+from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
@@ -66,6 +68,13 @@ from message_service.infrastructure.persistence.unit_of_work import (
 from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
 )
+from message_service.infrastructure.sweeper.handlers import (
+    DiscardSilentlyHandler,
+    NotifyAdminsHandler,
+    NotifySubscribersHandler,
+    SendPartialFlaggedHandler,
+)
+from message_service.infrastructure.sweeper.loop import SweeperLoop
 from message_service.infrastructure.tags.vocabulary_loader import (
     InMemoryTagVocabulary,
     load_tag_vocabulary,
@@ -129,6 +138,8 @@ class Service:
     submit_stage_report: SubmitStageReportUseCase
     finalize_run: FinalizeRunUseCase
     assemble_and_deliver: AssembleAndDeliverUseCase
+    sweeper: SweeperUseCase
+    sweeper_loop: SweeperLoop
 
 
 async def build_service(config: Config) -> Service:
@@ -252,6 +263,37 @@ async def build_service(config: Config) -> Service:
         background_task_factory=lambda run_id: assemble_and_deliver.execute(run_id),
     )
 
+    # 9. Sweeper. The handlers are registered by DispositionAction id
+    # — a table of every available action — but only those appearing
+    # in ``config.sweeper.disposition_actions`` are invoked. The
+    # SweeperUseCase constructor validates that every configured
+    # action has a matching handler.
+    handlers_by_id: dict[DispositionAction, DispositionHandler] = {
+        "DISCARD_SILENTLY": DiscardSilentlyHandler(),
+        "NOTIFY_ADMINS": NotifyAdminsHandler(),
+        "SEND_PARTIAL_FLAGGED": SendPartialFlaggedHandler(),
+        "NOTIFY_SUBSCRIBERS": NotifySubscribersHandler(),
+    }
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=config.sweeper.run_timeout_seconds,
+        disposition_actions=config.sweeper.disposition_actions,
+        handlers_by_id=handlers_by_id,
+    )
+    sweeper_loop = SweeperLoop(
+        use_case=sweeper,
+        scheduler=scheduler,
+        poll_interval_seconds=config.sweeper.poll_interval_seconds,
+    )
+    # NOTE: the sweeper loop is constructed but NOT started here.
+    # The CLI entrypoint (or tests that want the loop running) calls
+    # ``service.sweeper_loop.start()`` explicitly. Starting inline
+    # would race with the first legitimate UoW call against the
+    # shared SQLite connection — ``list_expired`` fires immediately
+    # and the second UoW on the same connection hits
+    # "cannot start a transaction within a transaction".
+
     _log.info("bootstrap_complete")
 
     return Service(
@@ -267,6 +309,8 @@ async def build_service(config: Config) -> Service:
         submit_stage_report=submit_stage_report,
         finalize_run=finalize_run,
         assemble_and_deliver=assemble_and_deliver,
+        sweeper=sweeper,
+        sweeper_loop=sweeper_loop,
     )
 
 
@@ -275,15 +319,18 @@ async def shutdown_service(service: Service, *, timeout: float) -> None:
 
     Order:
 
-    1. Flip the scheduler into shutdown mode so no new background
+    1. Signal the sweeper loop to exit at the next iteration boundary.
+    2. Flip the scheduler into shutdown mode so no new background
        tasks can be scheduled.
-    2. Await in-flight background tasks up to ``timeout`` seconds;
+    3. Await in-flight background tasks up to ``timeout`` seconds;
        cancel stragglers.
-    3. Close the UoW factory (releases the SQLite connection).
+    4. Close the UoW factory (releases the SQLite connection).
 
-    Steps (1) and (2) happen before the connection closes so that any
+    Steps (1)-(3) happen before the connection closes so that any
     AssembleAndDeliver task mid-flight can still persist its final
-    state transition.
+    state transition. Step (1) gives the sweeper loop a chance to
+    exit cleanly rather than via :class:`asyncio.CancelledError` from
+    the scheduler's ``await_all`` timeout.
 
     Args:
         service: The service to tear down.
@@ -296,10 +343,13 @@ async def shutdown_service(service: Service, *, timeout: float) -> None:
         timeout_seconds=timeout,
     )
 
-    # Phase 1: stop accepting new background work.
+    # Phase 1: signal the sweeper loop to exit cleanly.
+    service.sweeper_loop.stop()
+
+    # Phase 2: stop accepting new background work.
     service.scheduler.begin_shutdown()
 
-    # Phase 2: drain in-flight background work.
+    # Phase 3: drain in-flight background work.
     await service.scheduler.await_all(timeout=timeout)
 
     # Phase 3: release the DB connection.

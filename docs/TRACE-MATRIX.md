@@ -161,7 +161,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-SWEEP-001 | L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-003 | Draft |
+| L1-SWEEP-001 | L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-003 | Implemented |
 | L1-SWEEP-002 | L2-SWEEP-004, L2-SWEEP-005, L2-SWEEP-006 | Implemented |
 | L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009 | Implemented |
 
@@ -171,13 +171,13 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-SWEEP-001 | L3-SWEEP-001, L3-SWEEP-002, L3-SWEEP-018 | _(TBD)_ | Draft |
 | L2-SWEEP-002 | L3-SWEEP-003, L3-SWEEP-017 | _(TBD)_ | Draft |
-| L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | _(TBD)_ | Draft |
+| L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Implemented |
 | L2-SWEEP-004 | L3-SWEEP-006 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_returns_runs_older_than_cutoff_in_active_states`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_uses_updated_at_not_created_at` | Implemented |
 | L2-SWEEP-005 | L3-SWEEP-007, L3-SWEEP-008 | _(TBD)_ | Draft |
-| L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned` | Implemented |
+| L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/integration/test_sweeper_pipeline.py::test_sweep_orphan_audit_event_recorded`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned` | Implemented |
 | L2-SWEEP-007 | L3-SWEEP-011, L3-SWEEP-012 | `tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_multiple_actions`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_must_be_non_empty`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_rejects_unknown_action` | Implemented |
 | L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014 | _(TBD)_ | Draft |
-| L2-SWEEP-009 | L3-SWEEP-015 | `tests/unit/application/use_cases/test_sweeper.py::test_handlers_dispatched_in_config_order` | Implemented |
+| L2-SWEEP-009 | L3-SWEEP-015 | `tests/integration/test_sweeper_pipeline.py::test_disposition_handlers_invoked_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper.py::test_handlers_dispatched_in_config_order` | Implemented |
 
 ### L1-SUB: Subscriptions and tags
 
@@ -419,7 +419,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | STAGE | 4 | 9 | 18 | 8 | 8 |
 | TMPL | 5 | 14 | 28 | 7 | 2 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
-| SWEEP | 3 | 9 | 18 | 4 | 0 |
+| SWEEP | 3 | 9 | 18 | 5 | 0 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
@@ -429,9 +429,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
-| **Total** | **57** | **157** | **315** | **49** | **70** |
+| **Total** | **57** | **157** | **315** | **50** | **70** |
 
-**Requirements verified by at least one test**: 119 of 472 (25.2%).
+**Requirements verified by at least one test**: 120 of 472 (25.4%).
 
 ### Orphan check
 

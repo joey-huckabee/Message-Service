@@ -203,6 +203,9 @@ async def test_mailer_configured_from_mail_section(service: Service) -> None:
 @pytest.mark.asyncio
 async def test_scheduler_is_asyncio_background_scheduler(service: Service) -> None:
     assert isinstance(service.scheduler, AsyncioBackgroundTaskScheduler)
+    # The sweeper loop is constructed but not started by build_service
+    # (the CLI entrypoint does that explicitly after the gRPC server
+    # is up), so no background tasks are active at this point.
     assert service.scheduler.active_task_count == 0
     await shutdown_service(service, timeout=1.0)
 

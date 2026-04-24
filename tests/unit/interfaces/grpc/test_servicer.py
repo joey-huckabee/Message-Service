@@ -51,6 +51,7 @@ from message_service.application.use_cases.finalize_run import FinalizeRunUseCas
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
+from message_service.application.use_cases.sweeper import SweeperUseCase
 from message_service.bootstrap.service import Service
 from message_service.config.schema import (
     Config,
@@ -85,6 +86,7 @@ from message_service.infrastructure.persistence.unit_of_work import (
 from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
 )
+from message_service.infrastructure.sweeper.loop import SweeperLoop
 from message_service.infrastructure.tags.vocabulary_loader import (
     load_tag_vocabulary,
 )
@@ -220,6 +222,23 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         email_body_template_ref=TemplateRef(name="email_body", version="1.0"),
     )
 
+    # Sweeper components aren't exercised by the servicer tests, but
+    # the Service dataclass requires them. Build a minimal sweeper
+    # with an empty disposition policy + an interval that won't fire
+    # during the test window.
+    sweeper_uc = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=[],
+        handlers_by_id={},
+    )
+    sweeper_loop = SweeperLoop(
+        use_case=sweeper_uc,
+        scheduler=scheduler,
+        poll_interval_seconds=3600,  # effectively never polls during a test
+    )
+
     svc = Service(
         config=service_config,
         clock=clock,
@@ -244,10 +263,13 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
             background_task_factory=lambda run_id: assemble.execute(run_id),
         ),
         assemble_and_deliver=assemble,
+        sweeper=sweeper_uc,
+        sweeper_loop=sweeper_loop,
     )
     try:
         yield svc
     finally:
+        sweeper_loop.stop()
         scheduler.begin_shutdown()
         await scheduler.await_all(timeout=2.0)
         await uow_factory.close()

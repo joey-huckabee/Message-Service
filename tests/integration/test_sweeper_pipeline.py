@@ -42,8 +42,8 @@ from message_service.domain.state_machines.run_states import RunState
 
 def _write_config(tmp_path: Path) -> Path:
     """Minimal valid Config TOML with a short sweeper timeout."""
-    (tmp_path / "body.html.j2").write_text("<p>{{ run_id }}</p>")
-    (tmp_path / "frag.html.j2").write_text("<p>{{ v }}</p>")
+    (tmp_path / "body.html.j2").write_text("<p>{{ run_id }}</p>", encoding="utf-8")
+    (tmp_path / "frag.html.j2").write_text("<p>{{ v }}</p>", encoding="utf-8")
     (tmp_path / "templates.toml").write_text(
         """
 [[template]]
@@ -57,9 +57,10 @@ name = "frag"
 version = "1.0"
 kind = "REPORT_FRAGMENT"
 source_path = "frag.html.j2"
-"""
+""",
+        encoding="utf-8",
     )
-    (tmp_path / "tags.toml").write_text('[[tag]]\nname = "production"\n')
+    (tmp_path / "tags.toml").write_text('[[tag]]\nname = "production"\n', encoding="utf-8")
 
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(
@@ -101,11 +102,12 @@ username = "u"
 password = "p"
 
 [sweeper]
-# 60 second grace window — well under any test-created staleness.
+# 60 second grace window -- well under any test-created staleness.
 run_timeout_seconds = 60
 poll_interval_seconds = 3600  # loop won't tick during the test
 disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
-"""
+""",
+        encoding="utf-8",
     )
     return cfg_path
 

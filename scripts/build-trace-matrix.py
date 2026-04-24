@@ -110,7 +110,7 @@ def collect_test_markers(tests_dir: Path) -> dict[str, list[str]]:
         if py_file.name == "__init__.py" or "conftest" in py_file.name:
             continue
         try:
-            tree = ast.parse(py_file.read_text())
+            tree = ast.parse(py_file.read_text(encoding="utf-8"))
         except SyntaxError:
             continue
         for node in ast.walk(tree):
@@ -148,9 +148,9 @@ def build_matrix() -> str:
         The complete markdown document as a string, ready to write to
         ``docs/TRACE-MATRIX.md``.
     """
-    l1_doc = L1_DOC.read_text()
-    l2_doc = L2_DOC.read_text()
-    l3_doc = L3_DOC.read_text()
+    l1_doc = L1_DOC.read_text(encoding="utf-8")
+    l2_doc = L2_DOC.read_text(encoding="utf-8")
+    l3_doc = L3_DOC.read_text(encoding="utf-8")
 
     l1_ids = parse_l1_ids(l1_doc)
     l2_parent = parse_l2_parent_map(l2_doc)
@@ -335,7 +335,9 @@ def _rollup_l1_status(
 def main() -> int:
     """CLI entry point: regenerate the trace matrix on disk."""
     output = build_matrix()
-    TRACE_DOC.write_text(output)
+    # newline="\n" forces LF on every platform; the repo standard is LF
+    # (enforced by the mixed-line-ending pre-commit hook).
+    TRACE_DOC.write_text(output, encoding="utf-8", newline="\n")
     print(f"Wrote {TRACE_DOC.relative_to(ROOT)} ({len(output.splitlines())} lines)")
     return 0
 

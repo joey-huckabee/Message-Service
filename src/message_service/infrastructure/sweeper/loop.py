@@ -46,11 +46,11 @@ if TYPE_CHECKING:
 _log = structlog.get_logger(__name__)
 
 # Single shared Counter — Prometheus discourages re-declaration in the
-# same registry. Labels per L2-SWEEP-003: no_orphans_found,
-# orphans_detected, sweeper_error.
-_SWEEPER_TICK_COUNTER = Counter(
-    "message_service_sweeper_ticks_total",
-    "Count of sweeper ticks by outcome.",
+# same registry. Name and label values are pinned by L3-SWEEP-004:
+# outcomes are one of {no_orphans_found, orphans_detected, sweeper_error}.
+_SWEEPER_ITERATION_COUNTER = Counter(
+    "message_service_sweeper_iterations_total",
+    "Count of sweeper iterations by outcome.",
     labelnames=["outcome"],
 )
 
@@ -144,12 +144,12 @@ class SweeperLoop:
         try:
             result = await self._use_case.tick()
         except Exception:
-            _SWEEPER_TICK_COUNTER.labels(outcome="sweeper_error").inc()
+            _SWEEPER_ITERATION_COUNTER.labels(outcome="sweeper_error").inc()
             _log.error("sweeper_tick_failed", exc_info=True)
             return
 
         outcome = "orphans_detected" if result.orphaned_count > 0 else "no_orphans_found"
-        _SWEEPER_TICK_COUNTER.labels(outcome=outcome).inc()
+        _SWEEPER_ITERATION_COUNTER.labels(outcome=outcome).inc()
 
         if result.orphaned_count > 0:
             _log.info(

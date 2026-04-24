@@ -171,7 +171,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-SWEEP-001 | L3-SWEEP-001, L3-SWEEP-002, L3-SWEEP-018 | _(TBD)_ | Draft |
 | L2-SWEEP-002 | L3-SWEEP-003, L3-SWEEP-017 | _(TBD)_ | Draft |
-| L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Implemented |
+| L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_counter_exists_in_default_registry`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Implemented |
 | L2-SWEEP-004 | L3-SWEEP-006 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_returns_runs_older_than_cutoff_in_active_states`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_uses_updated_at_not_created_at` | Implemented |
 | L2-SWEEP-005 | L3-SWEEP-007, L3-SWEEP-008 | _(TBD)_ | Draft |
 | L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/integration/test_sweeper_pipeline.py::test_sweep_orphan_audit_event_recorded`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned` | Implemented |
@@ -419,7 +419,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | STAGE | 4 | 9 | 18 | 8 | 8 |
 | TMPL | 5 | 14 | 28 | 7 | 2 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
-| SWEEP | 3 | 9 | 18 | 5 | 1 |
+| SWEEP | 3 | 9 | 18 | 5 | 2 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
@@ -429,9 +429,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
-| **Total** | **57** | **157** | **315** | **50** | **71** |
+| **Total** | **57** | **157** | **315** | **50** | **72** |
 
-**Requirements verified by at least one test**: 121 of 472 (25.6%).
+**Requirements verified by at least one test**: 122 of 472 (25.8%).
 
 ### Orphan check
 

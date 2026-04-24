@@ -20,7 +20,7 @@ from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
 )
 from message_service.infrastructure.sweeper.loop import (
-    _SWEEPER_TICK_COUNTER,
+    _SWEEPER_ITERATION_COUNTER,
     SweeperLoop,
 )
 
@@ -202,7 +202,7 @@ async def test_tick_exception_does_not_crash_loop(
 
 def _counter_value(outcome: str) -> float:
     """Read the labeled counter's accumulated value."""
-    for metric in _SWEEPER_TICK_COUNTER.collect():
+    for metric in _SWEEPER_ITERATION_COUNTER.collect():
         for sample in metric.samples:
             if sample.labels.get("outcome") == outcome and sample.name.endswith("_total"):
                 # prometheus_client is ignore_missing_imports in our mypy
@@ -284,16 +284,20 @@ async def test_sweeper_error_tick_increments_correct_label(
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-SWEEP-004")
 def test_counter_exists_in_default_registry() -> None:
     """The module-level Counter SHALL be registered on the default registry
-    so a metrics endpoint can scrape it without extra wiring."""
+    under the L3-SWEEP-004 canonical name, so a metrics endpoint can scrape
+    it without extra wiring and dashboards can rely on a stable identifier.
+    """
     from prometheus_client import Counter
 
     # A duplicate-name registration against the default registry
-    # raises ValueError; that proves the counter is already present.
+    # raises ValueError; that proves the counter is already present
+    # under exactly the requirement's canonical name.
     with pytest.raises(ValueError, match="Duplicated"):
         Counter(
-            "message_service_sweeper_ticks_total",
+            "message_service_sweeper_iterations_total",
             "duplicate",
             labelnames=["outcome"],
         )

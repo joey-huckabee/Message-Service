@@ -224,12 +224,18 @@ def test_sweeper_disposition_accepts_multiple_actions(tmp_path: Path) -> None:
     ]
 
 
-@pytest.mark.requirement("L2-SWEEP-007")
-def test_sweeper_disposition_must_be_non_empty(tmp_path: Path) -> None:
+@pytest.mark.requirement("L3-SWEEP-011")
+def test_sweeper_disposition_accepts_empty_list(tmp_path: Path) -> None:
+    """Empty disposition_actions is permitted per L3-SWEEP-011.
+
+    Orphaned runs still get the ORPHANED state transition; they simply
+    receive no further action beyond it (equivalent to a single
+    ``DISCARD_SILENTLY`` action).
+    """
     data = _minimal_valid_data(tmp_path)
     data["sweeper"] = {"disposition_actions": []}
-    with pytest.raises(ValidationError):
-        Config.model_validate(data)
+    cfg = Config.model_validate(data)
+    assert cfg.sweeper.disposition_actions == []
 
 
 # -----------------------------------------------------------------------------

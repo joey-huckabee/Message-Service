@@ -189,8 +189,12 @@ class SweeperConfig(_FrozenForbid):
         # identifiers in the Literal above so that operators can opt in
         # later without a schema change, but referencing them today raises
         # ConfigurationError at startup (see SweeperUseCase.__init__).
+        #
+        # Empty lists are permitted per L3-SWEEP-011: orphaned runs receive
+        # no action beyond the state transition (equivalent to a single
+        # DISCARD_SILENTLY action). The SweeperUseCase tolerates the empty
+        # tuple natively — it iterates configured actions per orphan.
         default_factory=lambda: ["NOTIFY_ADMINS", "DISCARD_SILENTLY"],  # type: ignore[arg-type]
-        min_length=1,
     )
 
 

@@ -420,6 +420,43 @@ async def test_handler_failure_does_not_roll_back_orphan_transition(
     assert reloaded.state is RunState.ORPHANED
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-011")
+async def test_empty_disposition_actions_still_transitions_to_orphaned(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """Empty ``disposition_actions`` is permitted (L3-SWEEP-011).
+
+    The orphaned run still gets the state transition; no handlers are
+    dispatched. Equivalent in effect to a single ``DISCARD_SILENTLY``.
+    """
+    run = _make_run(
+        run_id="00000000-0000-4000-8000-00000000000d",
+        state=RunState.AGGREGATING,
+        created_at=_T0 - timedelta(hours=3),
+        updated_at=_T0 - timedelta(hours=2),
+    )
+    await _seed_run(uow_factory, run)
+
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=[],
+        handlers_by_id={},
+    )
+    result = await sweeper.tick()
+
+    assert result.orphaned_count == 1
+    assert result.dispatched_actions == 0
+    assert result.handler_failures == 0
+
+    async with uow_factory() as uow:
+        reloaded = await uow.run_repo.get(run.run_id)
+    assert reloaded.state is RunState.ORPHANED
+
+
 # -----------------------------------------------------------------------------
 # Configuration validation
 # -----------------------------------------------------------------------------

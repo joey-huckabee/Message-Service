@@ -1,8 +1,193 @@
 # Message-Service — ROADMAP
 
-This document records items that have been explicitly deferred from the v1 scope during requirements elicitation. Each item has a rationale for deferral and, where applicable, a trigger that would prompt reconsideration.
+This document has two parts:
 
-Items in this file are **not** requirements. When an item is promoted into a future release, it is moved out of this file and into `docs/L1-REQ.md` with a fresh requirement identifier.
+1. **Upcoming v1 increments** — the planned next steps within v1 scope. Order is the current best guess; subject to team re-prioritization.
+2. **Deferred from v1** — items explicitly carved out of v1 during requirements elicitation, retained here for the rationale and the trigger that would prompt reconsideration. Items in this section are **not** requirements; promotion to a future release moves them into `docs/L1-REQ.md` with a fresh requirement identifier.
+
+---
+
+## Part 1 — Upcoming v1 increments
+
+Last full increment merged: **13b — SweeperLoop + bootstrap wiring** (commit `7ad1f9a`). The list below is keyed off the still-Draft rows in `docs/TRACE-MATRIX.md` and the empty source/test directories under `src/message_service/interfaces/rest/`, `tests/e2e/`, and `docs/adr/`.
+
+Re-order freely. Each item names the requirement category it closes so trace-matrix impact is visible.
+
+### Increment 14a — Default sweeper config aligned with implemented handlers  *(team-flagged, top priority — small)*
+
+**Problem**
+
+The schema default and shipped config reference a handler that is not implemented:
+
+- `src/message_service/config/schema.py:184` — `disposition_actions` defaults to `["SEND_PARTIAL_FLAGGED", "NOTIFY_ADMINS"]`.
+- `config/default.toml:47` mirrors that default.
+- `src/message_service/bootstrap/service.py:271-276` registers `SendPartialFlaggedHandler` under that action id.
+- `src/message_service/infrastructure/sweeper/handlers.py:100-105` (and `NotifySubscribersHandler` at `:117-122`) raise `NotImplementedError`.
+- `config/config.toml.example:103-106` correctly documents both as "NOT YET IMPLEMENTED -- will raise" and ships `["NOTIFY_ADMINS", "DISCARD_SILENTLY"]`.
+
+A service started with the default config hits `NotImplementedError` on every orphaned run. The L3-SWEEP-013 "handlers SHALL NOT raise — failures logged at ERROR and swallowed" contract converts this from a crash to a silent guaranteed-failure on every disposition. The shipped example config and the runtime default disagree.
+
+**Work** (in order — defense in depth)
+
+1. Change the schema default and `config/default.toml` to match the example: `["NOTIFY_ADMINS", "DISCARD_SILENTLY"]`. Two-line fix.
+2. Make `bootstrap/service.py` register only handlers that are actually implemented. The two placeholders (`SendPartialFlaggedHandler`, `NotifySubscribersHandler`) should not be in the `handlers_by_id` dict at all until they have real implementations.
+3. Reuse the L3-SWEEP-012 pattern: configs that reference an unregistered action id raise `ConfigurationError` at startup listing the unknown name and the allowed (registered) set. The `SweeperUseCase` constructor's existing validation already validates against `handlers_by_id` — once step 2 lands, that check now correctly rejects misconfiguration before the service starts accepting traffic, instead of failing per-orphan at runtime.
+4. Add a conformance test that every action id in the schema's *default* `disposition_actions` is registered in bootstrap's `handlers_by_id` — prevents this drift from recurring.
+
+**Verification**
+
+- Unit: `Config.model_validate({})` produces a sweeper config whose every action id maps to a non-placeholder handler.
+- Unit: starting bootstrap with a config that references `"SEND_PARTIAL_FLAGGED"` raises `ConfigurationError` at startup, not at first orphan.
+- Conformance: schema default ⊆ bootstrap registered ids.
+
+When `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS` are actually implemented (Part 2 may eventually demand them), reverse step 2 and update the conformance test.
+
+### Increment 14b — Sweeper exactly-once: atomic transition + outbox table  *(team-flagged, top priority)*
+
+Closes the real gap behind **L2-SWEEP-006**, which is currently mis-rolled-up as Implemented in `docs/TRACE-MATRIX.md:177` even though its L3 children (`L3-SWEEP-009`, `L3-SWEEP-010`) are still Draft.
+
+**Problem**
+
+- `src/message_service/application/use_cases/sweeper.py:199` transitions the run to `ORPHANED`, commits, then dispatches handlers afterward. The inline comment ("Dispatch AFTER commit … best-effort beyond that boundary") contradicts L2-SWEEP-006's atomic-enqueue contract.
+- A crash between the commit and the dispatch loses dispositions silently; a sweeper retry after the same crash window re-fires handlers — no exactly-once guarantee.
+- L3-SWEEP-010 mandates a `sweeper_actions` outbox table that the assembly task consumes from. It does not exist; handlers are invoked directly in-process.
+
+**Work**
+
+- Add a `sweeper_actions` table in a new migration: `(action_id PK, run_id, action_name, enqueued_at, claimed_at NULL, completed_at NULL, attempts, last_error)`. Index on `(claimed_at IS NULL, enqueued_at)`.
+- In one UoW, perform: the conditional `UPDATE runs SET state='ORPHANED' WHERE state IN (...) AND run_id=?` (per L3-SWEEP-009 — zero affected rows means race lost, skip silently), the audit insert, **and** one `sweeper_actions` insert per configured disposition action. Commit them together.
+- Replace the in-tick handler dispatch with a separate `SweeperActionDispatcher` (in `application/use_cases/`) that the existing `SweeperLoop` ticks alongside the orphan scan. The dispatcher claims pending rows via `UPDATE … RETURNING` (or `UPDATE … WHERE claimed_at IS NULL` then `SELECT changes()`), runs the handler, and stamps `completed_at` (or bumps `attempts` + records `last_error`).
+- L3-SWEEP-013's "handlers SHALL NOT raise" still applies — failures stay logged + swallowed, but now they're recorded on the action row so the dispatcher can decide retry vs. give up.
+
+**Verification**
+
+- Unit: atomic-update returns 0 rows when the run state isn't eligible; the UoW rolls back the action inserts on failure.
+- Integration: kill the dispatcher between claim and complete, restart, confirm the action runs exactly once (covers the crash-mid-dispatch case the current code can't handle).
+- Promotes `L2-SWEEP-006`, `L3-SWEEP-009`, `L3-SWEEP-010` from Draft → Implemented; correct the rollup in `docs/TRACE-MATRIX.md`.
+
+**Trace-matrix correction (do alongside, not after)**
+
+The current entry for L2-SWEEP-006 should be downgraded to Draft until this increment lands, so the matrix doesn't claim a guarantee the code doesn't deliver. `scripts/build-trace-matrix.py` regenerates the file; the misclassification is upstream of that — likely a marker on a sweeper test that needs removing or retargeting. Audit the markers under `tests/integration/test_sweeper_pipeline.py` and `tests/unit/.../sweeper*` for `@pytest.mark.requirement("L2-SWEEP-006")` claims that don't actually verify atomicity.
+
+### Increment 14c — Sweeper conformance fixes  *(team-flagged, medium — three small items)*
+
+Three smaller deviations from the SWEEP requirements that don't fit inside 14a or 14b but should land before the sweeper category is declared done.
+
+**14c.1 — Permit empty `disposition_actions` (L3-SWEEP-011)**
+
+L3-SWEEP-011 (`docs/L3-REQ.md:437`) says "Empty `disposition_actions` SHALL be permitted, causing orphaned runs to receive no action beyond the state transition (equivalent to `DISCARD_SILENTLY`)". Today:
+
+- `src/message_service/config/schema.py:184` enforces `min_length=1`.
+- `tests/unit/config/test_schema.py:227-232` asserts the *opposite* — empty is rejected.
+
+L2-SWEEP-007 is currently rolled up as Implemented in the trace matrix despite this contradiction with one of its L3 children.
+
+**Work**: drop `min_length=1`, invert the schema test to assert that an empty list is accepted and produces a config whose orphaned-run path becomes a no-op transition. Confirm the `SweeperUseCase`'s handler-validation step doesn't trip on the empty list (it iterates configured ids; an empty iter is fine).
+
+**14c.2 — Rename metric to match L3-SWEEP-004**
+
+L3-SWEEP-004 (`docs/L3-REQ.md:416`) mandates `message_service_sweeper_iterations_total`. The code declares `message_service_sweeper_ticks_total` (`src/message_service/infrastructure/sweeper/loop.py:51`) and the test (`tests/unit/infrastructure/sweeper/test_loop.py:294`) asserts the wrong name.
+
+**Work**: rename the `Counter` and the test assertion. No external dashboards exist yet, so this is a free rename now and a forced migration later. The `outcome` label values (`no_orphans_found`, `orphans_detected`, `sweeper_error`) already match the requirement.
+
+**14c.3 — Hand the post-transition `Run` aggregate to handlers**
+
+`application/ports/disposition_handler.py:52-56` documents the parameter as the run *after* transition to `ORPHANED`. `application/use_cases/sweeper.py:202` passes `candidate` — the pre-transition snapshot from `list_expired`. Current handlers happen not to read mutable fields, so the bug is latent.
+
+**Work**: have `_transition_and_audit` return the post-commit `Run` (load it fresh inside the same UoW after the conditional update), and pass that to `_dispatch_handlers` instead of `candidate`.
+
+**Sequencing note vs. 14b**: 14b moves dispatch out of the tick path entirely (handlers run from the `sweeper_actions` outbox dispatcher, not in-process after commit). When 14b lands, the dispatcher will fetch the run fresh anyway, so 14c.3 becomes redundant in that path. If 14b is going to ship soon, skip 14c.3 and let 14b handle it. If 14b is more than a sprint out, do 14c.3 now — it's a small, contained fix and the latent bug is real. 14c.1 and 14c.2 stand independent of 14b.
+
+### Increment 15 — Prometheus metrics adapter
+
+Closes **L1-OBS-002, L1-OBS-003** (currently Draft).
+
+- Add `infrastructure/observability/metrics.py` with the counters/histograms named in L2-OBS-004…009 (run-state transitions, stage-submit latency, email size, sweeper rounds).
+- Inject through a thin port so domain/application stay framework-free.
+- Lifts `error_mapping.py` and `logging_setup.py` out of the 0%-covered gap noted in this file's Part 2.
+
+### Increment 16 — Local-account auth adapter
+
+Closes **L1-AUTH-001, L1-AUTH-002** (Draft). `rest/auth/` is currently empty.
+
+- `argon2-cffi` password hasher (already a dependency).
+- `User` aggregate, `UserRepository` port, SQLite adapter + new migration.
+- Session-cookie + CSRF middleware.
+- Local accounts only — LDAP/OIDC stay in Part 2.
+
+### Increment 17 — FastAPI app factory + bootstrap wiring
+
+`rest/routes/` is empty; `__main__.py` only spins up the gRPC server.
+
+- `interfaces/rest/app.py` builds the FastAPI instance from `Service`.
+- `__main__.py` runs uvicorn alongside `grpc.aio` under one shutdown event.
+- No domain routes yet — chassis + login flow only.
+
+### Increment 18 — Subscription management routes
+
+Closes **L1-DASH-001, L1-SUB-002** (Draft).
+
+- CRUD over `SqliteSubscriptionRepository` for the existing GLOBAL/PIPELINE/TAG granularity.
+- Jinja screens under `rest/html/templates/`.
+
+### Increment 19 — Past-runs list, report viewer, resend
+
+Closes **L1-DASH-002, L1-DASH-003** (Draft).
+
+- Paginated runs page.
+- Stage-by-stage report viewer reading from the filesystem report store.
+- Resend action that re-queues rendered reports through the `Mailer` port.
+- Fills in `tests/e2e/resend/`.
+
+### Increment 20 — Admin surfaces
+
+Closes **L1-DASH-004** (Draft).
+
+- User management, audit-log viewer, template inspection — all read-mostly over existing adapters.
+- Gate behind an `is_admin` flag on `User`.
+
+### Increment 21 — E2E happy-path + orphan-path harness
+
+`tests/e2e/{happy_path,admin,orphan_path,resend}/` currently contain only `__init__.py`.
+
+- Stand up the `running_service` fixture sketched in `tests/README.md` (real `grpc.aio` + httpx + tmp SQLite + `aiosmtpd`).
+- BeginRun → submissions → FinalizeRun → email path.
+- Sweeper-fires-and-disposes path.
+- Moves a wave of L2 rows from "Implemented" to "Verified".
+
+### Increment 22 — Error-mapping + servicer tests, exception-detail coverage
+
+Closes **L1-ERR-001..004** (all Draft).
+
+- Unit tests for `interfaces/grpc/error_mapping.py` (translation table, trailing-metadata population).
+- `details=` assertions across the use-case raise sites.
+
+### Increment 23 — Deployment polish
+
+Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be finished.
+
+- systemd unit env-var passthrough.
+- NSSM Windows install script.
+- Graceful-shutdown verification artifact tied to existing `__main__.py` signal handling.
+- A minimal `.github/workflows/ci.yaml` — the directory exists but is empty.
+
+### Increment 24 — Documentation deliverables (release-gating)
+
+- Promote `tests/README.md` into the formal **Test strategy document** listed in Part 2.
+- First two ADRs into `docs/adr/`: SQLite-for-in-flight-state, hexagonal boundary enforcement.
+- **Operator runbook** + **Pipeline integration guide** drafts.
+- All four are explicit Part 2 items; tagging v1 should retire them.
+
+### Cross-cutting tradeoffs
+
+- Increments 16–20 form one feature stream (dashboard). Interleaving with 15 / 22 keeps category coverage balanced rather than concentrating all DASH work in one stretch.
+- Increment 15 (metrics) can move earlier if you want OBS rows green before introducing new untested surface.
+- Increment 21 (E2E) can shift earlier — running it after Increment 17 instead of 20 forces the FastAPI chassis to stay testable as routes accrete.
+- Increments 14a and 14b are both correctness fixes, not features. 14a is a one-sitting change and unblocks the default config immediately; 14b is the larger redesign that delivers exactly-once. Both block any production release independent of how the dashboard work is sequenced — the trace-matrix correction inside 14b is worth landing on its own even if the table redesign takes longer.
+
+---
+
+## Part 2 — Deferred from v1
 
 ## Testing and verification
 

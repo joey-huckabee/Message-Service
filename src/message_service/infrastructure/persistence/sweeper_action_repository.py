@@ -1,8 +1,18 @@
 """Concrete :class:`SweeperActionRepository` backed by SQLite.
 
-For 14b.2 only the write-side (``enqueue``) is implemented; the
-dispatcher's claim/complete/fail SQL arrives in 14b.3 and will share
-this module.
+Two halves: ``enqueue`` is called by the orphan transaction
+(:class:`~message_service.application.use_cases.sweeper.SweeperUseCase`);
+``claim_pending`` / ``mark_completed`` / ``mark_failed`` are called by
+the dispatcher use case.
+
+The claim query uses ``UPDATE … WHERE action_id IN (SELECT … LIMIT N)``
+to atomically stamp ``claimed_at`` on the oldest pending rows; a follow
+``SELECT`` returns the freshly claimed rows for handler dispatch. We do
+not rely on ``UPDATE … RETURNING`` (added in SQLite 3.35) so the code
+runs on older system SQLite installs without surprise.
+
+The SqliteUnitOfWork serializes both halves on a single connection, so
+"two queries inside one transaction" is racially safe for the claim.
 
 Requirement references
 ----------------------
@@ -12,20 +22,22 @@ L3-SWEEP-010 (sweeper_actions outbox)
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, cast
 
 import aiosqlite
 
 from message_service.application.ports.clock import iso_z
 from message_service.application.ports.sweeper_action_repository import (
+    ClaimedAction,
     SweeperActionRepository,
 )
+from message_service.domain.ids import RunId
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from message_service.config.schema import DispositionAction
-    from message_service.domain.ids import RunId
 
 
 _SQL_INSERT = """
@@ -33,9 +45,37 @@ INSERT INTO sweeper_actions (run_id, action_name, enqueued_at)
 VALUES (?, ?, ?)
 """
 
+# Two-step claim: SELECT the oldest N pending rows (capturing every
+# field the dispatcher needs), then UPDATE those specific action_ids
+# to stamp claimed_at. We do NOT key the post-claim read on
+# claimed_at, since two ticks at the same clock value would re-read
+# each other's claims; we key on the captured action_id list instead.
+# Both statements run inside the caller's UoW transaction.
+_SQL_CLAIM_SELECT_PENDING = """
+SELECT action_id, run_id, action_name, attempts
+FROM sweeper_actions
+WHERE claimed_at IS NULL
+ORDER BY enqueued_at, action_id
+LIMIT ?
+"""
+
+_SQL_MARK_COMPLETED = """
+UPDATE sweeper_actions
+SET completed_at = ?
+WHERE action_id = ?
+"""
+
+_SQL_MARK_FAILED = """
+UPDATE sweeper_actions
+SET completed_at = ?,
+    attempts = attempts + 1,
+    last_error = ?
+WHERE action_id = ?
+"""
+
 
 class SqliteSweeperActionRepository(SweeperActionRepository):
-    """SQLite-backed write-side outbox for sweeper actions."""
+    """SQLite-backed outbox for sweeper actions."""
 
     def __init__(self, conn: aiosqlite.Connection) -> None:
         """Bind to a connection inside a UoW transaction."""
@@ -58,6 +98,62 @@ class SqliteSweeperActionRepository(SweeperActionRepository):
         await self._conn.execute(
             _SQL_INSERT,
             (str(run_id), action_name, iso_z(enqueued_at)),
+        )
+
+    async def claim_pending(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> Sequence[ClaimedAction]:
+        """Stamp ``claimed_at`` on the oldest ``limit`` pending rows; return them."""
+        if limit < 1:
+            raise ValueError(f"limit must be positive; got {limit}")
+
+        async with self._conn.execute(_SQL_CLAIM_SELECT_PENDING, (limit,)) as cur:
+            rows = await cur.fetchall()
+        if not rows:
+            return []
+
+        action_ids = [int(r[0]) for r in rows]
+        placeholders = ",".join("?" * len(action_ids))
+        await self._conn.execute(
+            f"UPDATE sweeper_actions SET claimed_at = ? WHERE action_id IN ({placeholders})",
+            (iso_z(now), *action_ids),
+        )
+        return [
+            ClaimedAction(
+                action_id=int(r[0]),
+                run_id=RunId(str(r[1])),
+                action_name=cast("DispositionAction", str(r[2])),
+                attempts=int(r[3]),
+            )
+            for r in rows
+        ]
+
+    async def mark_completed(
+        self,
+        *,
+        action_id: int,
+        completed_at: datetime,
+    ) -> None:
+        """Stamp ``completed_at`` on a successful row."""
+        await self._conn.execute(
+            _SQL_MARK_COMPLETED,
+            (iso_z(completed_at), action_id),
+        )
+
+    async def mark_failed(
+        self,
+        *,
+        action_id: int,
+        completed_at: datetime,
+        error_message: str,
+    ) -> None:
+        """Stamp completed_at + attempts + last_error on a failed row."""
+        await self._conn.execute(
+            _SQL_MARK_FAILED,
+            (iso_z(completed_at), error_message, action_id),
         )
 
 

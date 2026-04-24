@@ -174,10 +174,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_counter_exists_in_default_registry`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Implemented |
 | L2-SWEEP-004 | L3-SWEEP-006 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_returns_runs_older_than_cutoff_in_active_states`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_uses_updated_at_not_created_at` | Implemented |
 | L2-SWEEP-005 | L3-SWEEP-007, L3-SWEEP-008 | _(TBD)_ | Draft |
-| L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/integration/test_sweeper_pipeline.py::test_sweep_orphan_audit_event_recorded`<br>`tests/unit/application/use_cases/test_sweeper.py::test_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper.py::test_failed_enqueue_rolls_back_orphan_transition`<br>`tests/unit/application/use_cases/test_sweeper.py::test_handlers_are_not_invoked_in_tick`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_check_constraints_block_invalid_writes`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_pending_index_is_partial`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_schema_shape` | Implemented |
+| L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/integration/test_sweeper_pipeline.py::test_sweep_orphan_audit_event_recorded`<br>`tests/unit/application/use_cases/test_sweeper.py::test_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper.py::test_failed_enqueue_rolls_back_orphan_transition`<br>`tests/unit/application/use_cases/test_sweeper.py::test_handlers_are_not_invoked_in_tick`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_invokes_handler_and_stamps_completed`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_check_constraints_block_invalid_writes`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_pending_index_is_partial`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_schema_shape`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_claim_pending_respects_limit`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_claim_pending_returns_oldest_first`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_enqueue_inserts_pending_row`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_mark_completed_stamps_completed_at`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_mark_failed_bumps_attempts_and_records_error` | Implemented |
 | L2-SWEEP-007 | L3-SWEEP-011, L3-SWEEP-012 | `tests/conformance/test_sweeper_handler_registration.py::test_schema_default_actions_are_all_registered`<br>`tests/unit/application/use_cases/test_sweeper.py::test_empty_disposition_actions_still_transitions_to_orphaned`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_empty_list`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_multiple_actions`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_rejects_unknown_action` | Implemented |
-| L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014 | _(TBD)_ | Draft |
-| L2-SWEEP-009 | L3-SWEEP-015 | `tests/integration/test_sweeper_pipeline.py::test_disposition_actions_enqueued_in_config_order` | Implemented |
+| L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014 | `tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_empty_outbox_returns_zero_counts`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_handler_failure_is_swallowed_and_recorded`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_one_handler_failure_does_not_block_siblings` | Implemented |
+| L2-SWEEP-009 | L3-SWEEP-015 | `tests/integration/test_sweeper_pipeline.py::test_disposition_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_invokes_handlers_in_enqueue_order` | Implemented |
 
 ### L1-SUB: Subscriptions and tags
 
@@ -419,7 +419,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | STAGE | 4 | 9 | 18 | 8 | 8 |
 | TMPL | 5 | 14 | 28 | 7 | 2 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
-| SWEEP | 3 | 9 | 18 | 5 | 3 |
+| SWEEP | 3 | 9 | 18 | 5 | 5 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
@@ -429,9 +429,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
-| **Total** | **57** | **157** | **315** | **50** | **73** |
+| **Total** | **57** | **157** | **315** | **50** | **75** |
 
-**Requirements verified by at least one test**: 123 of 472 (26.1%).
+**Requirements verified by at least one test**: 125 of 472 (26.5%).
 
 ### Orphan check
 

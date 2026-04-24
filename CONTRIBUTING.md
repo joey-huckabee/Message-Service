@@ -27,9 +27,10 @@ poetry run pre-commit run --all-files
 ```
 
 `pytest` is configured (via `pyproject.toml` addopts) to:
+- place pytest temp files under repo-local `.pytest_tmp/`
 - collect coverage for `message_service`
 - emit terminal, HTML (`.coverage_html/`), and XML (`.coverage.xml`) reports
-- fail the run if total coverage drops below **60%**
+- fail the run if total coverage drops below **85%**
 
 To run tests without the coverage overhead during rapid iteration:
 
@@ -389,7 +390,7 @@ poetry run pytest -k "in_progress and not reserved"
 **Cause**: New test file not named `test_*.py`, or missing `__init__.py` in the test directory.
 **Fix**: Rename the file; add the `__init__.py` with a one-line docstring.
 
-### `pytest` failed with "Coverage failure: total of X is less than fail-under=60.00"
+### `pytest` failed with "Coverage failure: total of X is less than fail-under=85.00"
 
 **Cause**: The aggregate branch-coverage percentage across `src/message_service/` dropped below the gate in `pyproject.toml`.
 **Fix**: Write tests for the uncovered code paths shown in the terminal report. Run `poetry run pytest` again to re-check. Opening `.coverage_html/index.html` in a browser gives a file-by-file view with uncovered lines highlighted.

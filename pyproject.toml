@@ -126,6 +126,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = [
     "--strict-markers",
+    "--basetemp=.pytest_tmp",
     "--cov=message_service",
     "--cov-report=term-missing",
     "--cov-report=html:.coverage_html",

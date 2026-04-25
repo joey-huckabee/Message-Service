@@ -74,6 +74,7 @@ CATEGORIES: list[tuple[str, str]] = [
     ("ERR", "Error handling and exception taxonomy"),
     ("CFG", "Configuration"),
     ("DEP", "Deployment"),
+    ("CICD", "Continuous integration and delivery"),
 ]
 
 

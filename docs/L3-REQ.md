@@ -40,7 +40,8 @@ of truth for live status; this file holds only the spec content above.
 | `ERR`     | 10              | 22       |
 | `CFG`     | 8               | 16       |
 | `DEP`     | 9               | 18       |
-| **Total** | **162**         | **316**  |
+| `CICD`    | 15              | 17       |
+| **Total** | **181**         | **333**  |
 
 ---
 
@@ -1049,6 +1050,61 @@ A ruff rule or grep check SHALL flag any occurrence of `except BaseException`, `
 
 **L3-ERR-022** · Parent: L2-ERR-010 · Verification: T
 A unit test SHALL deliberately raise `KeyboardInterrupt` within a traced code path and assert it propagates through the translation layer without being caught.
+
+---
+
+## L3-CICD: Continuous integration and delivery
+
+**L3-CICD-001** · Parent: L2-CICD-001 · Verification: I
+The CI workflow SHALL live at `.github/workflows/ci.yaml`; alternative workflow files SHALL NOT replicate the gate set defined here.
+
+**L3-CICD-002** · Parent: L2-CICD-001 · Verification: I
+The matrix declaration SHALL use `strategy.matrix` with keys `os: [ubuntu-latest, windows-latest]` and `python-version: ['3.12', '3.13']`; `strategy.fail-fast` SHALL be `false` so one cell's failure does not cancel the others (operators need to see whether a regression is OS-specific or Python-version-specific).
+
+**L3-CICD-003** · Parent: L2-CICD-001 · Verification: I
+The pytest invocation SHALL be `poetry run pytest` (no path arguments, no `-k` filter, no `-m` skip) on every cell; selective execution defeats the cross-platform parity guarantee L1-CICD-001 makes.
+
+**L3-CICD-004** · Parent: L2-CICD-002 · Verification: I
+`pyproject.toml::tool.pytest.ini_options::filterwarnings` SHALL contain `"error"` as the first entry, with subsequent entries restricted to documented per-class ignores. The current allow-list (`"ignore::DeprecationWarning:google.*"`) SHALL be the floor; new ignores SHALL come with an inline comment explaining the upstream issue.
+
+**L3-CICD-005** · Parent: L2-CICD-003 · Verification: I
+The workflow `on:` block SHALL include `push: { branches: [main] }`, `pull_request: {}` (defaults to opened/synchronize/reopened), and `schedule: [{ cron: '0 6 * * *' }]` (06:00 UTC daily). The cron timing balances cache warmth against load on shared GitHub Actions runners.
+
+**L3-CICD-006** · Parent: L2-CICD-004 · Verification: I
+The pre-commit job SHALL run `poetry run pre-commit run --all-files --show-diff-on-failure`; the `--show-diff-on-failure` flag prints the formatter's intended changes when ruff-format would have edited a file, making local fixes one-shot rather than guess-and-check.
+
+**L3-CICD-007** · Parent: L2-CICD-005 · Verification: I
+Each `- repo:` entry in `.pre-commit-config.yaml` SHALL pin `rev:` to a tagged release (e.g., `v0.15.10`), never to a branch name (e.g., `main`) or `HEAD`.
+
+**L3-CICD-008** · Parent: L2-CICD-006 · Verification: T
+The coverage gate SHALL be enforced by `pyproject.toml::tool.pytest.ini_options::addopts` containing `--cov-fail-under=<N>` where `<N>` is the current floor; CI SHALL NOT pass an overriding `--cov-fail-under=0` flag.
+
+**L3-CICD-009** · Parent: L2-CICD-007 · Verification: I
+Coverage artifacts SHALL be uploaded via `actions/upload-artifact@v4` (or its current major-version successor) with `name: coverage-${{ matrix.os }}-${{ matrix.python-version }}` so artifacts are distinguishable across cells.
+
+**L3-CICD-010** · Parent: L2-CICD-008 · Verification: T
+`scripts/build-trace-matrix.py` SHALL accept `--check` as a long-form CLI flag; argument parsing SHALL not require any positional arguments. The flag is mutually exclusive with the implicit "regenerate" mode.
+
+**L3-CICD-011** · Parent: L2-CICD-008 · Verification: T
+In `--check` mode, the script SHALL exit with code `0` when the regenerated matrix matches the committed file byte-for-byte, code `1` when there is a difference (with a unified diff printed to stderr), and code `2` when one of the input docs cannot be parsed.
+
+**L3-CICD-012** · Parent: L2-CICD-009 · Verification: T
+The rollup-consistency check SHALL exit with code `3` (distinct from the byte-diff exit code `1`) when any parent's status would be lower than the highest of its children's statuses under the propagation rule. The error message SHALL list each offending parent id followed by the children that contributed to the inconsistency.
+
+**L3-CICD-013** · Parent: L2-CICD-010 · Verification: I
+`pyproject.toml::tool.pytest.ini_options::addopts` SHALL contain `"--basetemp=.pytest_tmp"` as a literal string; the path SHALL be relative (workspace-rooted), never absolute.
+
+**L3-CICD-014** · Parent: L2-CICD-011 · Verification: T
+A conformance test SHALL parse `.gitignore` and assert that `.pytest_tmp/` (with trailing slash) is present as an explicit entry, not merely matched by a broader glob.
+
+**L3-CICD-015** · Parent: L2-CICD-013 · Verification: T
+The reproducibility job SHALL run `poetry check --lock` (Poetry 1.8+) or `poetry lock --check` (Poetry ≤ 1.7); the workflow SHALL fail if the lockfile is out of sync with `pyproject.toml`.
+
+**L3-CICD-016** · Parent: L2-CICD-014 · Verification: I
+The provenance log SHALL be emitted via a single `echo` step at the start of each test job, producing output of the form `provenance: sha=$GITHUB_SHA os=$RUNNER_OS python=$(python -V) trigger=$GITHUB_EVENT_NAME ts=$(date -u +%FT%TZ)`. A single line per job keeps grep cheap.
+
+**L3-CICD-017** · Parent: L2-CICD-015 · Verification: I
+Artifact upload steps SHALL set `retention-days: 30` explicitly (the current GitHub default is 90 but is operator-overridable; the explicit value protects against silent reduction).
 
 ---
 

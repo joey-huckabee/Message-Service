@@ -63,7 +63,8 @@ single source of truth for live status; the source docs in this file,
 | `ERR`     | Error handling and exception taxonomy  | 4        |
 | `CFG`     | Configuration                          | 3        |
 | `DEP`     | Deployment                             | 3        |
-| **Total** |                                        | **58**   |
+| `CICD`    | Continuous integration and delivery    | 7        |
+| **Total** |                                        | **65**   |
 
 ---
 
@@ -597,6 +598,68 @@ single source of truth for live status; the source docs in this file,
 **Rationale**: Poetry and pinned dependencies produce reproducible builds, which are essential for air-gapped ISOLAN deployments where offline installation is the norm.
 
 **Verification Method**: Inspection (I), Test (T)
+
+---
+
+## L1-CICD: Continuous integration and delivery
+
+The service is developed against a CI pipeline (GitHub Actions) that gates merges. The L1-CICD requirements pin what the pipeline guarantees about correctness, hygiene, traceability, and reproducibility — i.e., what a green CI build means for a reviewer or operator. Implementation lives in `.github/workflows/`; the workflow YAML is governed by L2/L3 derivations of these L1s.
+
+### L1-CICD-001
+
+**Statement**: The service's full pytest suite SHALL pass on both `ubuntu-latest` and `windows-latest` GitHub Actions runners, on every push to `main` and on every pull request, with no `ResourceWarning` for unclosed sockets, file handles, or event loops.
+
+**Rationale**: The service targets both Linux (systemd) and Windows (NSSM) deployment per L1-DEP-001/L1-DEP-002. Asymmetric CI coverage means platform-specific bugs (Windows event-loop quirks, path-separator handling, SQLite file locking) escape the gate. ResourceWarning escalation catches the class of bug that produces correct test results but leaks file descriptors or sockets — bugs that cause flakes in long-running test runs and resource exhaustion in production.
+
+**Verification Method**: Test (T), Inspection (I)
+
+### L1-CICD-002
+
+**Statement**: All pre-commit hooks declared in `.pre-commit-config.yaml` (ruff format, ruff check, mypy strict, the standard whitespace/yaml/toml hygiene set) SHALL pass on CI on every push and pull request, with hook versions matching the pinned versions used in local development.
+
+**Rationale**: Pre-commit is a developer convenience, not a guarantee — contributors can disable it locally. The CI gate makes it authoritative: a green build means every formatter, linter, and type checker would have passed locally too. Version-pinning across local and CI prevents the "works on my machine, fails on CI" class of waste from a hook upgrade in only one place.
+
+**Verification Method**: Test (T), Inspection (I)
+
+### L1-CICD-003
+
+**Statement**: Branch coverage on `src/message_service/` SHALL meet the threshold pinned in `pyproject.toml` (`--cov-fail-under`). CI SHALL fail if coverage drops below the threshold; the threshold itself is a release-readiness signal and SHALL be ratcheted upward as gaps close (per ROADMAP).
+
+**Rationale**: The 85% pinned floor (currently set in `pyproject.toml::tool.pytest.ini_options::addopts`) is what catches code paths that lack tests before they merge. Without a CI-enforced floor, individual PRs can incrementally erode coverage to a point where adding tests becomes a separate effort rather than part of the change.
+
+**Verification Method**: Test (T)
+
+### L1-CICD-004
+
+**Statement**: CI SHALL fail if the regenerated `docs/TRACE-MATRIX.md` differs from the committed copy, or if any rollup row in the matrix is internally inconsistent under the propagation rule established in Increment 25a (parent status bounded below by every child's status). The build SHALL fail with a list of inconsistent rows, including the parent id and the offending children's ids and statuses.
+
+**Rationale**: 25a made the trace matrix the single source of truth for requirement status. Without a CI gate, contributors can forget to regenerate the matrix after adding `@pytest.mark.requirement` markers, or a rollup can fall out of sync with the source docs. The traceability gate ensures every merged commit carries a matrix that's both reproducible (regenerable from the same inputs) and internally coherent (no L1 claiming Implemented while a child is Draft).
+
+**Verification Method**: Test (T)
+
+### L1-CICD-005
+
+**Statement**: Pytest temporary files SHALL be rooted in a workspace-local `.pytest_tmp/` directory (enforced via `--basetemp` in `pyproject.toml::tool.pytest.ini_options::addopts`), and `.pytest_tmp/` SHALL be present in `.gitignore` so test artifacts never enter source control. CI SHALL fail if `.pytest_tmp/` accumulates in a committed change.
+
+**Rationale**: Default pytest behavior is to write temporary files under the OS's temp directory (e.g., `/tmp` on Linux, `%TEMP%` on Windows), which makes test artifacts hard to inspect post-failure and creates cross-test contamination risk on shared CI runners. Workspace-local rooting makes inspection trivial (`ls .pytest_tmp/`), keeps cleanup local to the workspace, and makes Windows path-quoting issues surface during development rather than CI.
+
+**Verification Method**: Test (T), Inspection (I)
+
+### L1-CICD-006
+
+**Statement**: The Poetry lockfile (`poetry.lock`) SHALL be committed to the repository. CI SHALL fail if `poetry lock --check` reports drift between `pyproject.toml` and `poetry.lock`, ensuring identical dependency resolutions across runs and across contributors.
+
+**Rationale**: A reproducible build is a precondition for the air-gapped ISOLAN deployment posture (per L1-DEP-003). Without a CI lockfile gate, a contributor can change `pyproject.toml` without regenerating `poetry.lock`, which means CI installs different versions than every subsequent local run — producing the silent class of supply-chain inconsistency that's painful to diagnose.
+
+**Verification Method**: Test (T)
+
+### L1-CICD-007
+
+**Statement**: The CI workflow SHALL record, for every test run, the commit SHA, the Python version, the OS runner identifier, and the timestamp of the run as part of the workflow output. Coverage reports (HTML and XML) and the trace matrix SHALL be uploaded as artifacts retained for at least 30 days, downloadable from the workflow run page.
+
+**Rationale**: Build provenance is what makes "the v1 release passed CI" a verifiable claim 6 months later — the SHA + Python + OS + timestamp tuple lets an auditor reproduce the exact run. Artifact retention means coverage and trace-matrix snapshots from past releases can be diffed against current ones to demonstrate non-regression.
+
+**Verification Method**: Inspection (I), Demonstration (D)
 
 ---
 

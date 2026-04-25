@@ -37,7 +37,8 @@ single source of truth for live status.
 | `ERR`     | Error handling and exception taxonomy  | 10       |
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
-| **Total** |                                        | **166**  |
+| `CICD`    | Continuous integration and delivery    | 15       |
+| **Total** |                                        | **181**  |
 
 ---
 
@@ -1376,6 +1377,129 @@ single source of truth for live status.
 **Statement**: The Poetry configuration SHALL declare a console script entry point `message-service` invoking the `message_service.interfaces.cli:main` function, providing the canonical CLI entry point for both systemd and NSSM launches.
 **Rationale**: A single entry point ensures uniform startup across platforms.
 **Verification Method**: Inspection (I), Test (T)
+
+---
+
+## L2-CICD: Continuous integration and delivery
+
+### Derivations of L1-CICD-001 (cross-platform pytest matrix)
+
+#### L2-CICD-001
+
+**Parent**: L1-CICD-001
+**Statement**: The CI workflow SHALL declare a job matrix with the cartesian product of `os` ∈ {`ubuntu-latest`, `windows-latest`} and `python-version` ∈ {`3.12`, `3.13`}; every cell SHALL execute `poetry install` followed by `poetry run pytest` and SHALL be required-to-pass for the workflow to be considered green.
+**Rationale**: Two OSes × two Python versions catches platform-specific and version-specific regressions before merge. Required-to-pass on every cell prevents one cell from being silently skipped or marked allowed-failure.
+**Verification Method**: Inspection (I)
+
+#### L2-CICD-002
+
+**Parent**: L1-CICD-001
+**Statement**: The pytest invocation SHALL run with `filterwarnings = ["error", ...]` (already set in `pyproject.toml::tool.pytest.ini_options`); any `ResourceWarning`, `DeprecationWarning` not in the explicit ignore list, or other escalated warning SHALL cause the test run to fail.
+**Rationale**: Warning escalation is the contract that catches resource leaks (unclosed sockets/file handles/event loops) at unit-test time rather than under production load. The explicit ignore list is small and reviewable; growth requires deliberate intent.
+**Verification Method**: Inspection (I), Test (T)
+
+#### L2-CICD-003
+
+**Parent**: L1-CICD-001
+**Statement**: The CI workflow SHALL trigger on every `push` to `main` and every `pull_request` (open + synchronize). A nightly scheduled run on `main` SHALL also execute the full matrix, surfacing flakes that don't reproduce per-PR.
+**Rationale**: Per-PR triggers gate merges; the scheduled run catches non-deterministic failures (asyncio races, clock-sensitive tests) that pass per-merge but fail under the natural load of a 24-hour rerun cadence.
+**Verification Method**: Inspection (I)
+
+### Derivations of L1-CICD-002 (pre-commit gate)
+
+#### L2-CICD-004
+
+**Parent**: L1-CICD-002
+**Statement**: The CI workflow SHALL execute `poetry run pre-commit run --all-files` as a required job; failure of any hook SHALL fail the workflow.
+**Rationale**: Running `--all-files` (rather than only changed files) catches drift from prior PRs that bypassed local pre-commit. Required-to-pass status keeps the gate authoritative.
+**Verification Method**: Inspection (I)
+
+#### L2-CICD-005
+
+**Parent**: L1-CICD-002
+**Statement**: Pre-commit hook versions in `.pre-commit-config.yaml` SHALL be pinned to specific revisions (not branch references like `main`); CI SHALL execute against the same pinned revisions developers use locally.
+**Rationale**: Hook drift between local and CI is the most common source of "passes locally, fails on CI" friction. Pinned revisions across both environments makes the gate deterministic.
+**Verification Method**: Inspection (I)
+
+### Derivations of L1-CICD-003 (coverage gate)
+
+#### L2-CICD-006
+
+**Parent**: L1-CICD-003
+**Statement**: The pytest configuration SHALL set `--cov-fail-under` to the current coverage floor in `pyproject.toml::tool.pytest.ini_options::addopts`; CI SHALL fail the workflow if coverage drops below this floor. The floor SHALL be ratcheted upward (never downward) as test gaps close.
+**Rationale**: A monotonically non-decreasing floor prevents per-PR coverage erosion. Ratcheting downward to "fix" a drop hides the regression rather than reverting the change that caused it.
+**Verification Method**: Inspection (I)
+
+#### L2-CICD-007
+
+**Parent**: L1-CICD-003
+**Statement**: Coverage reports (HTML at `.coverage_html/` and XML at `.coverage.xml`) SHALL be uploaded as workflow artifacts on every CI run, downloadable from the GitHub Actions UI for at least 30 days.
+**Rationale**: Artifacts let reviewers inspect line-by-line coverage of a PR without checking out the branch. The 30-day retention covers typical PR review timelines plus post-merge investigation windows.
+**Verification Method**: Inspection (I), Demonstration (D)
+
+### Derivations of L1-CICD-004 (traceability gate)
+
+#### L2-CICD-008
+
+**Parent**: L1-CICD-004
+**Statement**: `scripts/build-trace-matrix.py` SHALL accept a `--check` flag that re-derives the matrix in memory, compares it byte-for-byte against the committed `docs/TRACE-MATRIX.md`, and exits non-zero on any difference. CI SHALL invoke the script with `--check` as a required job.
+**Rationale**: Byte-comparison is the simplest and most precise check — any committed matrix that the script can't reproduce is by definition stale. Required-to-pass means contributors can't merge without regenerating after marker changes.
+**Verification Method**: Test (T)
+
+#### L2-CICD-009
+
+**Parent**: L1-CICD-004
+**Statement**: The `--check` mode SHALL also fail (with a distinct exit code or error message) if any rollup row is internally inconsistent under the propagation rule from Increment 25a — for example, a parent labeled `Implemented` while any child is `Draft`. The failure message SHALL list the offending parent ids and the children that violate the rule.
+**Rationale**: Defense in depth against a drift mode where the committed matrix matches what the script regenerates but both encode an inconsistent state. Listing offenders makes the failure actionable rather than just a "fix it" notice.
+**Verification Method**: Test (T)
+
+### Derivations of L1-CICD-005 (test-temp isolation)
+
+#### L2-CICD-010
+
+**Parent**: L1-CICD-005
+**Statement**: `pyproject.toml::tool.pytest.ini_options::addopts` SHALL include `--basetemp=.pytest_tmp` so every pytest run roots its temporary files in a workspace-local directory rather than the OS temp directory.
+**Rationale**: Workspace-local rooting keeps inspection trivial and surfaces Windows path-quoting issues during development rather than CI.
+**Verification Method**: Inspection (I)
+
+#### L2-CICD-011
+
+**Parent**: L1-CICD-005
+**Statement**: `.gitignore` SHALL include `.pytest_tmp/` (and the existing `.pytest_cache/` entry SHALL be retained). A conformance test SHALL fail if the ignore is missing.
+**Rationale**: Without the ignore, a single forgotten cleanup adds tens or hundreds of test-artifact files to the next commit. The conformance test catches accidental removal.
+**Verification Method**: Test (T), Inspection (I)
+
+### Derivations of L1-CICD-006 (reproducibility)
+
+#### L2-CICD-012
+
+**Parent**: L1-CICD-006
+**Statement**: `poetry.lock` SHALL be tracked in version control alongside `pyproject.toml`; the existing pre-commit `check-added-large-files` hook SHALL not exempt the lockfile from its size budget.
+**Rationale**: Tracking the lockfile is the precondition for reproducibility; the size-check note is a guard against the lockfile being LFS-staged or otherwise treated specially.
+**Verification Method**: Inspection (I)
+
+#### L2-CICD-013
+
+**Parent**: L1-CICD-006
+**Statement**: The CI workflow SHALL execute `poetry lock --check` (or equivalent reproducibility check, e.g., `poetry install --dry-run --sync` followed by hash comparison) as a required job; failure SHALL block merge.
+**Rationale**: Running the check on CI catches the case where a contributor edited `pyproject.toml` without regenerating the lockfile.
+**Verification Method**: Test (T)
+
+### Derivations of L1-CICD-007 (build provenance)
+
+#### L2-CICD-014
+
+**Parent**: L1-CICD-007
+**Statement**: Each workflow run's logs SHALL include, at the top of the test job, the commit SHA (`${{ github.sha }}`), the runner OS (`${{ runner.os }}`), the Python version, the workflow trigger event, and the run's UTC start timestamp.
+**Rationale**: These five fields are the minimum needed to reproduce the run from scratch and to correlate a green/red signal to a specific (commit, environment) tuple.
+**Verification Method**: Inspection (I)
+
+#### L2-CICD-015
+
+**Parent**: L1-CICD-007
+**Statement**: Each workflow run SHALL upload as artifacts: the regenerated `docs/TRACE-MATRIX.md`, `.coverage.xml`, the `.coverage_html/` directory, and any pytest junit-xml report. Retention SHALL be at least 30 days; the workflow YAML SHALL set `retention-days` explicitly rather than relying on the GitHub Actions default.
+**Rationale**: Explicit retention prevents a future GitHub default change from silently expiring artifacts faster than expected. The four artifacts together are sufficient for an auditor reviewing a release tag months after the fact.
+**Verification Method**: Inspection (I), Demonstration (D)
 
 ---
 

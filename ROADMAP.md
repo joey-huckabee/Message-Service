@@ -20,6 +20,7 @@ Done:
 - **Cluster 26 (CI/CD requirements + workflows)** — 26a `220c1d5`, 26b `c22ebc9`, 26c `f99f795`, 26d `aa6550c`.
 - **Increment 15** — Prometheus metrics adapter (`fe5c3a4`).
 - **Increment 16** — Local-account auth adapter, Argon2 + sessions (`7ede66c`).
+- **Increment 17** — FastAPI app factory + bootstrap wiring (`aa3902e`).
 
 Still open:
 

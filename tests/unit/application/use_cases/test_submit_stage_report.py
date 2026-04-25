@@ -494,6 +494,7 @@ async def test_audit_recorded_before_stage_save(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-026")
+@pytest.mark.requirement("L3-OBS-026")
 async def test_audit_event_captures_retry_metadata(
     use_case: SubmitStageReportUseCase,
     uow_bundle: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock],

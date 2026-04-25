@@ -457,6 +457,7 @@ async def test_audit_recorded_before_run_save(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-026")
+@pytest.mark.requirement("L3-OBS-025")
 async def test_audit_event_is_begin_run_success(
     use_case: BeginRunUseCase,
     uow_factory: tuple[MagicMock, Any, Any, Any, AsyncMock],

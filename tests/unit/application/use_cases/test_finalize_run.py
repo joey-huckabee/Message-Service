@@ -307,6 +307,7 @@ async def test_audit_recorded_before_state_update(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-RUN-005")
+@pytest.mark.requirement("L3-OBS-027")
 async def test_audit_event_captures_finalize_run_transition(
     use_case: FinalizeRunUseCase,
     uow_bundle: tuple[MagicMock, Any, AsyncMock, Any, Any, AsyncMock],

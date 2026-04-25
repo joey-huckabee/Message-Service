@@ -306,6 +306,31 @@ Lower-impact catch-all so these don't get lost. Both team-corrected items remove
 2. **Merge "L3-OBS (extension)"** section into L3-OBS proper. Remove the workaround note ("they are grouped separately… for clarity").
 3. **L1-CFG-003 enumeration completeness** (folds the team's #C and my finding). Add to the L1-CFG-003 minimum config keys: `email_body_template_ref`, `pipelines.registered`, `mail.admin_recipients`, `templates.max_context_bytes`/`max_rendered_bytes`, `smtp.use_starttls`, `persistence.connection_pool_size`. (`max_candidates_per_iteration` lands via 14e; `service.shutdown_grace_period_seconds` is already implicit through L2-DEP-006.)
 
+### Increment 25f — Audit-record L3 children for L2-OBS-013…017
+
+**Context**
+
+The 2026-04-25 requirements alignment audit (commit `0e07138`) found that five L2 statements under L1-OBS-003 (the audit-log scope L2s authored in 25b) had no L3 children: L2-OBS-013 (pipeline-initiated audits), L2-OBS-014 (state transitions), L2-OBS-015 (sweeper), L2-OBS-016 (subscriptions), L2-OBS-017 (auth and user management). The L2 statements claim audit-record format obligations (actor / resource / outcome / details for each `AuditAction` category) but have no implementation-level decomposition pinning the exact field formats.
+
+**Work**
+
+Author 12 new L3-OBS statements (`L3-OBS-025`…`L3-OBS-036`) covering each `AuditAction` value referenced by the five L2s:
+
+- L3-OBS-025…027: `BEGIN_RUN`, `SUBMIT_STAGE_REPORT`, `FINALIZE_RUN` formats (L2-OBS-013).
+- L3-OBS-028, 029: `RUN_STATE_TRANSITION`, `STAGE_STATE_TRANSITION` formats (L2-OBS-014). `STAGE_STATE_TRANSITION` is forward-spec — the enum value exists but no use case currently emits it.
+- L3-OBS-030: `SWEEP_ORPHAN` format (L2-OBS-015).
+- L3-OBS-031, 032: `SUBSCRIBE`, `UNSUBSCRIBE` formats (L2-OBS-016) — implementation deferred to Increment 18.
+- L3-OBS-033: `LOGIN`, `LOGOUT` format (L2-OBS-017).
+- L3-OBS-034: `LOGIN_FAILED` format with operator-only `reason` (L2-OBS-017).
+- L3-OBS-035: `CREATE_USER`, `UPDATE_USER` format (L2-OBS-017) — implementation deferred to Increment 20.
+- L3-OBS-036: cross-cutting password / token redaction obligation (L2-OBS-017).
+
+Markers added to existing tests for the implemented cases. Forward-spec L3s (029, 031, 032, 035) carry no markers and will appear as Draft in the trace matrix; that's the correct state.
+
+**Trace impact**
+
+L2-OBS-013, L2-OBS-015 and L2-OBS-017 now have direct L3 children covering their core obligations. L2-OBS-014 and L2-OBS-016 are partially covered (the not-yet-implemented record types remain Draft). L3 total: 335 → 347.
+
 ---
 
 ## Cluster 26 — CI/CD requirements + workflows

@@ -271,6 +271,7 @@ async def test_tick_transitions_expired_run_to_orphaned(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-006")
+@pytest.mark.requirement("L3-OBS-030")
 async def test_tick_records_sweep_orphan_audit_event(
     uow_factory: SqliteUnitOfWorkFactory,
     clock: _FixedClock,

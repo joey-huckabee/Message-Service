@@ -6,7 +6,7 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 **Under active development (through Increment 16).** Domain, application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, sweeper outbox with stuck-claim recovery, and Prometheus metrics are all in place. Remaining v1 work is primarily the FastAPI dashboard chassis and routes (Increments 17–20), end-to-end harness (21), error-mapping coverage (22), deployment polish (23), and documentation deliverables (24). See `ROADMAP.md` for the full phase plan and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
 
-Requirement counts: **65 L1 · 182 L2 · 335 L3** across 16 categories (CICD added in Increment 26a).
+Requirement counts: **65 L1 · 182 L2 · 347 L3** across 16 categories.
 
 ## Key characteristics
 
@@ -29,9 +29,9 @@ Message-Service/
 │   ├── linux/                  # systemd unit file
 │   └── windows/                # NSSM installation procedure
 ├── docs/
-│   ├── L1-REQ.md               # Level 1 SHALL statements (57 reqs)
-│   ├── L2-REQ.md               # Level 2 SHALL statements (157 reqs)
-│   ├── L3-REQ.md               # Level 3 SHALL statements (315 reqs)
+│   ├── L1-REQ.md               # Level 1 SHALL statements (65 reqs)
+│   ├── L2-REQ.md               # Level 2 SHALL statements (182 reqs)
+│   ├── L3-REQ.md               # Level 3 SHALL statements (347 reqs)
 │   ├── TRACE-MATRIX.md         # forward trace + coverage summary
 │   ├── LOGGING-AND-EXCEPTIONS.md  # exception hierarchy and log conventions
 │   ├── adr/                    # architecture decision records

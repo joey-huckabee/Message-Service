@@ -132,6 +132,7 @@ async def test_logout_deletes_session_row(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-OBS-017")
+@pytest.mark.requirement("L3-OBS-033")
 async def test_logout_audits_logout(
     logout_uc: LogoutUseCase, uow_factory: SqliteUnitOfWorkFactory
 ) -> None:
@@ -147,6 +148,7 @@ async def test_logout_audits_logout(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AUTH-003")
+@pytest.mark.requirement("L3-OBS-036")
 async def test_logout_audit_does_not_contain_plaintext_token(
     logout_uc: LogoutUseCase, uow_factory: SqliteUnitOfWorkFactory
 ) -> None:

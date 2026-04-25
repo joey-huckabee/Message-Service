@@ -186,6 +186,7 @@ async def test_login_success_persists_sha256_hash_not_plaintext(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-OBS-017")
+@pytest.mark.requirement("L3-OBS-033")
 async def test_login_success_audits_login(
     login_uc: LoginUseCase,
     uow_factory: SqliteUnitOfWorkFactory,
@@ -210,6 +211,7 @@ async def test_login_success_audits_login(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-013")
+@pytest.mark.requirement("L3-OBS-034")
 async def test_login_unknown_email_raises_and_audits_failure(
     login_uc: LoginUseCase, uow_factory: SqliteUnitOfWorkFactory
 ) -> None:
@@ -226,6 +228,7 @@ async def test_login_unknown_email_raises_and_audits_failure(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-013")
+@pytest.mark.requirement("L3-OBS-034")
 async def test_login_disabled_account_raises_and_audits_failure(
     login_uc: LoginUseCase,
     uow_factory: SqliteUnitOfWorkFactory,
@@ -244,6 +247,7 @@ async def test_login_disabled_account_raises_and_audits_failure(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-013")
+@pytest.mark.requirement("L3-OBS-034")
 async def test_login_bad_password_raises_and_audits_failure(
     login_uc: LoginUseCase,
     uow_factory: SqliteUnitOfWorkFactory,

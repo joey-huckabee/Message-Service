@@ -345,11 +345,11 @@ the single source of truth.
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | _(TBD)_ | Draft |
 | L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Partially Implemented |
 | L2-OBS-012 | L3-OBS-023, L3-OBS-024 | _(TBD)_ | Draft |
-| L2-OBS-013 | _(none)_ | _(TBD)_ | Draft |
-| L2-OBS-014 | _(none)_ | _(TBD)_ | Draft |
-| L2-OBS-015 | _(none)_ | _(TBD)_ | Draft |
-| L2-OBS-016 | _(none)_ | _(TBD)_ | Draft |
-| L2-OBS-017 | _(none)_ | `tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Implemented |
+| L2-OBS-013 | L3-OBS-025, L3-OBS-026, L3-OBS-027 | `tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_event_captures_finalize_run_transition`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata` | Implemented |
+| L2-OBS-014 | L3-OBS-028, L3-OBS-029 | _(TBD)_ | Draft |
+| L2-OBS-015 | L3-OBS-030 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event` | Implemented |
+| L2-OBS-016 | L3-OBS-031, L3-OBS-032 | _(TBD)_ | Draft |
+| L2-OBS-017 | L3-OBS-033, L3-OBS-034, L3-OBS-035, L3-OBS-036 | `tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Partially Implemented |
 
 ### L1-ERR: Error handling and exception taxonomy
 
@@ -475,14 +475,14 @@ the single source of truth.
 | MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 4 | 13 | 23 | 2 | 6 |
-| OBS | 4 | 17 | 24 | 2 | 5 |
+| OBS | 4 | 17 | 36 | 2 | 12 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **335** | **57** | **92** |
+| **Total** | **65** | **182** | **347** | **57** | **99** |
 
-**Requirements verified by at least one test**: 149 of 517 (28.8%).
+**Requirements verified by at least one test**: 156 of 529 (29.5%).
 
 ### Orphan check
 

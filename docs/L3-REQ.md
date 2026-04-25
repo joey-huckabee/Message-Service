@@ -36,12 +36,12 @@ of truth for live status; this file holds only the spec content above.
 | `MAIL`    | 13       | 26       |
 | `DASH`    | 11       | 21       |
 | `PERS`    | 13       | 23       |
-| `OBS`     | 17       | 24       |
+| `OBS`     | 17       | 36       |
 | `ERR`     | 10       | 22       |
 | `CFG`     | 8        | 16       |
 | `DEP`     | 9        | 18       |
 | `CICD`    | 15       | 17       |
-| **Total** | **182**  | **335**  |
+| **Total** | **182**  | **347**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -878,6 +878,42 @@ The structlog processor pipeline SHALL include a processor that, for records at 
 
 **L3-OBS-024** · Parent: L2-OBS-012 · Verification: T
 A unit test SHALL emit a sample ERROR record raised from a `ValidationError` subclass and assert the JSON output contains `"error_code": "<expected_code>"` as a top-level key.
+
+**L3-OBS-025** · Parent: L2-OBS-013 · Verification: T
+A `BEGIN_RUN` audit record SHALL set `actor` to `pipeline:<pipeline_type>`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `pipeline_type`, `declared_stages` (the list of declared `stage_id`s), `tags`, and `attachment_mode`.
+
+**L3-OBS-026** · Parent: L2-OBS-013 · Verification: T
+A `SUBMIT_STAGE_REPORT` audit record SHALL set `actor` to `pipeline:<pipeline_type>`, `resource` to `stage:<run_id>:<stage_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `stage_id`, and `was_retry` (boolean).
+
+**L3-OBS-027** · Parent: L2-OBS-013 · Verification: T
+A `FINALIZE_RUN` audit record SHALL set `actor` to `pipeline:<pipeline_type>`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id` and `prior_state` (the run's state immediately before finalize was accepted).
+
+**L3-OBS-028** · Parent: L2-OBS-014 · Verification: T
+A `RUN_STATE_TRANSITION` audit record SHALL set `actor` to `system:<use_case>` (e.g., `system:assemble_and_deliver`), `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `prior_state`, `new_state`, and `timestamp` (ISO-8601 with `Z` suffix from `iso_z()`).
+
+**L3-OBS-029** · Parent: L2-OBS-014 · Verification: T
+A `STAGE_STATE_TRANSITION` audit record SHALL set `actor` to `system:<use_case>`, `resource` to `stage:<run_id>:<stage_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `stage_id`, `prior_state`, `new_state`, and `timestamp`. (Implementation deferred — no use case currently emits this record; the L3 pins the format for when one does.)
+
+**L3-OBS-030** · Parent: L2-OBS-015 · Verification: T
+A `SWEEP_ORPHAN` audit record SHALL set `actor` to `system:sweeper`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `prior_state`, `new_state` (always `ORPHANED`), `last_transition_at`, and `enqueued_actions` (the list of disposition action ids enqueued for this orphan, in configured order).
+
+**L3-OBS-031** · Parent: L2-OBS-016 · Verification: T
+A `SUBSCRIBE` audit record SHALL set `actor` to `user:<user_id>`, `resource` to `subscription:<subscription_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `granularity` (one of `GLOBAL`/`PIPELINE`/`TAG`) and `target_value` (the pipeline name or tag name; `null` for `GLOBAL`). (Implementation deferred to Increment 18.)
+
+**L3-OBS-032** · Parent: L2-OBS-016 · Verification: T
+An `UNSUBSCRIBE` audit record SHALL use the same field shape as `L3-OBS-031`. (Implementation deferred to Increment 18.)
+
+**L3-OBS-033** · Parent: L2-OBS-017 · Verification: T
+`LOGIN` and `LOGOUT` audit records SHALL set `actor` to `user:<user_id>` (the authenticated user), `resource` to `user:<user_id>` (self-action), `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `user_id`. The `LOGIN` record additionally carries `session_id` (the SHA-256 of the minted session token, never the token itself).
+
+**L3-OBS-034** · Parent: L2-OBS-017 · Verification: T
+A `LOGIN_FAILED` audit record SHALL set `actor` to `username:<attempted_email>`, `resource` to `user:<attempted_email>`, `outcome` to `FAILURE`, and `details` to a dict containing at minimum `attempted_email` and `reason` (an operator-only string drawn from a closed enumeration; never echoed in user-facing responses, per L3-AUTH-013).
+
+**L3-OBS-035** · Parent: L2-OBS-017 · Verification: T
+`CREATE_USER` and `UPDATE_USER` audit records SHALL set `actor` to `user:<admin_id>` (the administrator performing the action), `resource` to `user:<target_user_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `target_user_id` and (for `UPDATE_USER`) the list of mutated field names. (Implementation deferred to Increment 20.)
+
+**L3-OBS-036** · Parent: L2-OBS-017 · Verification: T, I
+No audit record produced by any auth or user-management use case SHALL contain a plaintext password, password hash, or session token in any `details` field; a unit test SHALL serialize a representative sample of each record type and assert no field key matches `password`, `password_hash`, or `session_token`, and that no field value matches the structural pattern of an Argon2 hash (`$argon2`-prefixed) or a base64url session token of length >=32.
 
 ---
 

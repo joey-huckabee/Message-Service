@@ -32,7 +32,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 # -----------------------------------------------------------------------------
 # Type aliases
@@ -79,10 +79,17 @@ class GrpcConfig(_FrozenForbid):
 
 
 class DashboardConfig(_FrozenForbid):
-    """FastAPI dashboard listener configuration (L2-DASH-002)."""
+    """FastAPI dashboard listener configuration (L2-DASH-002).
+
+    ``https_only`` controls the ``Secure`` attribute on the session
+    cookie per L3-AUTH-009; default ``True`` for production
+    deployments behind TLS termination, override to ``False`` for
+    local development over plaintext HTTP.
+    """
 
     host: str = Field(default="0.0.0.0", min_length=1)
-    port: int = Field(ge=1, le=65_535)
+    port: int = Field(default=8080, ge=1, le=65_535)
+    https_only: bool = Field(default=True)
 
 
 # -----------------------------------------------------------------------------
@@ -322,6 +329,22 @@ class Config(_FrozenForbid):
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     service: ServiceConfig = Field(default_factory=ServiceConfig)
     pipelines: PipelinesConfig = Field(default_factory=PipelinesConfig)
+
+    @model_validator(mode="after")
+    def _check_listener_ports_distinct(self) -> Config:
+        """L3-DASH-004: ``dashboard.port`` and ``grpc.port`` SHALL differ.
+
+        Raised at load time so misconfiguration fails fast at startup
+        rather than producing a confusing bind-error at one of the two
+        servers.
+        """
+        if self.dashboard.port == self.grpc.port:
+            raise ValueError(
+                f"dashboard.port ({self.dashboard.port}) must differ from "
+                f"grpc.port ({self.grpc.port}); both listeners cannot share "
+                "a port",
+            )
+        return self
 
 
 __all__ = [

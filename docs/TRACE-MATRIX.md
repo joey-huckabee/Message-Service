@@ -225,12 +225,12 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | `tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Partially Implemented |
+| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | `tests/integration/rest/test_app.py::test_login_with_bad_password_returns_401`<br>`tests/integration/rest/test_app.py::test_login_with_unknown_email_returns_401_with_realm`<br>`tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Partially Implemented |
 | L2-AUTH-002 | L3-AUTH-002, L3-AUTH-003 | `tests/unit/infrastructure/auth/test_argon2_hasher.py::test_cost_parameters_are_honoured` | Partially Implemented |
 | L2-AUTH-003 | L3-AUTH-004, L3-AUTH-005 | `tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_matches_for_same_value`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_rejects_different_values`<br>`tests/unit/domain/aggregates/test_password.py::test_repr_does_not_leak_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_reveal_returns_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_str_does_not_leak_plaintext` | Partially Implemented |
-| L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash` | Implemented |
-| L2-AUTH-005 | L3-AUTH-008, L3-AUTH-009 | _(TBD)_ | Draft |
-| L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | `tests/integration/persistence/test_session_repository.py::test_delete_expired_only_removes_below_threshold`<br>`tests/integration/persistence/test_session_repository.py::test_touch_updates_last_activity_at` | Partially Implemented |
+| L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_deterministic`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_sha256_hex` | Implemented |
+| L2-AUTH-005 | L3-AUTH-008, L3-AUTH-009 | `tests/unit/interfaces/rest/test_app_unit.py::test_set_session_cookie_drops_secure_when_https_only_false`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_session_cookie_uses_named_constants_and_safe_attrs` | Implemented |
+| L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | `tests/integration/persistence/test_session_repository.py::test_delete_expired_only_removes_below_threshold`<br>`tests/integration/persistence/test_session_repository.py::test_touch_updates_last_activity_at`<br>`tests/integration/rest/test_app.py::test_expired_session_is_deleted_on_first_request_past_threshold`<br>`tests/integration/rest/test_app.py::test_session_touch_updates_last_activity_on_each_request` | Partially Implemented |
 
 ### L1-MAIL: Email delivery
 
@@ -268,7 +268,7 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-DASH-001 | L2-DASH-001, L2-DASH-002, L2-DASH-003 | Draft |
+| L1-DASH-001 | L2-DASH-001, L2-DASH-002, L2-DASH-003 | Partially Implemented |
 | L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Draft |
 | L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009 | Draft |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Draft |
@@ -277,8 +277,8 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | _(TBD)_ | Draft |
-| L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | _(TBD)_ | Draft |
+| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Partially Implemented |
+| L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | `tests/unit/config/test_dashboard_port_collision.py::test_collision_raises_validation_error`<br>`tests/unit/config/test_dashboard_port_collision.py::test_distinct_ports_validate` | Partially Implemented |
 | L2-DASH-003 | L3-DASH-005, L3-DASH-006, L3-DASH-020 | _(TBD)_ | Draft |
 | L2-DASH-004 | L3-DASH-007, L3-DASH-008 | _(TBD)_ | Draft |
 | L2-DASH-005 | L3-DASH-009 | _(TBD)_ | Draft |
@@ -471,18 +471,18 @@ the single source of truth.
 | AGGR | 4 | 10 | 20 | 4 | 6 |
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
-| AUTH | 2 | 6 | 13 | 5 | 4 |
+| AUTH | 2 | 6 | 13 | 5 | 8 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
-| DASH | 4 | 11 | 21 | 0 | 0 |
+| DASH | 4 | 11 | 21 | 0 | 2 |
 | PERS | 4 | 13 | 23 | 2 | 6 |
 | OBS | 4 | 17 | 36 | 2 | 12 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **347** | **57** | **99** |
+| **Total** | **65** | **182** | **347** | **57** | **105** |
 
-**Requirements verified by at least one test**: 156 of 529 (29.5%).
+**Requirements verified by at least one test**: 162 of 529 (30.6%).
 
 ### Orphan check
 

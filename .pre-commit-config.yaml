@@ -37,6 +37,8 @@ repos:
           - grpcio
           - grpcio-tools
           - fastapi
+          - uvicorn
+          - httpx
           - aiosqlite
           - aiosmtplib
           - jinja2

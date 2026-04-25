@@ -36,6 +36,10 @@ port = 50051
 # FastAPI dashboard listener. Expose only on the management interface.
 host = "0.0.0.0"
 port = 8080
+# When true, the session cookie carries the Secure attribute.
+# Production deployments behind TLS termination MUST keep this true;
+# dev environments over plaintext HTTP override to false.
+https_only = true
 
 # --- Persistence -------------------------------------------------------------
 

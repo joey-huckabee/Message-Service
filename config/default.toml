@@ -17,6 +17,10 @@ port = 50051
 # L2-DASH-002: FastAPI dashboard listener (must differ from grpc.port)
 host = "0.0.0.0"
 port = 8080
+# L3-AUTH-009: when true, the session cookie is issued with the Secure
+# attribute. Default true; override to false only for local dev over
+# plaintext HTTP.
+https_only = true
 
 [persistence]
 # L2-PERS-001: single SQLite file per deployment

@@ -174,6 +174,10 @@ def test_grpc_port_out_of_range_rejected(tmp_path: Path, port: int) -> None:
 def test_grpc_port_within_range_accepted(tmp_path: Path, port: int) -> None:
     data = _minimal_valid_data(tmp_path)
     data["grpc"]["port"] = port  # type: ignore[index]
+    # The L3-DASH-004 cross-validator rejects shared listener ports;
+    # set the dashboard to a different value so this test stays focused
+    # on the gRPC range (the collision case has its own dedicated test).
+    data["dashboard"]["port"] = port + 1 if port < 65_535 else port - 1  # type: ignore[index]
     cfg = Config.model_validate(data)
     assert cfg.grpc.port == port
 

@@ -1,0 +1,404 @@
+"""FastAPI dashboard application factory and chassis (Increment 17).
+
+The factory :func:`create_app` constructs a :class:`fastapi.FastAPI`
+instance from a fully-built :class:`~message_service.bootstrap.Service`.
+This increment delivers the chassis only:
+
+* lifespan startup / shutdown handlers (L3-DASH-002),
+* session-cookie middleware that authenticates each request, enforces
+  the configured idle-timeout, and refreshes ``last_activity_at`` on
+  every successful authenticated request
+  (L2-AUTH-005, L2-AUTH-006, L3-AUTH-008..L3-AUTH-012),
+* a CSRF double-submit guard on POST/PATCH/DELETE/PUT
+  (L3-DASH-018),
+* an unauthenticated health endpoint at ``GET /healthz``,
+* a ``POST /login`` route that delegates to
+  :class:`~message_service.application.use_cases.login.LoginUseCase`
+  and sets the session cookie on success,
+* a ``POST /logout`` route that delegates to
+  :class:`~message_service.application.use_cases.logout.LogoutUseCase`
+  and clears the cookie.
+
+Domain routes (subscriptions, runs, admin) are deliberately out of
+scope for this increment; they land in 18..20.
+
+Factory signature
+-----------------
+L3-DASH-001 specifies ``create_app(config: Config) -> FastAPI``. We
+take a fully-built :class:`Service` instead so the factory does not
+re-execute the composition root (and so unit tests that already build
+a ``Service`` can reuse it). The deviation is intentional and
+documented here; the L3 statement may be reworded in a future spec
+pass.
+
+Requirement references
+----------------------
+L1-AUTH-001, L1-AUTH-002, L1-DASH-001, L1-DEP-001
+L2-AUTH-005, L2-AUTH-006, L2-DASH-001, L2-DASH-002
+L3-AUTH-008..L3-AUTH-012
+L3-DASH-001, L3-DASH-002, L3-DASH-004, L3-DASH-018
+"""
+
+from __future__ import annotations
+
+import hashlib
+import secrets
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from datetime import timedelta
+from typing import TYPE_CHECKING
+
+import structlog
+from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from message_service.application.use_cases.login import AuthenticationError
+from message_service.domain.aggregates.password import Password
+
+if TYPE_CHECKING:
+    from starlette.responses import Response as StarletteResponse
+
+    from message_service.bootstrap import Service
+
+_log = structlog.get_logger(__name__)
+
+SESSION_COOKIE_NAME = "msp_session"
+"""L3-AUTH-008: name of the session cookie."""
+
+CSRF_COOKIE_NAME = "msp_csrf"
+"""Companion CSRF cookie for the double-submit guard (L3-DASH-018)."""
+
+CSRF_HEADER_NAME = "X-CSRF-Token"
+"""Header that POST/PATCH/DELETE/PUT requests echo for CSRF validation."""
+
+_STATE_CHANGING_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
+
+_REALM = 'Session realm="Message-Service"'
+"""L3-AUTH-012: the ``WWW-Authenticate`` value on session-auth 401s."""
+
+
+# -----------------------------------------------------------------------------
+# Request models
+# -----------------------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    """Body of ``POST /login``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1)
+
+
+# -----------------------------------------------------------------------------
+# Cookie helpers
+# -----------------------------------------------------------------------------
+
+
+def _hash_token(plaintext: str) -> str:
+    """L3-AUTH-007: store ``SHA-256(plaintext)`` rather than the token."""
+    return hashlib.sha256(plaintext.encode("utf-8")).hexdigest()
+
+
+def _set_session_cookie(response: Response, token: str, *, https_only: bool) -> None:
+    """Set the session cookie with the L3-AUTH-008 attributes."""
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=https_only,
+        path="/",
+    )
+
+
+def _set_csrf_cookie(response: Response, token: str, *, https_only: bool) -> None:
+    """Set the CSRF cookie. Readable by JS so SPAs can echo it in the header."""
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=token,
+        httponly=False,  # the header echoes this value, so JS must read it
+        samesite="lax",
+        secure=https_only,
+        path="/",
+    )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    """Clear both the session and CSRF cookies (no-args path on logout)."""
+    response.delete_cookie(SESSION_COOKIE_NAME, path="/")
+    response.delete_cookie(CSRF_COOKIE_NAME, path="/")
+
+
+# -----------------------------------------------------------------------------
+# Middleware: session authentication + idle-timeout enforcement
+# -----------------------------------------------------------------------------
+
+
+class SessionAuthMiddleware(BaseHTTPMiddleware):
+    """Authenticate the request by session cookie; enforce idle-timeout.
+
+    Every request flows through this middleware. The middleware:
+
+    1. Reads the session cookie (if any) and looks up the session row
+       by ``SHA-256(token)``.
+    2. If the session is missing or its ``last_activity_at`` is older
+       than the configured idle-timeout, the cookie is treated as
+       invalid: the row (if any) is deleted in the same request that
+       rejects authentication (L3-AUTH-011), and the request continues
+       *unauthenticated*. Authenticated routes will then surface 401
+       via :func:`require_session`.
+    3. On a valid session, the middleware updates ``last_activity_at``
+       to ``now`` (L3-AUTH-010) and binds ``request.state.user_id`` /
+       ``request.state.session_token`` for downstream handlers.
+
+    Public (unauthenticated) endpoints — ``/healthz``, ``/login`` —
+    pass through without consulting the session.
+    """
+
+    def __init__(self, app: object, *, service: Service) -> None:
+        """Bind to the service so we can reach the session repo + clock.
+
+        Args:
+            app: The ASGI app the middleware wraps.
+            service: The constructed service (carries clock, UoW
+                factory, config).
+        """
+        super().__init__(app)  # type: ignore[arg-type]
+        self._service = service
+        self._idle_timeout = timedelta(
+            seconds=service.config.auth.session_idle_timeout_seconds,
+        )
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[StarletteResponse]],
+    ) -> StarletteResponse:
+        """Authenticate the request, then dispatch to the next handler."""
+        request.state.user_id = None
+        request.state.session_token = None
+
+        plaintext_token = request.cookies.get(SESSION_COOKIE_NAME)
+        if plaintext_token is None:
+            return await call_next(request)
+
+        token_hash = _hash_token(plaintext_token)
+        now = self._service.clock.now()
+
+        async with self._service.uow_factory() as uow:
+            session = await uow.session_repo.get_by_token_hash(token_hash)
+            if session is None:
+                # Cookie present but no row — stale or forged. Continue
+                # unauthenticated; the response handler can clear the
+                # cookie if it cares to.
+                return await call_next(request)
+
+            elapsed = now - session.last_activity_at
+            if elapsed >= self._idle_timeout:
+                # L3-AUTH-011: delete the row in the same request that
+                # rejects it. Continue unauthenticated.
+                await uow.session_repo.delete_by_token_hash(token_hash)
+                await uow.commit()
+                _log.info(
+                    "session_expired",
+                    user_id=session.user_id,
+                    idle_seconds=elapsed.total_seconds(),
+                )
+                return await call_next(request)
+
+            # L3-AUTH-010: refresh activity on every authenticated request.
+            await uow.session_repo.touch(token_hash, now)
+            await uow.commit()
+
+        request.state.user_id = session.user_id
+        request.state.session_token = plaintext_token
+        return await call_next(request)
+
+
+def require_session(request: Request) -> int:
+    """FastAPI dependency: 401 if the request is not authenticated.
+
+    Returns the authenticated ``user_id``. Routes that need the user
+    declare this dependency; routes that do not (login, health) skip
+    it.
+
+    Per L3-AUTH-012 the ``WWW-Authenticate`` header is set.
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="authentication required",
+            headers={"WWW-Authenticate": _REALM},
+        )
+    assert isinstance(user_id, int)
+    return user_id
+
+
+# -----------------------------------------------------------------------------
+# Middleware: CSRF double-submit guard
+# -----------------------------------------------------------------------------
+
+
+class CsrfMiddleware(BaseHTTPMiddleware):
+    """Double-submit CSRF guard on state-changing requests (L3-DASH-018).
+
+    The login flow issues a random CSRF token in a non-HttpOnly cookie
+    on successful authentication. Subsequent state-changing requests
+    (POST / PATCH / PUT / DELETE) MUST echo the token in the
+    ``X-CSRF-Token`` header. Mismatch or absence → HTTP 403.
+
+    The login route itself is exempt — it has no prior cookie context
+    and is the issuance point for the CSRF token. Health / GETs are
+    inherently safe and are not checked.
+    """
+
+    _EXEMPT_PATHS: frozenset[str] = frozenset({"/login"})
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[StarletteResponse]],
+    ) -> StarletteResponse:
+        """Enforce CSRF on state-changing methods outside the exempt set."""
+        if request.method in _STATE_CHANGING_METHODS and request.url.path not in self._EXEMPT_PATHS:
+            cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+            header_token = request.headers.get(CSRF_HEADER_NAME)
+            if (
+                cookie_token is None
+                or header_token is None
+                or not secrets.compare_digest(cookie_token, header_token)
+            ):
+                # ``BaseHTTPMiddleware`` does not translate raised
+                # :class:`HTTPException` into responses (FastAPI only
+                # does that for route-level handlers), so we return a
+                # response directly.
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={"detail": "CSRF token missing or invalid"},
+                )
+        return await call_next(request)
+
+
+# -----------------------------------------------------------------------------
+# App factory
+# -----------------------------------------------------------------------------
+
+
+def create_app(service: Service) -> FastAPI:
+    """Build the FastAPI dashboard application from a constructed service.
+
+    The factory wires middleware first (in outer-to-inner registration
+    order: CSRF → session-auth), then the chassis routes. Domain
+    routers attach in subsequent increments via ``app.include_router``.
+
+    Args:
+        service: The fully-constructed :class:`Service` from
+            :func:`message_service.bootstrap.build_service`.
+
+    Returns:
+        A new :class:`FastAPI` instance. No module-level ``app`` global
+        is created (L3-DASH-001).
+    """
+
+    @asynccontextmanager
+    async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
+        """L3-DASH-002: lifespan startup/shutdown.
+
+        Service-wide startup (migrations, scheduler, gRPC server)
+        already happened in ``build_service``; the lifespan is a hook
+        for FastAPI-only one-time work and runs no-op for now.
+        """
+        _log.info(
+            "rest_app_starting",
+            host=service.config.dashboard.host,
+            port=service.config.dashboard.port,
+        )
+        yield
+        _log.info("rest_app_stopped")
+
+    app = FastAPI(
+        title="Message-Service",
+        version="0.1",
+        lifespan=_lifespan,
+    )
+
+    # Middleware registration: Starlette runs middleware in REVERSE
+    # of registration order. We want:
+    #     request  ─▶ CsrfMiddleware ─▶ SessionAuthMiddleware ─▶ route
+    # so register session FIRST then CSRF (CSRF wraps session, runs
+    # outermost). CSRF needs no service state, so it's the simpler
+    # outer guard.
+    app.add_middleware(SessionAuthMiddleware, service=service)
+    app.add_middleware(CsrfMiddleware)
+
+    https_only = service.config.dashboard.https_only
+
+    # -------------------------------------------------------------------------
+    # Health
+    # -------------------------------------------------------------------------
+
+    @app.get("/healthz")
+    async def healthz() -> dict[str, str]:
+        """Unauthenticated liveness probe."""
+        return {"status": "ok"}
+
+    # -------------------------------------------------------------------------
+    # Login / Logout
+    # -------------------------------------------------------------------------
+
+    @app.post("/login")
+    async def login(body: LoginRequest, response: Response) -> dict[str, str]:
+        """L1-AUTH-001/L1-AUTH-002: authenticate + mint session.
+
+        On success, sets the session cookie + a fresh CSRF token; on
+        failure (any reason) returns the generic 401 per L3-AUTH-013.
+        """
+        try:
+            result = await service.login.execute(
+                email=body.email,
+                password=Password(body.password),
+            )
+        except AuthenticationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="invalid credentials",
+                headers={"WWW-Authenticate": _REALM},
+            ) from exc
+
+        _set_session_cookie(response, result.plaintext_token, https_only=https_only)
+        _set_csrf_cookie(
+            response,
+            secrets.token_urlsafe(32),
+            https_only=https_only,
+        )
+        return {"status": "ok"}
+
+    @app.post("/logout")
+    async def logout(request: Request, response: Response) -> dict[str, str]:
+        """Idempotent logout. CSRF-checked by the middleware.
+
+        Sessions that have already been deleted (concurrent logout from
+        another tab) SHALL NOT raise; the use case is itself idempotent.
+        """
+        token = request.cookies.get(SESSION_COOKIE_NAME)
+        user_id = getattr(request.state, "user_id", None)
+        if token is not None and user_id is not None:
+            await service.logout.execute(plaintext_token=token, user_id=user_id)
+        _clear_auth_cookies(response)
+        return {"status": "ok"}
+
+    return app
+
+
+__all__ = [
+    "CSRF_COOKIE_NAME",
+    "CSRF_HEADER_NAME",
+    "SESSION_COOKIE_NAME",
+    "create_app",
+    "require_session",
+]

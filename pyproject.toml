@@ -147,6 +147,10 @@ markers = [
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:google.*",
+    # uvicorn[standard] imports websockets.legacy; the deprecation
+    # is upstream's, will be cleared when uvicorn migrates off legacy.
+    "ignore::DeprecationWarning:websockets.legacy",
+    "ignore::DeprecationWarning:uvicorn.protocols.websockets.*",
 ]
 
 [tool.coverage.run]

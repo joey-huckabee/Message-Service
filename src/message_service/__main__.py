@@ -16,15 +16,18 @@ The entrypoint:
 2. Loads and validates the config.
 3. Calls :func:`message_service.bootstrap.build_service` to construct
    every adapter and use case.
-4. Constructs a ``grpc.aio.server``, registers the servicer via
+4. Constructs a ``grpc.aio.server`` and a uvicorn-driven FastAPI app,
+   registers the gRPC servicer via
    :func:`message_service.interfaces.grpc.servicer.register`, and
-   binds an insecure TCP port from ``config.grpc``.
+   binds the two listeners from ``config.grpc`` and
+   ``config.dashboard``.
 5. Installs SIGTERM and SIGINT handlers that set an internal
    :class:`asyncio.Event`. On platforms where
    ``loop.add_signal_handler`` is unsupported (Windows), falls back
    to ``signal.signal`` with a thread-safe event trigger.
-6. Starts the server and awaits the shutdown event.
-7. On shutdown: gracefully stops the gRPC server (bounded by
+6. Starts both servers and awaits the shutdown event.
+7. On shutdown: signals uvicorn to exit and gracefully stops the
+   gRPC server (both bounded by
    ``config.service.shutdown_grace_period_seconds``), then calls
    :func:`message_service.bootstrap.shutdown_service` to drain
    background tasks and close the SQLite connection.
@@ -33,6 +36,7 @@ Requirement references
 ----------------------
 L1-DEP-001 (single-process service)
 L1-API-001, L1-API-003 (gRPC plaintext listener)
+L1-DASH-001 (FastAPI dashboard listener)
 L2-DEP-006 (graceful shutdown on SIGTERM)
 """
 
@@ -47,11 +51,13 @@ from pathlib import Path
 
 import grpc
 import structlog
+import uvicorn
 
 from message_service.bootstrap import Service, build_service, shutdown_service
 from message_service.config.loader import load_config
 from message_service.config.schema import Config
 from message_service.interfaces.grpc.servicer import register
+from message_service.interfaces.rest.app import create_app
 
 _log = structlog.get_logger(__name__)
 
@@ -131,6 +137,35 @@ async def _build_grpc_server(service: Service) -> tuple[grpc.aio.Server, str]:
     return server, bind_address
 
 
+def _build_uvicorn_server(service: Service) -> uvicorn.Server:
+    """Construct the uvicorn server hosting the FastAPI dashboard.
+
+    The server is configured but not started; the caller drives its
+    lifecycle via :meth:`uvicorn.Server.serve` so we can interleave
+    its shutdown with the gRPC server under one shared event. The
+    asyncio loop is the one already running (``loop="asyncio"``) — we
+    do not let uvicorn install its own.
+
+    Args:
+        service: The constructed service (provides config + the
+            FastAPI app).
+
+    Returns:
+        An unstarted :class:`uvicorn.Server`.
+    """
+    app = create_app(service)
+    config = uvicorn.Config(
+        app=app,
+        host=service.config.dashboard.host,
+        port=service.config.dashboard.port,
+        log_config=None,  # structlog owns logging; don't let uvicorn replace it
+        loop="asyncio",
+        lifespan="on",
+        access_log=False,
+    )
+    return uvicorn.Server(config)
+
+
 def _install_signal_handlers(shutdown_event: asyncio.Event) -> None:
     """Install SIGTERM / SIGINT handlers that set ``shutdown_event``.
 
@@ -166,7 +201,7 @@ async def _run(
     *,
     shutdown_event: asyncio.Event | None = None,
 ) -> None:
-    """Build the service, start the gRPC server, and await shutdown.
+    """Build the service, start gRPC + uvicorn, and await shutdown.
 
     Testable core: pass an externally-owned ``shutdown_event`` and
     trigger it from a timer to drive the shutdown path without
@@ -175,17 +210,33 @@ async def _run(
     if shutdown_event is None:
         shutdown_event = asyncio.Event()
 
-    _log.info("service_starting", config_grpc_port=config.grpc.port)
+    _log.info(
+        "service_starting",
+        config_grpc_port=config.grpc.port,
+        config_dashboard_port=config.dashboard.port,
+    )
 
     service = await build_service(config)
-    server: grpc.aio.Server | None = None
+    grpc_server: grpc.aio.Server | None = None
+    rest_server: uvicorn.Server | None = None
+    rest_serve_task: asyncio.Task[None] | None = None
 
     try:
-        server, _bind_address = await _build_grpc_server(service)
+        grpc_server, _bind_address = await _build_grpc_server(service)
 
-        # Kick off the orphan sweeper. Must happen AFTER the gRPC
-        # server is accepting connections (so any accidental
-        # transaction collisions during startup surface as RPC
+        rest_server = _build_uvicorn_server(service)
+        rest_serve_task = asyncio.create_task(
+            rest_server.serve(),
+            name="rest-server",
+        )
+        _log.info(
+            "rest_server_listening",
+            address=f"{config.dashboard.host}:{config.dashboard.port}",
+        )
+
+        # Kick off the orphan sweeper. Must happen AFTER both
+        # listeners are accepting connections (so any accidental
+        # transaction collisions during startup surface as request
         # errors rather than crashing the service) and BEFORE we
         # block on ``shutdown_event.wait`` (otherwise the sweeper
         # never ticks in production).
@@ -197,13 +248,20 @@ async def _run(
 
         _log.info("service_stopping")
 
-        # Grace period for in-flight RPCs to finish. ``stop(grace=None)``
-        # is hard abort; ``stop(grace=N)`` waits up to N seconds, then
-        # cancels stragglers.
-        await server.stop(grace=float(config.service.shutdown_grace_period_seconds))
+        grace = float(config.service.shutdown_grace_period_seconds)
+
+        # Signal uvicorn to drain in-flight requests and exit. Then
+        # gracefully stop the gRPC server. Both run in parallel under
+        # the same grace budget; we collect their completions afterward.
+        rest_server.should_exit = True
+        await asyncio.gather(
+            grpc_server.stop(grace=grace),
+            rest_serve_task,
+            return_exceptions=False,
+        )
     finally:
-        # Always drain the scheduler + close the DB, even if the gRPC
-        # server failed to come up. ``shutdown_service`` is idempotent.
+        # Always drain the scheduler + close the DB, even if either
+        # listener failed to come up. ``shutdown_service`` is idempotent.
         await shutdown_service(
             service,
             timeout=float(config.service.shutdown_grace_period_seconds),

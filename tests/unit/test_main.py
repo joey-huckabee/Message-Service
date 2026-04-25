@@ -43,7 +43,11 @@ from message_service.config.loader import load_config
 # -----------------------------------------------------------------------------
 
 
-def _write_config(tmp_path: Path, grpc_port: int = 55082) -> Path:
+def _write_config(
+    tmp_path: Path,
+    grpc_port: int = 55082,
+    dashboard_port: int = 58082,
+) -> Path:
     """Write a minimal valid Config TOML + backing files; return its path."""
     (tmp_path / "body.html.j2").write_text("<p>{{ run_id }}</p>")
     (tmp_path / "frag.html.j2").write_text("<p>{{ v }}</p>")
@@ -82,7 +86,8 @@ port = {grpc_port}
 
 [dashboard]
 host = "127.0.0.1"
-port = 8080
+port = {dashboard_port}
+https_only = false
 
 [persistence]
 sqlite_path = "{(tmp_path / "svc.db").as_posix()}"
@@ -168,7 +173,7 @@ async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None
     """``_run`` SHALL start a gRPC server, await the shutdown event, and
     tear everything down cleanly."""
     # Choose a port unlikely to collide with other tests.
-    cfg_path = _write_config(tmp_path, grpc_port=55090)
+    cfg_path = _write_config(tmp_path, grpc_port=55090, dashboard_port=58090)
     config = load_config(cfg_path)
     shutdown = asyncio.Event()
 
@@ -189,7 +194,7 @@ async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None
 @pytest.mark.allow_io
 async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     """While ``_run`` is active the server SHALL answer a real BeginRun RPC."""
-    cfg_path = _write_config(tmp_path, grpc_port=55091)
+    cfg_path = _write_config(tmp_path, grpc_port=55091, dashboard_port=58091)
     config = load_config(cfg_path)
     shutdown = asyncio.Event()
 

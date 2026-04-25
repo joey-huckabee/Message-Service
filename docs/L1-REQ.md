@@ -58,12 +58,12 @@ single source of truth for live status; the source docs in this file,
 | `AUTH`    | Authentication                         | 2        |
 | `MAIL`    | Email delivery                         | 5        |
 | `DASH`    | Dashboard                              | 4        |
-| `PERS`    | Persistence                            | 3        |
+| `PERS`    | Persistence                            | 4        |
 | `OBS`     | Observability                          | 4        |
 | `ERR`     | Error handling and exception taxonomy  | 4        |
 | `CFG`     | Configuration                          | 3        |
 | `DEP`     | Deployment                             | 3        |
-| **Total** |                                        | **57**   |
+| **Total** |                                        | **58**   |
 
 ---
 
@@ -452,6 +452,14 @@ single source of truth for live status; the source docs in this file,
 **Rationale**: The repository pattern enforces Fowler-style separation of concerns and preserves the ability to swap persistence backends without touching domain logic.
 
 **Verification Method**: Inspection (I)
+
+### L1-PERS-004
+
+**Statement**: Rendered HTML reports persisted under L1-PERS-002 SHALL be retained on disk for at least `persistence.filesystem.report_retention_days` (default 90), after which a background pruner task SHALL evict reports whose `run_id` corresponds to a run whose terminal-state transition is older than the retention window. The pruner SHALL audit each evicted report (one record per file) so the deletion is traceable to operator intent rather than appearing as silent data loss.
+
+**Rationale**: Without a retention policy, the rendered-reports directory grows unbounded — one orphan, per-stage attachment per run, every run, forever. Operators reviewing past runs through the dashboard need recent reports available; long-term storage of every rendered HTML is rarely the operational requirement and is not what the audit log is for. The retention key gives operations the ability to set the window; the pruner-with-audit pattern mirrors the audit-log retention pattern from L1-OBS-003 so the operational mental model is consistent across both retention concerns.
+
+**Verification Method**: Test (T), Inspection (I)
 
 ---
 

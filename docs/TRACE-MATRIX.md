@@ -56,7 +56,7 @@ the single source of truth.
 | L1-RUN-002 | L2-RUN-004, L2-RUN-005, L2-RUN-006 | Partially Implemented |
 | L1-RUN-003 | L2-RUN-007, L2-RUN-008, L2-RUN-009, L2-RUN-010, L2-RUN-011 | Partially Implemented |
 | L1-RUN-004 | L2-RUN-012, L2-RUN-013 | Partially Implemented |
-| L1-RUN-005 | L2-RUN-014, L2-RUN-015 | Partially Implemented |
+| L1-RUN-005 | L2-RUN-014, L2-RUN-015, L2-RUN-016 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -77,6 +77,7 @@ the single source of truth.
 | L2-RUN-013 | L3-RUN-022, L3-RUN-023 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_background_task_scheduler_exposes_expected_methods`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_background_task_scheduled_after_commit`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_execute_returns_before_background_runs`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_scheduled_task_has_descriptive_name`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_raising_coroutine_does_not_affect_siblings`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_raising_coroutine_does_not_propagate`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_schedule_returns_immediately_without_awaiting`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_schedule_runs_coroutine` | Partially Implemented |
 | L2-RUN-014 | L3-RUN-024, L3-RUN-025 | `tests/unit/application/ports/test_clock.py::test_clock_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_clock.py::test_clock_now_is_abstract`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_accepts_valid_forms`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_rejects_invalid_forms`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_converts_non_utc_to_utc`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_emits_literal_z_suffix`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_omits_microseconds_when_zero`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_output_always_passes_is_iso_z`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_pattern_matches_spec`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_preserves_microseconds`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_accepts_negative_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_adds_positive_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_by_zero_is_a_noop`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_default_epoch_is_2026_01_01_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_at_epoch_starts_at_unix_epoch`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_is_a_clock`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_now_returns_tz_aware_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_output_flows_through_iso_z`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_repeated_now_calls_return_identical_values`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_jumps_to_absolute_time`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_rejects_naive_datetime`<br>`tests/unit/application/use_cases/test_begin_run.py::test_run_and_stages_share_clock_timestamp`<br>`tests/unit/domain/aggregates/test_audit_event.py::test_audit_event_rejects_naive_timestamp`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_created_at`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_updated_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_rejects_naive_submitted_at`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_advances_between_calls`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_is_instance_of_clock`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_returns_timezone_aware_utc` | Implemented |
 | L2-RUN-015 | L3-RUN-026, L3-RUN-027 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_audit_precedes_state_update_on_ready_to_sending`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_recorded_before_run_save`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_recorded_before_state_update`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_first_submission_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_recorded_before_stage_save` | Partially Implemented |
+| L2-RUN-016 | _(none)_ | _(TBD)_ | Draft |
 
 ### L1-STAGE: Stage lifecycle and idempotency
 
@@ -296,6 +297,7 @@ the single source of truth.
 | L1-PERS-001 | L2-PERS-001, L2-PERS-002, L2-PERS-003, L2-PERS-004 | Partially Implemented |
 | L1-PERS-002 | L2-PERS-005, L2-PERS-006, L2-PERS-007 | Draft |
 | L1-PERS-003 | L2-PERS-008, L2-PERS-009, L2-PERS-010 | Partially Implemented |
+| L1-PERS-004 | L2-PERS-011, L2-PERS-012, L2-PERS-013 | Draft |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -311,6 +313,9 @@ the single source of truth.
 | L2-PERS-008 | L3-PERS-013, L3-PERS-014 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_audit_log_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_io_bound_ports_use_async_def`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_mailer_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_abstract_and_specable`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_mockable_with_spec`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_methods_are_fully_annotated`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_run_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_stage_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_subscription_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_tag_vocabulary_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_template_repository_exposes_expected_methods` | Implemented |
 | L2-PERS-009 | L3-PERS-015 | _(TBD)_ | Draft |
 | L2-PERS-010 | L3-PERS-016, L3-PERS-017 | _(TBD)_ | Draft |
+| L2-PERS-011 | _(none)_ | _(TBD)_ | Draft |
+| L2-PERS-012 | _(none)_ | _(TBD)_ | Draft |
+| L2-PERS-013 | _(none)_ | _(TBD)_ | Draft |
 
 ### L1-OBS: Observability
 
@@ -425,7 +430,7 @@ the single source of truth.
 | Category | L1 | L2 | L3 | L2s with tests | L3s with tests |
 |----------|----|----|-----|----------------|----------------|
 | API | 4 | 11 | 18 | 3 | 1 |
-| RUN | 5 | 15 | 30 | 9 | 23 |
+| RUN | 5 | 16 | 30 | 9 | 23 |
 | STAGE | 4 | 9 | 18 | 8 | 9 |
 | TMPL | 5 | 14 | 28 | 7 | 2 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
@@ -434,14 +439,14 @@ the single source of truth.
 | AUTH | 2 | 6 | 13 | 0 | 0 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
-| PERS | 3 | 10 | 23 | 2 | 6 |
+| PERS | 4 | 13 | 23 | 2 | 6 |
 | OBS | 4 | 17 | 24 | 1 | 1 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
-| **Total** | **57** | **162** | **316** | **50** | **77** |
+| **Total** | **58** | **166** | **316** | **50** | **77** |
 
-**Requirements verified by at least one test**: 127 of 478 (26.6%).
+**Requirements verified by at least one test**: 127 of 482 (26.3%).
 
 ### Orphan check
 

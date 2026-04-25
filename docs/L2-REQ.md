@@ -23,7 +23,7 @@ single source of truth for live status.
 | Code      | Title                                  | L2 Count |
 |-----------|----------------------------------------|----------|
 | `API`     | gRPC interface                         | 11       |
-| `RUN`     | Run lifecycle                          | 15       |
+| `RUN`     | Run lifecycle                          | 16       |
 | `STAGE`   | Stage lifecycle and idempotency        | 9        |
 | `TMPL`    | Template governance and sandboxing     | 14       |
 | `AGGR`    | Aggregation and composition            | 10       |
@@ -32,12 +32,12 @@ single source of truth for live status.
 | `AUTH`    | Authentication                         | 6        |
 | `MAIL`    | Email delivery                         | 13       |
 | `DASH`    | Dashboard                              | 11       |
-| `PERS`    | Persistence                            | 10       |
+| `PERS`    | Persistence                            | 13       |
 | `OBS`     | Observability                          | 17       |
 | `ERR`     | Error handling and exception taxonomy  | 10       |
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
-| **Total** |                                        | **162**  |
+| **Total** |                                        | **166**  |
 
 ---
 
@@ -246,6 +246,13 @@ single source of truth for live status.
 **Statement**: State transition records SHALL be written through the audit repository before the new state is persisted to the run repository; a failure to write the audit record SHALL abort the transition.
 **Rationale**: Audit-first ordering guarantees that every state visible in the run repository has a corresponding audit record.
 **Verification Method**: Test (T)
+
+#### L2-RUN-016
+
+**Parent**: L1-RUN-005
+**Statement**: All timestamps recorded by the service — run/stage transition `updated_at`, audit-log `timestamp`, sweeper cutoff arithmetic, retention thresholds — SHALL be drawn from a single injected `Clock` port (`application/ports/clock.py`). The service SHALL assume the host clock is monotonically non-decreasing UTC under normal operation; behavior under backward host-clock corrections (NTP step, VM pause, manual `date` change) is unspecified for v1. The `Clock` port encapsulates all reads of the host clock, so swapping in a synthetic clock for tests is the only mechanism through which timestamp behavior may legitimately differ from production.
+**Rationale**: Centralizing every clock read behind one port makes the assumption explicit, makes deterministic testing possible (`FakeClock`), and gives a single chokepoint to revisit if the assumption needs to be relaxed (e.g., monotonic-only timestamps via `time.monotonic()` for SLA windows). v1 explicitly deems backward-correction handling out of scope to avoid the complexity of dual-clock reconciliation; ROADMAP captures the eventual hardening if the trusted-host assumption is later relaxed.
+**Verification Method**: Test (T), Inspection (I)
 
 ---
 
@@ -994,6 +1001,29 @@ single source of truth for live status.
 **Statement**: Domain layer modules (`domain/`) and application layer modules (`application/`) SHALL NOT import any symbol from `infrastructure/`; imports SHALL flow outward only (interfaces → application → domain), enforced via a static-analysis rule in CI.
 **Rationale**: Strict inward-flow enforces the dependency rule of hexagonal architecture.
 **Verification Method**: Inspection (I), Analysis (A)
+
+### Derivations of L1-PERS-004 (rendered-report retention)
+
+#### L2-PERS-011
+
+**Parent**: L1-PERS-004
+**Statement**: The configuration schema SHALL expose `persistence.filesystem.report_retention_days: int` (default 90) constrained to `>= 1`, controlling how long rendered reports are retained on disk before the pruner evicts them. The retention key SHALL be loaded at startup; mid-run changes require a service restart.
+**Rationale**: Mirrors the existing `observability.audit.retention_days` pattern so operations works with one mental model. Defaulting to 90 covers a typical post-incident investigation window without committing to indefinite growth. The startup-load constraint matches `observability.log_level` and avoids hot-reload complexity that v1 doesn't carry.
+**Verification Method**: Test (T)
+
+#### L2-PERS-012
+
+**Parent**: L1-PERS-004
+**Statement**: The pruner task SHALL run as an asyncio coroutine on the same `BackgroundTaskScheduler` infrastructure as the orphan sweeper (L2-SWEEP-001), polling at a configurable cadence (`persistence.filesystem.prune_interval_seconds`, default 86400 — daily). The pruner SHALL bound per-tick work via `persistence.filesystem.max_prunes_per_iteration` (default 1000) so a large backlog drains over multiple iterations rather than monopolizing the connection.
+**Rationale**: Re-using the sweeper's scheduling model keeps the runtime model uniform — there's exactly one background-task pattern. Daily cadence balances disk-pressure responsiveness against scheduling overhead. The per-iteration bound mirrors L3-SWEEP-008's `max_candidates_per_iteration` rationale and prevents a cleanup tick from starving request handlers on the shared SQLite connection.
+**Verification Method**: Test (T)
+
+#### L2-PERS-013
+
+**Parent**: L1-PERS-004
+**Statement**: Each successful eviction SHALL be recorded in the audit log with `action="PRUNE_REPORT"`, `actor="system:report_pruner"`, `resource="report:<run_id>"`, `outcome=SUCCESS`, and `details` containing `file_path`, `file_size_bytes`, and the source run's `terminal_state` and `terminal_state_at`. Eviction failures (file missing, permission denied, etc.) SHALL be logged at WARNING and recorded with `outcome=FAILURE` plus `failure_reason`; the pruner SHALL continue with the next file rather than abort the iteration.
+**Rationale**: Audit-per-eviction makes deletion traceable to operator policy rather than appearing as silent data loss when the dashboard's "show me run X" link 404s. Continuing past per-file failures matches the L3-SWEEP-013 "swallowed-with-log" pattern that the disposition dispatcher uses — a single bad file SHOULD NOT block the rest of the cleanup batch.
+**Verification Method**: Test (T)
 
 ---
 

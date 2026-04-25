@@ -254,6 +254,13 @@ class SweeperUseCase:
 
             await uow.run_repo.update_state(run_id, next_state, now)
 
+            # L2-STAGE-007 / L3-SWEEP-020: capture which stages were still
+            # PENDING at orphan time. Recorded inside the audit details so
+            # operators investigating an incident can see "this run
+            # orphaned because stages X and Y never reported." Loaded
+            # inside the same UoW to get a consistent snapshot.
+            pending_stage_ids = await uow.stage_repo.list_pending_by_run(run_id)
+
             audit_event = AuditEvent(
                 timestamp=now,
                 action=AuditAction.SWEEP_ORPHAN,
@@ -266,6 +273,7 @@ class SweeperUseCase:
                     "new_state": next_state.value,
                     "last_transition_at": run.updated_at.isoformat(),
                     "enqueued_actions": list(self._disposition_actions),
+                    "pending_stage_ids": sorted(str(sid) for sid in pending_stage_ids),
                 },
             )
             await uow.audit_log.record(audit_event)

@@ -13,9 +13,12 @@ pruner driven by :attr:`observability.audit.retention_days`
 
 Requirement references
 ----------------------
-L1-OBS-003
-L2-OBS-002, L2-OBS-005
-L3-RUN-026, L3-RUN-027
+L1-OBS-003 (audit log scope and retention)
+L2-OBS-007 (audit_log table schema), L2-OBS-008 (retention task),
+L2-OBS-009 (asyncio cleanup scheduling)
+L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017
+    (per-category audit content rules added in Increment 25b)
+L3-RUN-026, L3-RUN-027 (audit-first ordering inside the UoW)
 """
 
 from __future__ import annotations

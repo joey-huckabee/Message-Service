@@ -21,10 +21,12 @@ from message_service.config.schema import DispositionAction
 from message_service.domain.aggregates.audit_event import AuditAction
 from message_service.domain.aggregates.declared_stage import DeclaredStage
 from message_service.domain.aggregates.run import AttachmentMode, Run
+from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import ConfigurationError
 from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import RunState
+from message_service.domain.state_machines.stage_states import StageState
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
@@ -291,6 +293,56 @@ async def test_tick_records_sweep_orphan_audit_event(
     assert evt.resource == f"run:{run.run_id}"
     assert evt.details["prior_state"] == "INITIATED"
     assert evt.details["new_state"] == "ORPHANED"
+    # L3-STAGE-013: audit details include pending_stage_ids list
+    # (empty here — no stage rows seeded for this run).
+    assert evt.details["pending_stage_ids"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-STAGE-013")
+async def test_audit_records_pending_stage_ids_when_present(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """When the orphaning run has PENDING stages, their ids SHALL appear
+    sorted in the SWEEP_ORPHAN audit record's pending_stage_ids field
+    (per L3-STAGE-013 / L2-STAGE-007). Operators investigating an
+    orphan can then identify which stages were the cause."""
+    run = _make_run(
+        run_id="00000000-0000-4000-8000-0000000000ee",
+        state=RunState.INITIATED,
+        created_at=_T0 - timedelta(hours=5),
+        updated_at=_T0 - timedelta(hours=3),
+    )
+    await _seed_run(uow_factory, run)
+
+    # Seed three PENDING stages (deliberately out of alphabetical order
+    # to exercise the sorted-output guarantee).
+    pending_ids = ["transform", "extract", "load"]
+    async with uow_factory() as uow:
+        for sid in pending_ids:
+            await uow.stage_repo.save(
+                Stage(
+                    run_id=run.run_id,
+                    stage_id=StageId(sid),
+                    state=StageState.PENDING,
+                    report_template_ref=TemplateRef(name="frag", version="1.0"),
+                )
+            )
+
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=[],
+        handlers_by_id={},
+    )
+    await sweeper.tick()
+
+    async with uow_factory() as uow:
+        events = await uow.audit_log.query(action=AuditAction.SWEEP_ORPHAN)
+    assert len(events) == 1
+    assert events[0].details["pending_stage_ids"] == sorted(pending_ids)
 
 
 @pytest.mark.asyncio
@@ -511,10 +563,19 @@ async def test_empty_disposition_actions_still_transitions_to_orphaned(
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-SWEEP-019")
 def test_constructor_rejects_action_without_registered_handler(
     uow_factory: SqliteUnitOfWorkFactory,
     clock: _FixedClock,
 ) -> None:
+    """Known DispositionAction id without registered handler → startup ConfigurationError.
+
+    Distinct from L3-SWEEP-012 which covers ids unknown to the type
+    system (caught by Pydantic). This pins the case where the id IS
+    valid in the Literal but bootstrap doesn't ship a handler — the
+    v1 boundary established by Increment 14a for SEND_PARTIAL_FLAGGED
+    and NOTIFY_SUBSCRIBERS.
+    """
     with pytest.raises(ConfigurationError, match="no handler registered") as exc_info:
         SweeperUseCase(
             uow_factory=uow_factory,

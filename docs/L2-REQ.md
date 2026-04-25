@@ -302,8 +302,8 @@ single source of truth for live status.
 #### L2-STAGE-007
 
 **Parent**: L1-STAGE-003
-**Statement**: The orphan sweeper SHALL classify any stage in state `PENDING` at orphan-timeout evaluation as missing, and the run containing such a stage SHALL be treated according to the orphan disposition policy.
-**Rationale**: The sweeper's definition of "missing" is the contrapositive of L1-STAGE-003's explicit-submission obligation.
+**Statement**: A run that orphans (per L1-SWEEP-002's run-level timeout) and that has one or more stages still in state `PENDING` SHALL have those PENDING stage ids recorded in the `SWEEP_ORPHAN` audit record (see L3-STAGE-013), so operators investigating the orphan can identify which stages were the cause. The run itself is treated according to the orphan disposition policy regardless of whether any stages were PENDING; the per-stage capture is for forensics, not for separate per-stage classification.
+**Rationale**: The sweeper's definition of "missing" is the contrapositive of L1-STAGE-003's explicit-submission obligation. Capturing pending stage ids inside the audit record (rather than implementing a separate stage-level orphan code path) keeps the orphan detection model simple — there is exactly one orphan-detection signal (run-level transition timeout), with stage-level detail surfaced as audit metadata.
 **Verification Method**: Test (T)
 
 ### Derivations of L1-STAGE-004 (reject unknown stage_id)

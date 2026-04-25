@@ -30,17 +30,17 @@ of truth for live status; this file holds only the spec content above.
 | `STAGE`   | 9               | 18       |
 | `TMPL`    | 14              | 28       |
 | `AGGR`    | 10              | 20       |
-| `SWEEP`   | 9               | 18       |
+| `SWEEP`   | 9               | 19       |
 | `SUB`     | 10              | 20       |
 | `AUTH`    | 6               | 13       |
 | `MAIL`    | 13              | 26       |
 | `DASH`    | 11              | 21       |
 | `PERS`    | 10              | 23       |
-| `OBS`     | 12              | 24       |
+| `OBS`     | 17              | 24       |
 | `ERR`     | 10              | 22       |
 | `CFG`     | 8               | 16       |
 | `DEP`     | 9               | 18       |
-| **Total** | **157**         | **315**  |
+| **Total** | **162**         | **316**  |
 
 ---
 
@@ -235,7 +235,7 @@ A SubmitStageReport with both `report_contribution.context` and `email_body_cont
 The sweeper SHALL classify stages by reading `stage_state` and checking equality with `StageState.PENDING`; no per-stage elapsed-time check is applied.
 
 **L3-STAGE-013** · Parent: L2-STAGE-007 · Verification: T
-A run with any stage in `PENDING` at orphan-timeout evaluation SHALL have that stage's id included in the audit record under `pending_stages`.
+A run with any stage in `PENDING` at orphan-timeout evaluation SHALL have that stage's id included in the `SWEEP_ORPHAN` audit record under the `pending_stage_ids` field. The list SHALL be sorted ASCII-ascending so a given orphan's audit record is byte-identical across replays. An empty list (no PENDING stages — orphan caused by AGGREGATING/READY/SENDING staying past timeout) is permitted.
 
 **L3-STAGE-014** · Parent: L2-STAGE-008 · Verification: T
 Declared-stage lookup SHALL use `runs.declared_stage_ids_json` parsed once per request; the resulting set is used for membership check.
@@ -461,6 +461,9 @@ A test SHALL construct a run with `last_transition_at` exactly `run_timeout_seco
 
 **L3-SWEEP-018** · Parent: L2-SWEEP-001 · Verification: T
 The sweeper task SHALL NOT start until after database migrations have completed and config validation has passed.
+
+**L3-SWEEP-019** · Parent: L2-SWEEP-007 · Verification: T
+A *known* `DispositionAction` identifier whose handler is not registered in the bootstrap handler registry (e.g., `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS` in v1 — see L1-SWEEP-003's v1 implementation boundary) SHALL cause `SweeperUseCase.__init__` to raise `ConfigurationError`. The error's `details` SHALL include `missing_actions` (the offending ids) and `registered_actions` (the available alternatives), so operators can edit `sweeper.disposition_actions` before retry. Distinct from L3-SWEEP-012 (which covers ids unknown to the type system, caught at Pydantic-validation time).
 
 ---
 

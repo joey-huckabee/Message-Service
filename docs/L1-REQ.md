@@ -151,9 +151,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-STAGE-001
 
-**Statement**: The service SHALL maintain a per-stage state machine with the states `PENDING`, `IN_PROGRESS`, `SUBMITTED`, `ACCEPTED`, `RETRIED`, `TIMEOUT`, and `FAILED`, instantiated once per declared stage within each run.
+**Statement**: The service SHALL maintain a per-stage state machine with the active v1 states `PENDING`, `SUBMITTED`, `ACCEPTED`, `RETRIED`, `TIMEOUT`, and `FAILED`, instantiated once per declared stage within each run. The identifier `IN_PROGRESS` SHALL be reserved in the state-name namespace for a future heartbeat mechanism (see ROADMAP); v1 SHALL NOT enter or persist `IN_PROGRESS` (the SQL `CHECK` constraint and the transition table both reject it), and SHALL NOT expose it as a valid value over any inbound interface.
 
-**Rationale**: A distinct state machine per stage allows fine-grained tracking of pipeline progress and supports orphan detection at stage granularity.
+**Rationale**: A distinct state machine per stage allows fine-grained tracking of pipeline progress and supports orphan detection at stage granularity. Reserving `IN_PROGRESS` in the namespace — rather than introducing it later — preserves backward-compatible state ids when the v2 heartbeat mechanism lands. v1 enforces the reservation at three layers (`StageState` enum allows it; the transition table forbids transitions into it; the SQL `CHECK` constraint rejects persisted values), so the reservation cannot leak into runtime state by accident.
 
 **Verification Method**: Test (T), Analysis (A)
 
@@ -231,9 +231,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-AGGR-001
 
-**Statement**: The service SHALL accept two content contributions per `SubmitStageReport` call: a required report contribution rendered into the attachment, and an optional email body contribution rendered inline into the email body.
+**Statement**: The service SHALL accept two independent content contributions per `SubmitStageReport` call: an optional report contribution rendered into the attachment, and an optional email body contribution rendered inline into the email body. Either or both contributions MAY be empty; the call itself satisfies L1-STAGE-003's submission obligation regardless of contribution content.
 
-**Rationale**: The two-slot model separates the detailed report (attachment) from the summary notification content (email body), allowing stages to contribute to each independently.
+**Rationale**: The two-slot model separates the detailed report (attachment) from the summary notification content (email body), allowing stages to contribute to each independently. Both slots are optional so that stages with nothing to add can still discharge L1-STAGE-003's "explicit submission" obligation — the call itself is the signal that the stage ran, distinct from the absence of a call which is what the orphan sweeper detects.
 
 **Verification Method**: Test (T)
 
@@ -283,9 +283,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-SWEEP-003
 
-**Statement**: The service SHALL apply to every orphaned run a globally configured disposition policy consisting of any combination of the following actions: `SEND_PARTIAL_FLAGGED`, `DISCARD_SILENTLY`, `NOTIFY_SUBSCRIBERS`, and `NOTIFY_ADMINS`.
+**Statement**: The service SHALL apply to every orphaned run a globally configured disposition policy consisting of any combination of the following action identifiers: `SEND_PARTIAL_FLAGGED`, `DISCARD_SILENTLY`, `NOTIFY_SUBSCRIBERS`, and `NOTIFY_ADMINS`. v1 SHALL implement only `DISCARD_SILENTLY` and `NOTIFY_ADMINS`; the other two identifiers SHALL remain reserved in the namespace, and configurations referencing them SHALL fail validation at startup with `ConfigurationError` (see L3 derivation under L2-SWEEP-007 / L2-SWEEP-008) until their handlers are implemented (see ROADMAP).
 
-**Rationale**: Different deployment contexts require different orphan behaviors; combining actions in a set permits, for example, both notifying administrators and sending a partial report flagged as incomplete.
+**Rationale**: Different deployment contexts require different orphan behaviors; combining actions in a set permits, for example, both notifying administrators and sending a partial report flagged as incomplete. Reserving the two deferred identifiers in the namespace — rather than introducing them later — keeps the configuration surface stable when the v2 implementations land. Failing fast at startup on an unknown handler prevents the deferred action ids from silently no-op'ing through misconfiguration.
 
 **Verification Method**: Test (T)
 
@@ -475,9 +475,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-OBS-003
 
-**Statement**: The service SHALL maintain an audit log containing records of successful email deliveries (with recipient list, run identifier, and timestamp) and failed delivery attempts (with failure reason), retained for a globally configurable duration.
+**Statement**: The service SHALL maintain an append-only audit log covering every governance-relevant action category, including (non-exhaustive): pipeline-initiated lifecycle events (`BEGIN_RUN`, `SUBMIT_STAGE_REPORT`, `FINALIZE_RUN`), service-driven state transitions (`RUN_STATE_TRANSITION`, `STAGE_STATE_TRANSITION`), the orphan sweeper (`SWEEP_ORPHAN`), email delivery outcomes (`SEND_REPORT` with success/failure), subscription changes (`SUBSCRIBE`, `UNSUBSCRIBE`), user-account management (`CREATE_USER`, `UPDATE_USER`), and authentication events (`LOGIN`, `LOGIN_FAILED`, `LOGOUT`). Each record SHALL carry timestamp, action, actor, resource, outcome, and structured details. Records SHALL be retained for a globally configurable duration. The exhaustive set of recorded action identifiers is the `AuditAction` enum in `src/message_service/domain/aggregates/audit_event.py`.
 
-**Rationale**: The agreed audit scope for v1 is narrow; the retention duration configuration key gives operations the ability to meet site-specific retention requirements without code changes.
+**Rationale**: An audit log limited to email delivery would miss the lifecycle and authentication events that incident investigation routinely needs. Widening to the action set the implementation already records (without further code change) makes the spec match reality and gives operations a single tail-able audit stream covering every governance-relevant action. Per-category L2 derivations document the field shapes; the retention key (`observability.audit.retention_days`) gives operations the ability to meet site-specific retention requirements without code changes.
 
 **Verification Method**: Test (T)
 

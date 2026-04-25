@@ -33,11 +33,11 @@ single source of truth for live status.
 | `MAIL`    | Email delivery                         | 13       |
 | `DASH`    | Dashboard                              | 11       |
 | `PERS`    | Persistence                            | 10       |
-| `OBS`     | Observability                          | 12       |
+| `OBS`     | Observability                          | 17       |
 | `ERR`     | Error handling and exception taxonomy  | 10       |
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
-| **Total** |                                        | **166**  |
+| **Total** |                                        | **162**  |
 
 ---
 
@@ -1067,6 +1067,41 @@ single source of truth for live status.
 **Statement**: The retention-enforcement cleanup task SHALL run as an asyncio coroutine using the same scheduling approach as the orphan sweeper, and SHALL NOT introduce additional external scheduler dependencies.
 **Rationale**: Consistency of approach across background tasks simplifies the runtime model.
 **Verification Method**: Inspection (I)
+
+#### L2-OBS-013
+
+**Parent**: L1-OBS-003
+**Statement**: Pipeline-initiated lifecycle audit records (`BEGIN_RUN`, `SUBMIT_STAGE_REPORT`, `FINALIZE_RUN`) SHALL set `actor` to `pipeline:<pipeline_type>`, set `resource` to `run:<run_id>` for run-scoped events and `stage:<run_id>:<stage_id>` for stage-scoped events, and capture in `details` at minimum the request-shape fields needed to reconstruct the call (declared stages, tags, attachment mode for `BEGIN_RUN`; stage id, was_retry flag for `SUBMIT_STAGE_REPORT`; etc.).
+**Rationale**: Pipeline events are external traffic — operators investigating an incident need to see what the pipeline sent, not just that something happened.
+**Verification Method**: Test (T)
+
+#### L2-OBS-014
+
+**Parent**: L1-OBS-003
+**Statement**: Service-driven state-transition audit records (`RUN_STATE_TRANSITION`, `STAGE_STATE_TRANSITION`) SHALL set `actor` to the use case that triggered the transition (e.g., `system:finalize_run`, `system:assemble_and_deliver`, `system:sweeper`), and SHALL include `prior_state`, `new_state`, and the `last_transition_at` timestamp in `details`.
+**Rationale**: Capturing both states plus the trigger lets operators reconstruct the lifecycle without consulting source code.
+**Verification Method**: Test (T)
+
+#### L2-OBS-015
+
+**Parent**: L1-OBS-003
+**Statement**: Sweeper audit records (`SWEEP_ORPHAN`) SHALL set `actor` to `system:sweeper`, set `resource` to `run:<run_id>`, and include `prior_state`, `new_state`, `last_transition_at`, and the configured `enqueued_actions` list in `details`.
+**Rationale**: The sweeper is unattended infrastructure — every orphan transition must be auditable to the configured policy that produced it, including the disposition actions that were enqueued.
+**Verification Method**: Test (T)
+
+#### L2-OBS-016
+
+**Parent**: L1-OBS-003
+**Statement**: Subscription audit records (`SUBSCRIBE`, `UNSUBSCRIBE`) SHALL set `actor` to `user:<user_id>` (the user mutating their own subscriptions) and `resource` to `subscription:<subscription_id>`, with `details` capturing `granularity` and `target_value`.
+**Rationale**: Subscription changes are user-initiated and audit-relevant for both compliance ("who opted in to what?") and incident investigation ("did this user subscribe before or after the bad run?").
+**Verification Method**: Test (T)
+
+#### L2-OBS-017
+
+**Parent**: L1-OBS-003
+**Statement**: Authentication and user-management audit records (`LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `CREATE_USER`, `UPDATE_USER`) SHALL distinguish actor identity by event type: `LOGIN` / `LOGOUT` set `actor` to `user:<user_id>`; `LOGIN_FAILED` sets `actor` to `username:<attempted_email>` (no user_id, since authentication was rejected); `CREATE_USER` and `UPDATE_USER` set `actor` to the administrator's `user:<admin_id>`. `outcome` SHALL be `SUCCESS` for `LOGIN`/`LOGOUT`/`CREATE_USER`/`UPDATE_USER` and `FAILURE` for `LOGIN_FAILED`. Passwords and password hashes SHALL NOT appear in `details`.
+**Rationale**: Auth events are central to security incident investigation. Distinguishing successful and failed authentication actor formats lets analysts query both ("who tried to log in as `alice@example.com`?" vs. "what did `user:42` do?"). The redaction obligation prevents the audit log from becoming a credential exfiltration vector.
+**Verification Method**: Test (T), Inspection (I)
 
 ### Derivations of L1-OBS-004 (log severity levels)
 

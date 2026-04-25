@@ -320,7 +320,7 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Partially Implemented |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Draft |
-| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009 | Partially Implemented |
+| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017 | Partially Implemented |
 | L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -339,6 +339,11 @@ the single source of truth.
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | _(TBD)_ | Draft |
 | L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Partially Implemented |
 | L2-OBS-012 | L3-OBS-023, L3-OBS-024 | _(TBD)_ | Draft |
+| L2-OBS-013 | _(none)_ | _(TBD)_ | Draft |
+| L2-OBS-014 | _(none)_ | _(TBD)_ | Draft |
+| L2-OBS-015 | _(none)_ | _(TBD)_ | Draft |
+| L2-OBS-016 | _(none)_ | _(TBD)_ | Draft |
+| L2-OBS-017 | _(none)_ | _(TBD)_ | Draft |
 
 ### L1-ERR: Error handling and exception taxonomy
 
@@ -430,13 +435,13 @@ the single source of truth.
 | MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 3 | 10 | 23 | 2 | 6 |
-| OBS | 4 | 12 | 24 | 1 | 1 |
+| OBS | 4 | 17 | 24 | 1 | 1 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
-| **Total** | **57** | **157** | **315** | **50** | **75** |
+| **Total** | **57** | **162** | **315** | **50** | **75** |
 
-**Requirements verified by at least one test**: 125 of 472 (26.5%).
+**Requirements verified by at least one test**: 125 of 477 (26.2%).
 
 ### Orphan check
 

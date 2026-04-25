@@ -852,6 +852,24 @@ The cleanup task SHALL use the same `asyncio.create_task` + cancellation pattern
 **L3-OBS-018** · Parent: L2-OBS-001 · Verification: T
 Structured log records SHALL NOT exceed 8 KiB per line (a conservative limit for downstream log aggregators); oversized records SHALL have variable fields truncated with a `_truncated: true` marker.
 
+**L3-OBS-019** · Parent: L2-OBS-010 · Verification: I, T
+The level-assignment rules SHALL be documented in `docs/LOGGING-AND-EXCEPTIONS.md` with the exact event classes enumerated per level; the document SHALL be referenced from every logging call site that deviates from the obvious level choice (via an inline comment referencing the rule).
+
+**L3-OBS-020** · Parent: L2-OBS-010 · Verification: T
+A unit test SHALL construct a representative event of each category (lifecycle, retry, operation-failure, audit-write-failure) and assert the emitted structlog record carries the expected level.
+
+**L3-OBS-021** · Parent: L2-OBS-011 · Verification: T
+The `observability.log_level` configuration key SHALL accept values `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (case-insensitive at load, normalized to upper at use) with any other value raising `ConfigurationError` at startup.
+
+**L3-OBS-022** · Parent: L2-OBS-011 · Verification: T
+Changing `observability.log_level` SHALL require service restart; hot-reload is explicitly out of scope for v1 (a ROADMAP item).
+
+**L3-OBS-023** · Parent: L2-OBS-012 · Verification: T
+The structlog processor pipeline SHALL include a processor that, for records at `ERROR` or `CRITICAL` that also carry an exception (`exc_info` set or `error_code` bound to context), copies the exception's `error_code` attribute to a top-level `error_code` field in the emitted JSON.
+
+**L3-OBS-024** · Parent: L2-OBS-012 · Verification: T
+A unit test SHALL emit a sample ERROR record raised from a `ValidationError` subclass and assert the JSON output contains `"error_code": "<expected_code>"` as a top-level key.
+
 ---
 
 ## L3-CFG: Configuration
@@ -1031,30 +1049,6 @@ A ruff rule or grep check SHALL flag any occurrence of `except BaseException`, `
 
 **L3-ERR-022** · Parent: L2-ERR-010 · Verification: T
 A unit test SHALL deliberately raise `KeyboardInterrupt` within a traced code path and assert it propagates through the translation layer without being caught.
-
----
-
-## L3-OBS (extension): Log severity and level configuration
-
-These L3 statements decompose the L2 requirements that derive from L1-OBS-004 (log severity taxonomy). They are grouped separately from the original L3-OBS section for clarity; the `TRACE-MATRIX.md` presentation interleaves them properly.
-
-**L3-OBS-019** · Parent: L2-OBS-010 · Verification: I, T
-The level-assignment rules SHALL be documented in `docs/LOGGING-AND-EXCEPTIONS.md` with the exact event classes enumerated per level; the document SHALL be referenced from every logging call site that deviates from the obvious level choice (via an inline comment referencing the rule).
-
-**L3-OBS-020** · Parent: L2-OBS-010 · Verification: T
-A unit test SHALL construct a representative event of each category (lifecycle, retry, operation-failure, audit-write-failure) and assert the emitted structlog record carries the expected level.
-
-**L3-OBS-021** · Parent: L2-OBS-011 · Verification: T
-The `observability.log_level` configuration key SHALL accept values `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (case-insensitive at load, normalized to upper at use) with any other value raising `ConfigurationError` at startup.
-
-**L3-OBS-022** · Parent: L2-OBS-011 · Verification: T
-Changing `observability.log_level` SHALL require service restart; hot-reload is explicitly out of scope for v1 (a ROADMAP item).
-
-**L3-OBS-023** · Parent: L2-OBS-012 · Verification: T
-The structlog processor pipeline SHALL include a processor that, for records at `ERROR` or `CRITICAL` that also carry an exception (`exc_info` set or `error_code` bound to context), copies the exception's `error_code` attribute to a top-level `error_code` field in the emitted JSON.
-
-**L3-OBS-024** · Parent: L2-OBS-012 · Verification: T
-A unit test SHALL emit a sample ERROR record raised from a `ValidationError` subclass and assert the JSON output contains `"error_code": "<expected_code>"` as a top-level key.
 
 ---
 

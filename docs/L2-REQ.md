@@ -512,9 +512,9 @@ single source of truth for live status.
 #### L2-AGGR-009
 
 **Parent**: L1-AGGR-004
-**Statement**: Validation of the `aggregation_template` field in `BeginRun` SHALL occur at request initiation, rejecting omissions with error code `MISSING_AGGREGATION_TEMPLATE`.
-**Rationale**: See L2-RUN-011; this duplicates the statement here to anchor it under the AGGR category for trace clarity.
-**Verification Method**: Test (T)
+**Statement**: See **L2-RUN-011** — the same `aggregation_template` validation is anchored there under L1-RUN-003 (BeginRun validation). This identifier exists to make the obligation visible inside the AGGR category for trace-matrix readers; verification artifacts SHALL be linked via `@pytest.mark.requirement("L2-RUN-011")` only (do not double-tag).
+**Rationale**: A pure cross-reference rather than a re-stated SHALL avoids two copies of the same obligation drifting apart over time. The trace matrix surfaces the dual-category visibility through both L2-AGGR-009's row (which reads "see L2-RUN-011") and the artifacts attached to L2-RUN-011 itself.
+**Verification Method**: Inspection (I)
 
 #### L2-AGGR-010
 

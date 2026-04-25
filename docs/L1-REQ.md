@@ -555,9 +555,18 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-CFG-003
 
-**Statement**: The configuration schema SHALL include at minimum the following settings: gRPC listen address and port, FastAPI listen address and port, SQLite database path, rendered-report directory path, template manifest path, tag vocabulary path, global run timeout, orphan sweeper poll interval, orphan disposition policy set, maximum email size in bytes, SMTP relay address and credentials, session idle timeout, and audit log retention duration.
+**Statement**: The configuration schema SHALL include at minimum the following settings, grouped by area:
 
-**Rationale**: Explicit enumeration of required settings ensures that no critical behavior is driven by hidden defaults, and gives the operations team a checklist for deployment configuration.
+- **Network**: gRPC listen address and port; FastAPI listen address and port.
+- **Persistence**: SQLite database path; SQLite connection-pool size; rendered-report directory path; rendered-report retention duration (`persistence.filesystem.report_retention_days`, see L1-PERS-004); rendered-report pruner cadence and per-iteration cap.
+- **Templates**: template manifest path; email-body template reference (name + version); maximum context byte size; maximum rendered byte size.
+- **Tags and pipelines**: tag vocabulary path; registered pipeline-type list.
+- **Sweeper**: global run timeout; orphan sweeper poll interval; orphan disposition policy set; per-tick maximum candidates (`sweeper.max_candidates_per_iteration`, see L3-SWEEP-008).
+- **Mail**: SMTP relay address, port, credentials, and STARTTLS toggle; from-address; maximum email size in bytes; administrator recipient list; SMTP retry knobs (max attempts, initial interval, max interval).
+- **Auth and dashboard**: session idle timeout.
+- **Observability**: audit log retention duration; log level.
+
+**Rationale**: Explicit enumeration of required settings ensures that no critical behavior is driven by hidden defaults, and gives the operations team a checklist for deployment configuration. Grouping by area (rather than the original flat list) keeps the checklist scannable as the configuration surface grows. The list is the **floor** — the schema may add fields beyond these, but every field below SHALL be present in the schema and have a default or be operator-required.
 
 **Verification Method**: Inspection (I)
 

@@ -150,8 +150,10 @@ class RunRepository(ABC):
         self,
         cutoff: datetime,
         active_states: frozenset[RunState],
+        *,
+        limit: int,
     ) -> Sequence[Run]:
-        """List runs whose last transition is older than ``cutoff``.
+        """List up to ``limit`` runs whose last transition is older than ``cutoff``.
 
         The comparison is against ``updated_at`` (L2-SWEEP-004), so a
         long-lived run that just transitioned is not treated as
@@ -167,12 +169,16 @@ class RunRepository(ABC):
             active_states: Typically
                 ``frozenset({RunState.INITIATED, RunState.AGGREGATING,
                 RunState.READY, RunState.SENDING})``.
+            limit: Maximum rows to return per call; bounds per-tick
+                sweeper work per L2-SWEEP-010 / L3-SWEEP-008. Backlogs
+                larger than this drain across multiple ticks.
 
         Returns:
-            A sequence of expired runs ordered oldest-transition first.
-            Empty sequence if none.
+            A sequence of at most ``limit`` expired runs ordered
+            oldest-transition first. Empty sequence if none.
 
         Raises:
+            ValueError: ``limit`` is not positive.
             PersistenceError: Infrastructure failure.
         """
 

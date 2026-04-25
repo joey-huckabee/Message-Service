@@ -111,6 +111,7 @@ SELECT
 FROM runs
 WHERE updated_at < ? AND state IN ({placeholders})
 ORDER BY updated_at ASC
+LIMIT ?
 """
 
 
@@ -181,21 +182,28 @@ class SqliteRunRepository(RunRepository):
     # -- list_expired ----------------------------------------------------
 
     async def list_expired(
-        self, cutoff: datetime, active_states: frozenset[RunState]
+        self,
+        cutoff: datetime,
+        active_states: frozenset[RunState],
+        *,
+        limit: int,
     ) -> Sequence[Run]:
-        """List runs whose last transition is older than ``cutoff``.
+        """List up to ``limit`` runs whose last transition is older than ``cutoff``.
 
         Per L2-SWEEP-004 the comparison is against ``updated_at``
         (the "last transition" timestamp), not ``created_at``, so a
         run that transitions briskly but stalls mid-lifecycle is
         correctly excluded until its latest transition itself ages out.
+        ``limit`` enforces L3-SWEEP-008's per-tick bound.
         """
+        if limit < 1:
+            raise ValueError(f"limit must be positive; got {limit}")
         if not active_states:
             return ()
 
         placeholders = ", ".join("?" * len(active_states))
         sql = _SQL_LIST_EXPIRED_BASE.format(placeholders=placeholders)
-        params = (iso_z(cutoff), *sorted(s.value for s in active_states))
+        params = (iso_z(cutoff), *sorted(s.value for s in active_states), limit)
         async with self._conn.execute(sql, params) as cur:
             rows = await cur.fetchall()
         return [_row_to_run(r) for r in rows]

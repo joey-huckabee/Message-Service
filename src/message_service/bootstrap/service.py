@@ -295,6 +295,7 @@ async def build_service(config: Config) -> Service:
         run_timeout_seconds=config.sweeper.run_timeout_seconds,
         disposition_actions=config.sweeper.disposition_actions,
         handlers_by_id=handlers_by_id,
+        max_candidates_per_iteration=config.sweeper.max_candidates_per_iteration,
     )
     sweeper_action_dispatcher = SweeperActionDispatcherUseCase(
         uow_factory=uow_factory,

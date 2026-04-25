@@ -586,3 +586,60 @@ def test_constructor_rejects_action_without_registered_handler(
         )
     assert exc_info.value.details["missing_actions"] == ["SEND_PARTIAL_FLAGGED"]
     assert exc_info.value.details["registered_actions"] == []
+
+
+def test_constructor_rejects_zero_max_candidates(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """``max_candidates_per_iteration < 1`` is a programming error;
+    SHALL raise ValueError."""
+    with pytest.raises(ValueError, match="max_candidates_per_iteration"):
+        SweeperUseCase(
+            uow_factory=uow_factory,
+            clock=clock,
+            run_timeout_seconds=3600,
+            disposition_actions=[],
+            handlers_by_id={},
+            max_candidates_per_iteration=0,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-010")
+async def test_backlog_drains_across_multiple_ticks(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """L2-SWEEP-010: a backlog larger than ``max_candidates_per_iteration``
+    SHALL drain across multiple ticks, not in one. Three orphan candidates
+    + cap of 2 → tick 1 sweeps 2, tick 2 sweeps the third, tick 3 sees zero."""
+    older = _T0 - timedelta(hours=2)
+    for i in range(3):
+        await _seed_run(
+            uow_factory,
+            _make_run(
+                run_id=f"00000000-0000-4000-8000-0000000002{i:02d}",
+                state=RunState.AGGREGATING,
+                created_at=older,
+                updated_at=older,
+            ),
+        )
+
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=[],
+        handlers_by_id={},
+        max_candidates_per_iteration=2,  # cap is 2 < 3 candidates seeded
+    )
+
+    first = await sweeper.tick()
+    assert first.orphaned_count == 2  # capped
+
+    second = await sweeper.tick()
+    assert second.orphaned_count == 1  # remaining one drains
+
+    third = await sweeper.tick()
+    assert third.orphaned_count == 0  # backlog cleared

@@ -181,6 +181,10 @@ class SweeperConfig(_FrozenForbid):
 
     run_timeout_seconds: int = Field(default=3_600, ge=1)
     poll_interval_seconds: int = Field(default=60, ge=1)
+    # L2-SWEEP-010 / L3-SWEEP-008: per-tick cap so a backlog can't
+    # monopolize the shared SQLite connection. Default 1000 mirrors
+    # the L3-SWEEP-008 spec.
+    max_candidates_per_iteration: int = Field(default=1_000, ge=1)
     disposition_actions: list[DispositionAction] = Field(
         # The default SHALL only reference action ids that bootstrap actually
         # registers a handler for; otherwise a service started with the

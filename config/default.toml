@@ -43,6 +43,9 @@ vocabulary_path = "./config/tags.toml"
 # L1-SWEEP-002: orphan timeout and polling interval
 run_timeout_seconds = 3600          # 1 hour
 poll_interval_seconds = 60
+# L2-SWEEP-010 / L3-SWEEP-008: cap per-tick scan so a backlog
+# can't monopolize the shared SQLite connection.
+max_candidates_per_iteration = 1000
 # L2-SWEEP-007: disposition policy (any combination)
 disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
 

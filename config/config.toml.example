@@ -97,6 +97,13 @@ run_timeout_seconds = 3_600          # 1 h
 # latency at the cost of more DB polling.
 poll_interval_seconds = 60
 
+# Maximum orphan candidates the sweeper claims per tick. Backlogs
+# larger than this drain over multiple ticks at the configured
+# poll_interval_seconds cadence; bounding per-tick work keeps the
+# shared SQLite connection responsive for gRPC ingest. Default 1000
+# matches L3-SWEEP-008's spec.
+max_candidates_per_iteration = 1000
+
 # Actions taken per orphaned run, in this order. Currently-supported:
 #   "NOTIFY_ADMINS"        -- logs at WARNING level (hooks to your log pipeline)
 #   "DISCARD_SILENTLY"     -- no further action; audit event is the record

@@ -114,6 +114,7 @@ class SweeperUseCase:
         run_timeout_seconds: int,
         disposition_actions: Sequence[DispositionAction],
         handlers_by_id: Mapping[DispositionAction, DispositionHandler],
+        max_candidates_per_iteration: int = 1_000,
     ) -> None:
         """Construct a sweeper use case bound to its collaborators.
 
@@ -134,13 +135,23 @@ class SweeperUseCase:
                 appears in ``disposition_actions``; extra entries are
                 harmless. Typically one-to-one populated by the
                 bootstrap.
+            max_candidates_per_iteration: Per-tick cap on orphan
+                candidates the sweeper claims (L2-SWEEP-010 /
+                L3-SWEEP-008). Backlogs larger than this drain across
+                multiple ticks at the configured polling cadence.
+                Default 1000 mirrors L3-SWEEP-008's spec.
 
         Raises:
             ConfigurationError: ``disposition_actions`` contains an
                 identifier for which no handler is registered. Surfaces
                 at bootstrap time so misconfiguration fails loud-and-early
                 rather than per-orphan at runtime (cf. L3-SWEEP-012).
+            ValueError: ``max_candidates_per_iteration`` is not positive.
         """
+        if max_candidates_per_iteration < 1:
+            raise ValueError(
+                f"max_candidates_per_iteration must be positive; got {max_candidates_per_iteration}"
+            )
         missing = [a for a in disposition_actions if a not in handlers_by_id]
         if missing:
             raise ConfigurationError(
@@ -155,6 +166,7 @@ class SweeperUseCase:
         self._run_timeout = timedelta(seconds=run_timeout_seconds)
         self._disposition_actions = tuple(disposition_actions)
         self._handlers = dict(handlers_by_id)
+        self._max_candidates = max_candidates_per_iteration
 
     async def tick(self) -> TickResult:
         """Run one polling iteration.
@@ -178,6 +190,7 @@ class SweeperUseCase:
             candidates: Sequence[Run] = await uow.run_repo.list_expired(
                 cutoff=cutoff,
                 active_states=active,
+                limit=self._max_candidates,
             )
 
         if not candidates:

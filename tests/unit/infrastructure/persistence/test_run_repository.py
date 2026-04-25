@@ -334,6 +334,7 @@ async def test_list_expired_returns_runs_older_than_cutoff_in_active_states(
         active_states=frozenset(
             {RunState.INITIATED, RunState.AGGREGATING, RunState.READY, RunState.SENDING}
         ),
+        limit=100,
     )
     expired_ids = [r.run_id for r in expired]
     # Only the one both older than cutoff and in an active state.
@@ -367,6 +368,7 @@ async def test_list_expired_uses_updated_at_not_created_at(
     expired = await repo.list_expired(
         cutoff=cutoff,
         active_states=frozenset({RunState.AGGREGATING}),
+        limit=100,
     )
     assert list(expired) == []
 
@@ -375,8 +377,91 @@ async def test_list_expired_uses_updated_at_not_created_at(
 async def test_list_expired_empty_active_states_returns_empty(
     repo: SqliteRunRepository,
 ) -> None:
-    result = await repo.list_expired(cutoff=_T0, active_states=frozenset())
+    result = await repo.list_expired(cutoff=_T0, active_states=frozenset(), limit=100)
     assert list(result) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-007")
+async def test_list_expired_state_filter_includes_only_active_states(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """L3-SWEEP-007: the SQL state-IN clause SHALL match exactly the
+    four active states (INITIATED, AGGREGATING, READY, SENDING).
+    Verified by seeding one expired run per state across the full
+    state machine and confirming only the four active ones surface."""
+    cutoff = _T0 + timedelta(hours=1)  # everything older than this is expired
+    older = _T0 - timedelta(hours=2)
+
+    states_seeded = [
+        RunState.INITIATED,
+        RunState.AGGREGATING,
+        RunState.READY,
+        RunState.SENDING,
+        RunState.SENT,
+        RunState.FAILED,
+        RunState.ORPHANED,
+    ]
+    for i, state in enumerate(states_seeded):
+        await repo.save(
+            _make_run(
+                run_id=f"00000000-0000-4000-8000-0000000000{i:02d}",
+                created_at=older,
+                updated_at=older,
+                state=state,
+            )
+        )
+    await conn.commit()
+
+    expired = await repo.list_expired(
+        cutoff=cutoff,
+        active_states=frozenset(
+            {RunState.INITIATED, RunState.AGGREGATING, RunState.READY, RunState.SENDING}
+        ),
+        limit=100,
+    )
+    surfaced_states = sorted(r.state.value for r in expired)
+    assert surfaced_states == sorted(["AGGREGATING", "INITIATED", "READY", "SENDING"]), (
+        f"unexpected states surfaced: {surfaced_states}"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-008")
+async def test_list_expired_honors_limit_parameter(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """L3-SWEEP-008: the SQL LIMIT clause SHALL bound the row count.
+    Seed N+1 expired runs, request limit=N, expect exactly N rows."""
+    cutoff = _T0 + timedelta(hours=1)
+    older = _T0 - timedelta(hours=2)
+    n_seed = 5
+    for i in range(n_seed + 1):
+        await repo.save(
+            _make_run(
+                run_id=f"00000000-0000-4000-8000-0000000001{i:02d}",
+                created_at=older,
+                updated_at=older,
+                state=RunState.AGGREGATING,
+            )
+        )
+    await conn.commit()
+
+    expired = await repo.list_expired(
+        cutoff=cutoff,
+        active_states=frozenset({RunState.AGGREGATING}),
+        limit=n_seed,
+    )
+    assert len(list(expired)) == n_seed
+
+
+@pytest.mark.asyncio
+async def test_list_expired_rejects_zero_limit(repo: SqliteRunRepository) -> None:
+    """``limit < 1`` is a programming error; SHALL raise ValueError."""
+    with pytest.raises(ValueError, match="limit"):
+        await repo.list_expired(
+            cutoff=_T0, active_states=frozenset({RunState.AGGREGATING}), limit=0
+        )
 
 
 # -----------------------------------------------------------------------------

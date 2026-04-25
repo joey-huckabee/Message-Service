@@ -27,7 +27,7 @@ single source of truth for live status.
 | `STAGE`   | Stage lifecycle and idempotency        | 9        |
 | `TMPL`    | Template governance and sandboxing     | 14       |
 | `AGGR`    | Aggregation and composition            | 10       |
-| `SWEEP`   | Orphan detection and disposition       | 9        |
+| `SWEEP`   | Orphan detection and disposition       | 10       |
 | `SUB`     | Subscriptions and tags                 | 10       |
 | `AUTH`    | Authentication                         | 6        |
 | `MAIL`    | Email delivery                         | 13       |
@@ -38,7 +38,7 @@ single source of truth for live status.
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
 | `CICD`    | Continuous integration and delivery    | 15       |
-| **Total** |                                        | **181**  |
+| **Total** |                                        | **182**  |
 
 ---
 
@@ -549,6 +549,13 @@ single source of truth for live status.
 **Parent**: L1-SWEEP-001
 **Statement**: Each sweeper iteration SHALL increment a Prometheus counter metric labeled by outcome (`no_orphans_found`, `orphans_detected`, `sweeper_error`).
 **Rationale**: Operational visibility into sweeper behavior is essential for diagnosing runs-not-being-delivered complaints.
+**Verification Method**: Test (T)
+
+#### L2-SWEEP-010
+
+**Parent**: L1-SWEEP-001
+**Statement**: The sweeper's per-tick scan SHALL be bounded to at most `sweeper.max_candidates_per_iteration` orphan candidates, ensuring a backlog cannot monopolize the shared SQLite connection or starve other request handlers. Backlogs larger than the cap drain over multiple ticks at the configured `poll_interval_seconds` cadence.
+**Rationale**: Without a per-tick cap, a large backlog (post-incident recovery against thousands of stuck runs, recovery after extended downtime) would hold the connection through thousands of per-run UoWs in a single tick, blocking the gRPC ingest hot path. Bounded work keeps each tick's cost predictable; the bound is configurable so operators can trade detection latency against per-tick load. The L3 derivation (L3-SWEEP-008) pins the SQL-level enforcement.
 **Verification Method**: Test (T)
 
 ### Derivations of L1-SWEEP-002 (timeout classification)

@@ -30,7 +30,7 @@ of truth for live status; this file holds only the spec content above.
 | `STAGE`   | 9               | 18       |
 | `TMPL`    | 14              | 28       |
 | `AGGR`    | 10              | 20       |
-| `SWEEP`   | 9               | 19       |
+| `SWEEP`   | 10              | 19       |
 | `SUB`     | 10              | 20       |
 | `AUTH`    | 6               | 13       |
 | `MAIL`    | 13              | 26       |
@@ -41,7 +41,7 @@ of truth for live status; this file holds only the spec content above.
 | `CFG`     | 8               | 16       |
 | `DEP`     | 9               | 18       |
 | `CICD`    | 15              | 17       |
-| **Total** | **181**         | **333**  |
+| **Total** | **182**         | **333**  |
 
 ---
 

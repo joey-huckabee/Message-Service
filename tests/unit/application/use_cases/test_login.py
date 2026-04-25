@@ -48,6 +48,8 @@ from message_service.infrastructure.persistence.user_repository import (
     SqliteUserRepository,
 )
 
+pytestmark = pytest.mark.allow_io
+
 _T0 = datetime(2026, 4, 21, 12, 0, 0, tzinfo=UTC)
 
 

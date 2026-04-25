@@ -23,7 +23,6 @@ Done:
 
 Still open:
 
-- **14h** — Unit-test I/O guard (the `_forbid_io` fixture at `tests/unit/conftest.py:47` is still a no-op; the test-relocation half is the bulk of the work).
 - **Increments 17–24** — FastAPI chassis through documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
@@ -207,7 +206,7 @@ Pick one convention and propagate it through every layer. Recommendation: **incl
 
 **Sequencing**: best to land 14g *after* 14e and 14f so the post-rollup state isn't a confusing flood of regressions in one PR.
 
-### Increment 14h — Implement the unit-test I/O guard  *(team-flagged Medium — still open)*
+### Increment 14h — Implement the unit-test I/O guard  *(✅ done; see commit log)*
 
 **Problem**
 
@@ -458,10 +457,6 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 
 The historical sequencing block has been pruned now that Clusters 14 (excluding 14h), 25, and 26, plus Increments 15 and 16, are merged. What remains:
 
-**Still-open from earlier clusters**
-
-- **14h** — Unit-test I/O guard. Independent of feature work; can slot anywhere. Two parts: implement the guard in `tests/fixtures/io_guard.py` and rewire `tests/unit/conftest.py::_forbid_io`; relocate the SQLite-touching tests under `tests/unit/infrastructure/persistence/` to `tests/integration/`. The relocation half is the bulk of the work.
-
 **Feature stream (Increments 17–22)**
 
 - **17** unblocks **18 → 19 → 20**, which together form the dashboard. Increment 16 left `LoginUseCase`/`LogoutUseCase` and the Argon2 hasher wired, but `interfaces/rest/{auth,routes}/` are still empty `__init__.py`s and `__main__.py` only starts gRPC.
@@ -470,12 +465,11 @@ The historical sequencing block has been pruned now that Clusters 14 (excluding 
 
 **Recommended next-up sequencing**
 
-1. **14h** — small, contained; sharpens the unit/integration boundary before REST routes start landing.
-2. **17** — FastAPI app factory + bootstrap wiring. Direct prerequisite for 18–20.
-3. **18 → 19 → 20** in order — subscriptions, past-runs/resend, admin.
-4. **21** — E2E happy-path + orphan-path harness. Can slot in after 17 if you want the chassis under E2E coverage as routes accrete.
-5. **22** — error-mapping + servicer tests; independent stream.
-6. **23, 24** — deployment polish + documentation deliverables (release-gating).
+1. **17** — FastAPI app factory + bootstrap wiring. Direct prerequisite for 18–20.
+2. **18 → 19 → 20** in order — subscriptions, past-runs/resend, admin.
+3. **21** — E2E happy-path + orphan-path harness. Can slot in after 17 if you want the chassis under E2E coverage as routes accrete.
+4. **22** — error-mapping + servicer tests; independent stream.
+5. **23, 24** — deployment polish + documentation deliverables (release-gating).
 
 ---
 

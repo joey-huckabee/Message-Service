@@ -142,6 +142,7 @@ markers = [
     "conformance: structural/architectural conformance test",
     "benchmark: performance benchmark, excluded from default run",
     "slow: test takes more than 1 second",
+    "allow_io: opt out of the unit-tier I/O guard (sockets / aiosqlite); use sparingly for tests that legitimately need real adapters to verify atomicity guarantees",
 ]
 filterwarnings = [
     "error",

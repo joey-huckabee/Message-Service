@@ -163,6 +163,7 @@ def test_resolve_config_path_errors_when_both_missing() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-DEP-001")
+@pytest.mark.allow_io
 async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None:
     """``_run`` SHALL start a gRPC server, await the shutdown event, and
     tear everything down cleanly."""
@@ -185,6 +186,7 @@ async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.allow_io
 async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     """While ``_run`` is active the server SHALL answer a real BeginRun RPC."""
     cfg_path = _write_config(tmp_path, grpc_port=55091)

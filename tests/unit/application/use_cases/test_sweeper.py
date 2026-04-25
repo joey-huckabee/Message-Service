@@ -50,6 +50,9 @@ from message_service.infrastructure.persistence.user_repository import (
     SqliteUserRepository,
 )
 
+pytestmark = pytest.mark.allow_io
+
+
 # -----------------------------------------------------------------------------
 # Fixtures + helpers
 # -----------------------------------------------------------------------------

@@ -33,6 +33,9 @@ from message_service.infrastructure.templating.renderer import (
 )
 from message_service.infrastructure.time.system_clock import SystemClock
 
+pytestmark = pytest.mark.allow_io
+
+
 # -----------------------------------------------------------------------------
 # Fixtures — build a minimal valid config on disk
 # -----------------------------------------------------------------------------

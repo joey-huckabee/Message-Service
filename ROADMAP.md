@@ -15,7 +15,7 @@ Last full increment merged: **16 — local-account auth adapter (Argon2 + sessio
 
 Done:
 
-- **Cluster 14 (sweeper hardening)** — 14a `04a88dc`, 14b.1 `460d127`, 14b.2 `7c33c87`, 14b.3 `3b48d38`, 14b.4 `5456f2e`, 14c.1 `9b28e2b`, 14c.2 `3fd0673`, 14d `4b24818`, 14e `fb54f98`, 14f `1cdfc3d`. 14g superseded by 25a; 14c.3 obviated by 14b's post-transition fetch.
+- **Cluster 14 (sweeper hardening + test isolation)** — 14a `04a88dc`, 14b.1 `460d127`, 14b.2 `7c33c87`, 14b.3 `3b48d38`, 14b.4 `5456f2e`, 14c.1 `9b28e2b`, 14c.2 `3fd0673`, 14d `4b24818`, 14e `fb54f98`, 14f `1cdfc3d`, 14h `1b14b92`. 14g superseded by 25a; 14c.3 obviated by 14b's post-transition fetch.
 - **Cluster 25 (requirements spec cleanup)** — 25a `1f26f2f`, 25b `eb5f537`, 25c `c5b9854`, 25d `3f45426`, 25e `d67539a`, 25f `5614aa8`.
 - **Cluster 26 (CI/CD requirements + workflows)** — 26a `220c1d5`, 26b `c22ebc9`, 26c `f99f795`, 26d `aa6550c`.
 - **Increment 15** — Prometheus metrics adapter (`fe5c3a4`).

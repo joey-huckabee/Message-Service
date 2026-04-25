@@ -564,7 +564,7 @@ single source of truth for live status; the source docs in this file,
 - **Tags and pipelines**: tag vocabulary path; registered pipeline-type list.
 - **Sweeper**: global run timeout; orphan sweeper poll interval; orphan disposition policy set; per-tick maximum candidates (`sweeper.max_candidates_per_iteration`, see L3-SWEEP-008); stuck-claim recovery threshold (`sweeper.stale_claim_threshold_seconds`, see L3-SWEEP-020); maximum dispatch attempts before abandonment (`sweeper.max_dispatch_attempts`, see L3-SWEEP-021).
 - **Mail**: SMTP relay address, port, credentials, and STARTTLS toggle; from-address; maximum email size in bytes; administrator recipient list; SMTP retry knobs (max attempts, initial interval, max interval).
-- **Auth and dashboard**: session idle timeout.
+- **Auth and dashboard**: session idle timeout; dashboard cookie-`Secure` flag (`dashboard.https_only`, see L3-AUTH-009).
 - **Observability**: audit log retention duration; log level.
 
 **Rationale**: Explicit enumeration of required settings ensures that no critical behavior is driven by hidden defaults, and gives the operations team a checklist for deployment configuration. Grouping by area (rather than the original flat list) keeps the checklist scannable as the configuration surface grows. The list is the **floor** — the schema may add fields beyond these, but every field below SHALL be present in the schema and have a default or be operator-required.

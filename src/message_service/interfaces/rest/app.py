@@ -22,15 +22,6 @@ This increment delivers the chassis only:
 Domain routes (subscriptions, runs, admin) are deliberately out of
 scope for this increment; they land in 18..20.
 
-Factory signature
------------------
-L3-DASH-001 specifies ``create_app(config: Config) -> FastAPI``. We
-take a fully-built :class:`Service` instead so the factory does not
-re-execute the composition root (and so unit tests that already build
-a ``Service`` can reuse it). The deviation is intentional and
-documented here; the L3 statement may be reworded in a future spec
-pass.
-
 Requirement references
 ----------------------
 L1-AUTH-001, L1-AUTH-002, L1-DASH-001, L1-DEP-001

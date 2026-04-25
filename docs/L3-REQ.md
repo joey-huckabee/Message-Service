@@ -668,7 +668,7 @@ If audit insert fails AFTER a successful SMTP send, the run SHALL NOT be rolled 
 ## L3-DASH: Dashboard
 
 **L3-DASH-001** · Parent: L2-DASH-001 · Verification: T
-The `create_app(config: Config) -> FastAPI` factory SHALL attach routers via `include_router`; no module-level `app` global SHALL exist.
+The `create_app(service: Service) -> FastAPI` factory SHALL attach routers via `include_router`; no module-level `app` global SHALL exist.
 
 **L3-DASH-002** · Parent: L2-DASH-001 · Verification: T
 The factory SHALL register startup and shutdown handlers via `@app.on_event(...)` or the lifespan context manager.

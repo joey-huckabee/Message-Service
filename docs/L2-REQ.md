@@ -850,8 +850,8 @@ single source of truth for live status.
 #### L2-DASH-001
 
 **Parent**: L1-DASH-001
-**Statement**: The FastAPI application SHALL be constructed via a factory function `create_app(config)` rather than a module-level singleton, to support test isolation and repeated construction in unit tests.
-**Rationale**: Factory construction is the FastAPI-recommended pattern for testable applications.
+**Statement**: The FastAPI application SHALL be constructed via a factory function `create_app(service)` (taking the composed `Service` from the bootstrap composition root) rather than a module-level singleton, to support test isolation and repeated construction in unit tests.
+**Rationale**: Factory construction is the FastAPI-recommended pattern for testable applications. The factory takes the composed `Service` rather than just the `Config` so it can reach the constructed use cases (login, logout, etc.) without re-executing the composition root.
 **Verification Method**: Inspection (I)
 
 #### L2-DASH-002

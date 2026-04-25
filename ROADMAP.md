@@ -213,66 +213,79 @@ Pick one convention and propagate it through every layer. Recommendation: **incl
 
 Born from two reviews (mine + the team's) of L1/L2/L3 source docs vs. the implemented code and the trace matrix. These are mostly docs-only edits, but several cross over into small code changes (added L1/L2 statements, added or reworded L3 statements, audit-log docstring fix). They should land **before** Cluster 15+ feature work — every new feature increment otherwise compounds the spec drift.
 
-### Increment 25a — Status model overhaul
+### Increment 25a — Source-of-truth for status + artifacts
 
-Combines my "status drift" finding with the team's "Partially Implemented" recommendation.
+Per team recommendation: **remove `Status` and `Verification Artifact` fields from L1/L2/L3 source docs entirely**, keep them only in `TRACE-MATRIX.md`, and make `scripts/build-trace-matrix.py` the sole authority. This is cleaner than auto-syncing two sources, which would forever risk drift between commits.
 
 **Problem**
 
-- All 57 L1, 157 L2, 315 L3 statements still carry `Status: Draft` in the source docs while `TRACE-MATRIX.md` promotes many to `Implemented`. Two sources of truth, drifting apart on every commit.
-- The trace matrix's Implemented status is too loose: it fires when *any* test marker exists for the row, including for an L1 whose L2 children are all Draft. (Same root issue as Increment 14g but framed at the model level.)
-- No `Partially Implemented` state exists, so a parent with some-but-not-all children done has nowhere accurate to land.
+- All 57 L1, 157 L2, 315 L3 statements still carry `Status: Draft` and `Verification Artifact: (TBD)` in the source docs while `TRACE-MATRIX.md` is the live source. Two stores, drifting on every commit.
+- Trace-matrix `Implemented` is too loose: it fires when *any* test marker exists, including for an L1 whose L2 children are all Draft. (Same root issue as Increment 14g, framed at the model level.)
+- No `Partially Implemented` state, so a parent with some-but-not-all children done has nowhere accurate to land.
 
 **Work**
 
-1. Add a fourth status value — **`Partially Implemented`** — to the status legend in `TRACE-MATRIX.md` and to the conventions section of L1-REQ.md.
-2. Rollup rule (also Increment 14g, but consolidated here): a parent is `Implemented` only if *every* child is `Implemented`. If any child is `Draft`, the parent is `Partially Implemented`. If every child is `Draft`, the parent is `Draft`. Same rule applied L1↔L2↔L3.
-3. `scripts/build-trace-matrix.py` becomes the single source of truth for status: it reads `@pytest.mark.requirement` markers, computes leaf-level status, propagates upward, and writes the matrix. Source-doc `Status:` lines either get auto-synced (script also rewrites them) or get dropped from L1/L2/L3 entirely with a note pointing readers at the matrix.
-4. Drop `Verification Artifact: (TBD)` lines from L1/L2/L3 — the matrix has the real artifacts. Or auto-sync the same way.
+1. Add a fourth status value — **`Partially Implemented`** — to the legend in `TRACE-MATRIX.md` and to the conventions section of L1-REQ.md.
+2. **Rollup rule** (supersedes Increment 14g; merge them). Computed L1↔L2↔L3 by the script:
+   - Every child `Implemented` (or higher) → parent `Implemented`.
+   - At least one child `Implemented` and at least one `Draft` → parent `Partially Implemented`.
+   - Every child `Draft` → parent `Draft`.
+3. **Drop `Status:` and `Verification Artifact:` lines** from L1-REQ.md, L2-REQ.md, L3-REQ.md entirely. Add a note at the top of each: *"Status and verification artifacts are tracked in `docs/TRACE-MATRIX.md`; consult it for the live state of every requirement."*
+4. `scripts/build-trace-matrix.py` becomes the single source of truth: reads `@pytest.mark.requirement` markers, computes leaf-level status, propagates upward, writes the matrix. The L1/L2/L3 docs become pure spec content (Statement, Rationale, Verification Method, Parent links).
 5. Conformance test that the rollup propagation works (covers Increment 14g's test 4 — fold them).
+6. The CI gate from Increment 26c will then enforce: build fails if the script's regenerated matrix differs from the committed one OR if any rollup is internally inconsistent.
 
-**Sequencing**: largely supersedes Increment 14g; merge them. Recommend doing 25a *before* 14e/14f land so their trace impact is computed under the correct rollup.
+**Sequencing**: largely supersedes Increment 14g; merge them. **Land 25a first** in Cluster 25 — it's the team's recommended step 1 and the foundation everything else's trace-matrix work depends on.
 
-### Increment 25b — L1 contradictions and reality drift
+### Increment 25b — L1 contradictions and v1/v2 boundaries
 
-Five L1 fixes uncovered in the review.
+Per team recommended step 2. Four L1 fixes that resolve direct spec-vs-spec or spec-vs-implementation contradictions.
 
-1. **L1-AGGR-001 vs L1-STAGE-003 contradiction.** AGGR-001 says report contribution is "required" per `SubmitStageReport`; STAGE-003 says a stage may submit no report and no email body content; L2-STAGE-006 confirms STAGE-003. Reword AGGR-001's "required" → "optional" or "two content slots, both of which may be empty," consistent with STAGE-003.
-2. **L1-OBS-003 audit scope is too narrow.** It limits the audit log to "successful email deliveries… and failed delivery attempts." The implemented `AuditAction` enum has 14 categories (`BEGIN_RUN`, `SUBMIT_STAGE_REPORT`, `FINALIZE_RUN`, `RUN_STATE_TRANSITION`, `STAGE_STATE_TRANSITION`, `SWEEP_ORPHAN`, `SUBSCRIBE`, `UNSUBSCRIBE`, `CREATE_USER`, `UPDATE_USER`, `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `SEND_REPORT`). Widen L1-OBS-003 to cover the actual scope; add L2 derivations under it for run-lifecycle, stage-lifecycle, sweeper, subscription, and auth audit categories.
-3. **L1-STAGE-001 IN_PROGRESS handling.** L1 lists `IN_PROGRESS` as a regular state; the SQL `CHECK` constraint rejects it; the transition table forbids it; code comments mark it "reserved for v2." Mark `IN_PROGRESS` as explicitly reserved in L1-STAGE-001's SHALL statement and Rationale, so the L1 reads accurately.
-4. **L1-SWEEP-003 deferred actions.** L1-SWEEP-003 lists all four disposition actions (`SEND_PARTIAL_FLAGGED`, `DISCARD_SILENTLY`, `NOTIFY_SUBSCRIBERS`, `NOTIFY_ADMINS`) as if all worked. After Increment 14a, only `DISCARD_SILENTLY` and `NOTIFY_ADMINS` are registered; configs that reference the others raise `ConfigurationError` at startup. Two sub-options:
+1. **L1-AGGR-001 vs L1-STAGE-003 contradiction.** AGGR-001 says report contribution is "required" per `SubmitStageReport`; STAGE-003 says a stage may submit no report and no email body content; L2-STAGE-006 confirms STAGE-003. Reword AGGR-001's "required" → "optional" (or "two content slots, both of which may be empty"), consistent with STAGE-003.
+2. **L1-OBS-003 audit scope is too narrow.** It limits the audit log to "successful email deliveries… and failed delivery attempts." The implemented `AuditAction` enum has 14 categories (`BEGIN_RUN`, `SUBMIT_STAGE_REPORT`, `FINALIZE_RUN`, `RUN_STATE_TRANSITION`, `STAGE_STATE_TRANSITION`, `SWEEP_ORPHAN`, `SUBSCRIBE`, `UNSUBSCRIBE`, `CREATE_USER`, `UPDATE_USER`, `LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `SEND_REPORT`). Widen L1-OBS-003 to cover the real scope; add L2 derivations under it for the run-lifecycle, stage-lifecycle, sweeper, subscription, and auth audit categories.
+3. **L1-STAGE-001 IN_PROGRESS v1/v2 boundary.** L1 lists `IN_PROGRESS` as a regular state; the SQL `CHECK` constraint rejects it; the transition table forbids it; code comments mark it "reserved for v2." Mark `IN_PROGRESS` as explicitly reserved in L1-STAGE-001's Statement and Rationale so the L1 reads accurately. (L2-STAGE-002 already pins this — propagate the reserved framing up to L1.)
+4. **L1-SWEEP-003 deferred actions.** L1-SWEEP-003 lists all four disposition actions as if all worked. After Increment 14a, only `DISCARD_SILENTLY` and `NOTIFY_ADMINS` are registered; configs that reference the others raise `ConfigurationError` at startup. Two sub-options:
    - **(a)** Annotate L1-SWEEP-003: "v1 implements `DISCARD_SILENTLY` and `NOTIFY_ADMINS`; the other two action ids remain valid in the type but raise `ConfigurationError` at startup until implemented (see ROADMAP)."
    - **(b)** Remove `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS` from L1-SWEEP-003 entirely and move them to ROADMAP Part 2.
-   - **Plus an explicit L3** (per team request): "Known disposition action identifiers in `DispositionAction` whose handlers are not registered SHALL raise `ConfigurationError` at startup with `details.unregistered_actions` listing the offenders." This pins the runtime behavior 14a delivers.
 
-   Recommendation: **(a) + the new L3.** Keeps the type stable and makes the implementation contract explicit.
-5. **L2-STAGE-007 wording vs. implementation** (also team-flagged). L2-STAGE-007 says the sweeper "SHALL classify any stage in state PENDING at orphan-timeout evaluation as missing." The current sweeper only looks at run state, not stage state — the L2 promises a code path that doesn't exist. Two sub-options:
-   - **(a) Reword** L2-STAGE-007 to match emergent behavior: "Any run containing PENDING stages at orphan-timeout SHALL be treated according to L1-SWEEP-002's run-level orphan rule." Then no new code; just docs.
-   - **(b) Implement** stage-level orphan classification: add L3 statements under L2-SWEEP for "the sweeper SHALL record the list of PENDING stage_ids in the SWEEP_ORPHAN audit details," extend `SqliteRunRepository` to surface them in `list_expired`, and extend the audit details payload accordingly.
+   Recommendation: **(a)** — keeps the type stable and makes the v1 implementation boundary explicit. Pair with the new L3 in 25c step 3 (known-but-unregistered → `ConfigurationError`).
 
-   Recommendation: **(b)** if the operator value of "which stages were missing when this orphaned" is high; **(a)** if it isn't. The team's framing leans (b) ("if pending stages are part of orphan classification, add explicit L3 requirements under SWEEP for querying/recording pending stage IDs").
+### Increment 25c — Cross-layer drift fixes
 
-### Increment 25c — Audit-log L2 reference fix in code
+Per team recommended step 3. Three drift fixes between requirement statements and the code/L2 reality they describe.
 
-Tiny but important. `src/message_service/application/ports/audit_log.py`'s docstring cites `L2-OBS-002, L2-OBS-005` as the audit-contract requirements. Both are mis-references: L2-OBS-002 is about contextvars-based logging-context propagation, L2-OBS-005 is about Prometheus metric naming. Find the right L2 derivations of L1-OBS-003 (post-25b widening, those will exist) and update the docstring's `Requirement references` block. Also audit other ports/use cases for similar drift via grep.
+1. **Audit-log port docstring misreferences.** `src/message_service/application/ports/audit_log.py`'s docstring cites `L2-OBS-002, L2-OBS-005` as the audit-contract requirements. Both are wrong: L2-OBS-002 is about contextvars-based logging-context propagation; L2-OBS-005 is about Prometheus metric naming. After 25b widens L1-OBS-003 and adds new L2 audit derivations, point the docstring at the correct L2 numbers. Then `grep -r "Requirement references"` for similar drift across other ports and use cases.
+2. **L2-STAGE-007 stage-orphan wording vs. implementation.** L2-STAGE-007 says the sweeper "SHALL classify any stage in state PENDING at orphan-timeout evaluation as missing." The current sweeper queries `runs` only — never `stages`. The L2 promises a code path that doesn't exist. Two sub-options:
+   - **(a) Reword** L2-STAGE-007 to match emergent behavior: "Any run containing PENDING stages at orphan-timeout SHALL be treated according to L1-SWEEP-002's run-level orphan rule."
+   - **(b) Implement** stage-level orphan classification: add L3 statements under L2-SWEEP for "the sweeper SHALL record the list of PENDING stage_ids in the SWEEP_ORPHAN audit details," extend `SqliteRunRepository.list_expired` to surface them, extend the audit details payload accordingly.
 
-### Increment 25d — Net-new requirements: graceful shutdown, clock validity, report retention
+   Recommendation: **(b)** per team framing — operator value of "which stages were missing when this orphaned" is real for incident investigation. (a) is the doc-only escape hatch if (b) feels too big.
+3. **Sweeper action availability — new L3.** Pair with 25b.4: add an explicit L3 under L2-SWEEP-007 (or L2-SWEEP-008): *"Known disposition action identifiers in `DispositionAction` whose handlers are not registered SHALL raise `ConfigurationError` at startup with `details.unregistered_actions` listing the offenders."* This pins the runtime behavior Increment 14a already delivers and closes the spec gap the team flagged.
 
-Three areas where the spine has gaps that the implementation either silently assumes or unbounded-grows on:
+### Increment 25d — Net-new requirements: report retention, clock validity, rate limiting
 
-1. **Graceful shutdown semantics.** Code has `shutdown_grace_period_seconds`, `__main__.py` honors SIGTERM, gRPC server uses bounded `stop(grace=...)`. No L1 or L2 anchors this. Add **L1-DEP-004**: "The service SHALL drain in-flight gRPC RPCs within `service.shutdown_grace_period_seconds` of receiving SIGTERM/SIGINT, after which remaining work is cancelled." Add L2 derivations for signal handling, scheduler `await_all`, and forced cancellation as fallback.
-2. **Clock validity.** Every timestamp trusts the host clock; sweeper thresholds, SLA windows, and audit ordering all depend on it. Add **L2-RUN-016** under L1-RUN-005: "Timestamps SHALL be drawn from a monotonically-increasing UTC clock; the service does not detect or compensate for backward host-clock corrections, and behavior under such corrections is unspecified." Or add an explicit L1-OBS-005 if it wants more visibility.
-3. **Rendered-report retention.** L1-OBS-003 has retention for the audit log; rendered HTML reports on disk grow forever. Add **L1-PERS-004** (or L1-OBS-005): "Rendered reports SHALL be retained on disk for at least `persistence.filesystem.report_retention_days` (default value TBD by ops); a background pruner SHALL evict reports older than the retention window." Then a future increment implements the pruner.
+Per team recommended step 4. Real gaps in the spine where the implementation either silently assumes or grows unbounded. **Two earlier proposed items dropped after team verification:**
+
+- ~~Graceful shutdown~~ — *already covered by L2-DEP-006 + L3-DEP-010/-011/-012*. The L1 anchor (L1-DEP-002) could be made more explicit, but that's a minor wording polish, not a missing-requirement gap. Optional sub-task: add one sentence to L1-DEP-002 noting graceful shutdown is part of the start/stop/restart lifecycle.
+- ~~Mail backoff formula~~ — *already pinned at L2-MAIL-006 and L3-MAIL-009*. No work needed.
+
+Remaining real gaps:
+
+1. **Rendered-report retention.** L1-OBS-003 has retention for the audit log; rendered HTML reports on disk grow forever. Add a new L1 (proposed **L1-PERS-004**): *"Rendered reports SHALL be retained on disk for at least `persistence.filesystem.report_retention_days` (default value TBD by ops); a background pruner SHALL evict reports older than the retention window."* L2/L3 derivations cover the pruner schedule, atomic delete semantics, and audit-log entry on each prune. A future implementation increment then writes the pruner.
+2. **Clock validity assumption.** Every timestamp trusts the host clock; sweeper thresholds, SLA windows, audit ordering all depend on it. Add new L1 anchor (proposed **L1-DEP-004** if reusing the DEP category) or an L2 under L1-RUN-005: *"The service SHALL assume the host clock is synchronized to UTC within ±N seconds and is monotonically non-decreasing under normal operation; behavior under backward host-clock corrections greater than N seconds is unspecified."* Pair with a Rationale that points at the `Clock` port as the encapsulation boundary.
+3. **Rate limiting decision.** No L1 covers per-pipeline concurrency caps or in-flight RPC limits. Two sub-options:
+   - **(a)** Author L1-API-005: *"The service SHALL bound concurrent in-flight RPCs by a configurable global limit; excess SHALL be rejected with `RESOURCE_EXHAUSTED` and an error code identifying the saturation cause."*
+   - **(b)** Document in ROADMAP Part 2 that v1 deliberately omits rate limiting because the trusted-ISOLAN deployment model assumes well-behaved clients; promote when a non-trusted ingress emerges.
+
+   Recommendation: **(b)** for v1 — the trusted-ISOLAN context is a real constraint that justifies the omission and matches how L1-API-003 frames plaintext gRPC.
 
 ### Increment 25e — Smaller spec cleanup
 
-Catch-all for the lower-impact items — useful to bundle so they don't get lost.
+Lower-impact catch-all so these don't get lost. Both team-corrected items removed.
 
-1. **Rate-limiting decision.** No L1 covers per-pipeline concurrency caps or in-flight RPC limits. Either author L1-API-005 ("the service SHALL bound concurrent in-flight RPCs by a configurable limit; excess SHALL be rejected with `RESOURCE_EXHAUSTED`") or note in ROADMAP Part 2 that v1 deliberately doesn't rate-limit.
-2. **L1-MAIL-002 retry formula.** L1 mandates exponential backoff with three knobs but doesn't pin the formula. Add an L3 under L2-MAIL-002 documenting "interval *= 2 each retry, capped at `max_interval_seconds`."
-3. **L2-AGGR-009 duplication note.** L2-AGGR-009's Rationale already says "this duplicates the statement here to anchor it under the AGGR category." Convert from a re-statement of L2-RUN-011 to an explicit "see L2-RUN-011" cross-reference so readers don't have to spot the dupe.
-4. **Merge "L3-OBS (extension)"** section into L3-OBS proper. Remove the workaround note ("they are grouped separately… for clarity").
-5. **L1-CFG-003 enumeration completeness** (folds the team's #C and my #4 beyond what 14e adds). Add to the L1-CFG-003 minimum config keys: `email_body_template_ref`, `pipelines.registered`, `mail.admin_recipients`, `templates.max_context_bytes`/`max_rendered_bytes`, `smtp.use_starttls`, `persistence.connection_pool_size`, `service.shutdown_grace_period_seconds`. (`max_candidates_per_iteration` lands via 14e.)
+1. **L2-AGGR-009 duplication note.** L2-AGGR-009's Rationale already says "this duplicates the statement here to anchor it under the AGGR category." Convert from a re-statement of L2-RUN-011 to an explicit "see L2-RUN-011" cross-reference so readers don't have to spot the dupe.
+2. **Merge "L3-OBS (extension)"** section into L3-OBS proper. Remove the workaround note ("they are grouped separately… for clarity").
+3. **L1-CFG-003 enumeration completeness** (folds the team's #C and my finding). Add to the L1-CFG-003 minimum config keys: `email_body_template_ref`, `pipelines.registered`, `mail.admin_recipients`, `templates.max_context_bytes`/`max_rendered_bytes`, `smtp.use_starttls`, `persistence.connection_pool_size`. (`max_candidates_per_iteration` lands via 14e; `service.shutdown_grace_period_seconds` is already implicit through L2-DEP-006.)
 
 ---
 
@@ -400,11 +413,15 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 - 14g (trace-matrix rollup) is largely **superseded by 25a** — fold them.
 - 14h (I/O guard) is independent and can slot anywhere; the test-relocation half is the larger piece.
 
-**Cluster 25 (requirements spec cleanup)**
+**Cluster 25 (requirements spec cleanup) — team-recommended ordering**
 
-- Should land **before** Cluster 15+ feature work. Every new feature increment otherwise compounds the spec drift identified by both the team review and the requirements doc audit.
-- 25a (status model + Partially Implemented) is the highest-leverage single edit — it makes the matrix trustworthy and fixes the rollup logic in one pass. Fold 14g into it.
-- 25b–25e are mostly docs-only; can land in any order. The L1-SWEEP-003 deferred-actions split (25b.4) and the new L3 for known-but-unregistered → ConfigurationError directly pin behavior 14a already delivers — quick win.
+- Should land **before** Cluster 15+ feature work. Every new feature increment otherwise compounds the spec drift identified by both reviews.
+- Per team recommendation, the cluster ordering is: **25a → 25b → 25c → 25d → 25e**.
+  - **25a** (source-of-truth + Partially Implemented + rollup) supersedes 14g and is the foundation everything else's trace impact depends on.
+  - **25b** fixes L1-level contradictions and v1/v2 boundaries. Mostly docs-only; quick wins.
+  - **25c** fixes cross-layer drift (audit-log docstring, stage-orphan wording, sweeper-action-availability L3). Depends on 25b's L1-OBS-003 widening for the audit-log docstring fix to know which L2 numbers to cite.
+  - **25d** authors net-new requirements for retention / clock / rate limiting. Two earlier proposed items (graceful shutdown, mail backoff formula) were dropped after team verification confirmed they're already pinned at L2/L3.
+  - **25e** smaller polish.
 
 **Cluster 26 (CI/CD)**
 

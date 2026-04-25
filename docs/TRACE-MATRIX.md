@@ -429,11 +429,11 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-CICD-001 | L2-CICD-001, L2-CICD-002, L2-CICD-003 | Draft |
+| L1-CICD-001 | L2-CICD-001, L2-CICD-002, L2-CICD-003 | Partially Implemented |
 | L1-CICD-002 | L2-CICD-004, L2-CICD-005 | Draft |
 | L1-CICD-003 | L2-CICD-006, L2-CICD-007 | Draft |
 | L1-CICD-004 | L2-CICD-008, L2-CICD-009 | Draft |
-| L1-CICD-005 | L2-CICD-010, L2-CICD-011 | Draft |
+| L1-CICD-005 | L2-CICD-010, L2-CICD-011 | Partially Implemented |
 | L1-CICD-006 | L2-CICD-012, L2-CICD-013 | Draft |
 | L1-CICD-007 | L2-CICD-014, L2-CICD-015 | Draft |
 
@@ -442,7 +442,7 @@ the single source of truth.
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-CICD-001 | L3-CICD-001, L3-CICD-002, L3-CICD-003 | _(TBD)_ | Draft |
-| L2-CICD-002 | L3-CICD-004 | _(TBD)_ | Draft |
+| L2-CICD-002 | L3-CICD-004 | `tests/conformance/test_filterwarnings_policy.py::test_filterwarnings_allow_list_is_small`<br>`tests/conformance/test_filterwarnings_policy.py::test_filterwarnings_starts_with_error` | Implemented |
 | L2-CICD-003 | L3-CICD-005 | _(TBD)_ | Draft |
 | L2-CICD-004 | L3-CICD-006 | _(TBD)_ | Draft |
 | L2-CICD-005 | L3-CICD-007 | _(TBD)_ | Draft |
@@ -451,7 +451,7 @@ the single source of truth.
 | L2-CICD-008 | L3-CICD-010, L3-CICD-011 | _(TBD)_ | Draft |
 | L2-CICD-009 | L3-CICD-012 | _(TBD)_ | Draft |
 | L2-CICD-010 | L3-CICD-013 | _(TBD)_ | Draft |
-| L2-CICD-011 | L3-CICD-014 | _(TBD)_ | Draft |
+| L2-CICD-011 | L3-CICD-014 | `tests/conformance/test_gitignore_hygiene.py::test_pytest_tmp_is_explicitly_ignored` | Implemented |
 | L2-CICD-012 | _(none)_ | _(TBD)_ | Draft |
 | L2-CICD-013 | L3-CICD-015 | _(TBD)_ | Draft |
 | L2-CICD-014 | L3-CICD-016 | _(TBD)_ | Draft |
@@ -478,10 +478,10 @@ the single source of truth.
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
-| CICD | 7 | 15 | 17 | 0 | 0 |
-| **Total** | **65** | **181** | **333** | **50** | **77** |
+| CICD | 7 | 15 | 17 | 0 | 2 |
+| **Total** | **65** | **181** | **333** | **50** | **79** |
 
-**Requirements verified by at least one test**: 127 of 514 (24.7%).
+**Requirements verified by at least one test**: 129 of 514 (25.1%).
 
 ### Orphan check
 

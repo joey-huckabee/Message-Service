@@ -204,6 +204,11 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Claude Code
+#  Per-workspace tooling state (settings.local.json etc.) — local to each
+#  contributor's environment, never shared.
+.claude/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

@@ -122,18 +122,83 @@ The crash semantics noted in `application/use_cases/sweeper_action_dispatcher.py
 
 No new L1/L2/L3 statements yet — this is a quality refinement under the existing L2-SWEEP-006 / L3-SWEEP-013 umbrella. Consider whether to author an L3 statement pinning the stale-claim semantics so the contract is reviewable.
 
-### Increment 14e — Promote L2-SWEEP-005 with `list_expired` query tests  *(follow-up from 14b)*
+### Increment 14e — Wire `max_candidates_per_iteration` + L2-SWEEP-005 tests  *(team-flagged High; follow-up from 14b)*
 
-`L2-SWEEP-005` (the `list_expired` repository query) is still rolled up as **Draft** in `docs/TRACE-MATRIX.md` because its L3 children (`L3-SWEEP-007`: query SQL shape; `L3-SWEEP-008`: `max_candidates_per_iteration` LIMIT clause) lack direct tests. The query *is* exercised end-to-end by the sweeper integration tests, but the SQL shape and LIMIT enforcement aren't independently pinned.
+**Problem (correctness, not just traceability)**
+
+`L3-SWEEP-008` (`docs/L3-REQ.md:428`) requires `sweeper.max_candidates_per_iteration` with default 1000 and a `LIMIT` clause on `list_expired`. Today:
+
+- `SweeperConfig` (`src/message_service/config/schema.py:179`) has no such field.
+- `_SQL_LIST_EXPIRED_BASE` (`src/message_service/infrastructure/persistence/run_repository.py:105`) has no `LIMIT` clause.
+
+A large backlog (e.g., post-incident recovery against tens of thousands of stuck runs) is processed in one tick, holding the connection across thousands of per-run UoWs and starving everything else on the shared SQLite connection until the tick completes. This is an availability bug, not just a missing test.
+
+The L2 parent (`L2-SWEEP-005`) is still rolled up as **Draft** in the trace matrix because both its L3 children (`L3-SWEEP-007` query shape and `L3-SWEEP-008` LIMIT) lack direct tests.
 
 **Work**
 
-- Add unit tests under `tests/unit/infrastructure/persistence/test_run_repository.py` that:
-  - Assert the `state` column is one of `INITIATED, AGGREGATING, READY, SENDING` in the SQL (read `sqlite_master` and inspect the prepared statement, OR run with mixed-state seed data and confirm only those four states surface).
-  - Assert the `LIMIT` clause is honored: seed N+1 expired runs, call `list_expired(limit=N)`, assert the result has exactly N entries.
-- If `max_candidates_per_iteration` isn't already wired into the config schema and the sweeper, wire it (small change — currently the call sites probably pass an unbounded query). Default 1000 per L3-SWEEP-008.
+1. Add `max_candidates_per_iteration: int = Field(default=1000, ge=1)` to `SweeperConfig`. Update `config.toml.example` + `default.toml`.
+2. Plumb it through `SweeperUseCase` and into `RunRepository.list_expired(..., limit: int)`. Append `LIMIT ?` to `_SQL_LIST_EXPIRED_BASE`.
+3. Tests under `tests/unit/infrastructure/persistence/test_run_repository.py`:
+   - SQL shape: assert the `state IN (...)` clause holds exactly `INITIATED, AGGREGATING, READY, SENDING` — verify by mixed-state seed data and result inspection (per L3-SWEEP-007).
+   - LIMIT honored: seed N+1 expired runs, call `list_expired(limit=N)`, assert the result has exactly N entries (per L3-SWEEP-008).
+4. Test under `tests/unit/application/use_cases/test_sweeper.py`: a tick over a backlog larger than `max_candidates_per_iteration` SHALL drain in multiple ticks, not one.
 
-Small, focused increment. Mostly tests + maybe one config-schema field.
+**Trace impact**: L3-SWEEP-007 + L3-SWEEP-008 Draft → Implemented; L2-SWEEP-005 rolls up to Implemented; L1-SWEEP-002 rollup becomes consistent (see 14g for the broader rollup fix).
+
+### Increment 14f — Sweeper boundary fix: inclusive `<=` on `updated_at`  *(team-flagged High)*
+
+**Problem**
+
+`L3-SWEEP-017` (`docs/L3-REQ.md:455`) explicitly mandates: "A test SHALL construct a run with `last_transition_at` exactly `run_timeout_seconds` ago; the sweeper SHALL classify it as orphaned (inclusive boundary)."
+
+The SQL at `src/message_service/infrastructure/persistence/run_repository.py:112` uses `WHERE updated_at < ?`. A run whose `updated_at` is *exactly* the cutoff is not surfaced — the sweeper waits a full additional poll interval before catching it. Off-by-one against an explicit L3 statement.
+
+**Work**
+
+1. Change `_SQL_LIST_EXPIRED_BASE`: `updated_at < ?` → `updated_at <= ?`.
+2. Add the L3-SWEEP-017 boundary test under `tests/unit/infrastructure/persistence/test_run_repository.py`: seed a run with `updated_at` exactly equal to the cutoff; confirm `list_expired(cutoff=...)` returns it.
+3. Mirror the test at the use-case level under `tests/unit/application/use_cases/test_sweeper.py`: tick a sweeper at `clock.now() == run.updated_at + run_timeout`; assert `result.orphaned_count == 1`.
+
+**Trace impact**: L3-SWEEP-017 Draft → Implemented; helps promote L2-SWEEP-002 (along with L3-SWEEP-003).
+
+**Sequencing**: a one-character SQL change with two new tests. Land as a single small commit.
+
+### Increment 14g — Trace-matrix rollup correctness  *(team-flagged Medium)*
+
+**Problem**
+
+`docs/TRACE-MATRIX.md:164-165` shows L1-SWEEP-001 and L1-SWEEP-002 marked **Implemented** while three of their L2 children (L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-005) are **Draft**. The L1 status is computed independently of child status, so an L1 can claim Implemented despite gaps below it. That makes the matrix unreliable as a release-readiness signal — an Implemented L1 should mean every child is at least Implemented, otherwise the rollup misleads operators and reviewers.
+
+**Work**
+
+1. In `scripts/build-trace-matrix.py`, change the L1 rollup so an L1 is Implemented only if every L2 child is Implemented (or higher). Otherwise it's Draft. Same rule applied to the eventual Verified state once that's wired.
+2. Apply the same propagation rule top-to-bottom on regen: L2 → L3 children.
+3. Add a status legend update in `TRACE-MATRIX.md`'s preamble explaining the rollup rule so operators reading the matrix understand "Implemented at L1 means every child has at least one verification artifact."
+4. Add a unit test under `tests/conformance/` (or under `scripts/`-adjacent tests if any exist) that builds a synthetic L1/L2/L3 graph with a Draft leaf and asserts the L1 root rolls up as Draft, not Implemented.
+
+**Trace impact**: matrix becomes trustworthy. L1-SWEEP-001 / L1-SWEEP-002 / L1-SWEEP-003 will likely flip to Draft until 14e + 14f + a future increment cover the L2-SWEEP-001 / L2-SWEEP-002 children that don't yet have artifacts. That's the *correct* state — the matrix should make the gap visible, not hide it.
+
+**Sequencing**: best to land 14g *after* 14e and 14f so the post-rollup state isn't a confusing flood of regressions in one PR.
+
+### Increment 14h — Implement the unit-test I/O guard  *(team-flagged Medium)*
+
+**Problem**
+
+`tests/unit/conftest.py:1-19` documents an I/O guard that "monkey-patches ``socket.socket`` and ``aiosqlite.connect`` to raise ``RuntimeError`` during unit-test collection." The fixture body (`tests/unit/conftest.py:40-48`) is just `yield`. The TODO at line 47 even admits it's deferred. The unit/integration boundary is currently aspirational, not enforced — a "unit" test that opens a SQLite database or a socket would silently pass.
+
+**Work**
+
+1. Implement the guard in a new `tests/fixtures/io_guard.py`. Patch `socket.socket.__init__` and `aiosqlite.connect` to raise `RuntimeError("unit tests forbid I/O — see tests/README.md")`.
+2. Wire it into `tests/unit/conftest.py::_forbid_io` so the fixture actually applies the patches (and reverts on teardown).
+3. The unit tests under `tests/unit/infrastructure/persistence/` legitimately use SQLite (against `:memory:`). Either:
+   - Move them into `tests/integration/persistence/` where they belong (cleanest, but a bigger move).
+   - Add a per-file opt-out marker (`@pytest.mark.allow_io` or similar) and have the guard skip patched modules in those files.
+
+   Recommendation: option 1 — they ARE integration tests by definition (multiple components against real local resources, per `tests/README.md`). The current location is convenient but mislabeled.
+4. Conformance test that the guard fires: a deliberately-violating unit test that tries to open `aiosqlite.connect(":memory:")` SHALL raise.
+
+**Sequencing**: the fixture-implementation half is small; the test-relocation half is the bulk of the work. Could split into 14h.1 (implement guard, file the relocation as a follow-up) and 14h.2 (relocate). Either way doesn't block other work.
 
 ### Increment 15 — Prometheus metrics adapter
 
@@ -221,7 +286,10 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 - Increment 15 (metrics) can move earlier if you want OBS rows green before introducing new untested surface.
 - Increment 21 (E2E) can shift earlier — running it after Increment 17 instead of 20 forces the FastAPI chassis to stay testable as routes accrete.
 - Increments 14a, 14b, 14c are correctness fixes, not features. 14a/14b/14c.1/14c.2 have already landed (commits `04a88dc`, `460d127`, `7c33c87`, `3b48d38`, `5456f2e`, `9b28e2b`, `3fd0673`); 14c.3 became unnecessary once 14b.3's dispatcher fetches the post-transition aggregate.
-- 14d (stuck-claim recovery) and 14e (list_expired tests) are smaller follow-ups uncovered during the 14b implementation. Neither blocks a v1 release on its own — 14d's gap is benign for the v1 idempotent handler set; 14e is a trace-matrix completeness item — but both should land before tagging v1.
+- 14d (stuck-claim recovery) is a follow-up uncovered during 14b. Benign for the v1 idempotent handler set but should land before tagging v1.
+- 14e (max_candidates_per_iteration) and 14f (boundary fix) are team-flagged High items uncovered after 14b landed. 14f is a one-character SQL change with two tests; 14e is a real availability risk under backlog and should land soon.
+- 14g (trace-matrix rollup) and 14h (I/O guard) are team-flagged Medium items. 14g should land *after* 14e + 14f so the post-rollup matrix doesn't show regressions that are about to be fixed anyway. 14h is independent; can slot anywhere.
+- Recommended order for the 14-cluster: 14f → 14e → 14g → 14d → 14h. Rationale: 14f is the smallest correctness fix; 14e closes the second High; 14g makes the matrix trustworthy now that the L2-SWEEP rows it depends on are real; 14d adds robustness for the deferred handler set; 14h is hygiene that can wait but shouldn't be lost.
 
 ---
 

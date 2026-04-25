@@ -41,6 +41,10 @@ from collections.abc import Callable
 from typing import Any
 
 from message_service.application.ports.clock import Clock, iso_z
+from message_service.application.ports.metrics_recorder import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from message_service.application.ports.unit_of_work import UnitOfWork
 from message_service.application.use_cases.submit_stage_report_command import (
     SubmitStageReportCommand,
@@ -120,6 +124,7 @@ class SubmitStageReportUseCase:
         *,
         uow_factory: Callable[[], UnitOfWork],
         clock: Clock,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Construct with UoW factory and clock.
 
@@ -127,9 +132,12 @@ class SubmitStageReportUseCase:
             uow_factory: Zero-argument callable returning a fresh UoW
                 per call to :meth:`execute`.
             clock: Port for current UTC timestamp.
+            metrics_recorder: L1-OBS-002 metrics port. Defaults to
+                a NoOp instance for tests.
         """
         self._uow_factory = uow_factory
         self._clock = clock
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
 
     async def execute(self, cmd: SubmitStageReportCommand) -> SubmitStageReportResult:
         """Persist a stage submission, transitioning run and stage states.
@@ -304,6 +312,11 @@ class SubmitStageReportUseCase:
             await uow.stage_repo.save(new_stage)
             if run_transitioned:
                 await uow.run_repo.update_state(run_id, RunState.AGGREGATING, now)
+
+        # L1-OBS-002 / L3-OBS-009: emit transition metrics post-commit.
+        self._metrics.record_stage_state_transition(next_stage_state)
+        if run_transitioned:
+            self._metrics.record_run_state_transition(RunState.AGGREGATING)
 
         return SubmitStageReportResult(
             stage_state=next_stage_state,

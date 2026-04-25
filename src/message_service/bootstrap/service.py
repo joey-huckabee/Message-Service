@@ -55,6 +55,9 @@ from message_service.application.use_cases.sweeper_action_dispatcher import (
 from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
+from message_service.infrastructure.observability.metrics import (
+    PrometheusMetricsRecorder,
+)
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
@@ -243,6 +246,10 @@ async def build_service(config: Config) -> Service:
 
     # 8. Use cases. The order between them doesn't matter; each
     # declares its own dependencies.
+    # L1-OBS-002: a single PrometheusMetricsRecorder is shared by every
+    # use case that emits metrics. Wraps the module-level prometheus_client
+    # singletons in infrastructure/observability/metrics.py.
+    metrics_recorder = PrometheusMetricsRecorder()
     email_body_ref = TemplateRef(
         name=config.templates.email_body_template_ref.name,
         version=config.templates.email_body_template_ref.version,
@@ -254,6 +261,7 @@ async def build_service(config: Config) -> Service:
         mailer=mailer,
         from_address=config.mail.from_address,
         email_body_template_ref=email_body_ref,
+        metrics_recorder=metrics_recorder,
     )
 
     begin_run = BeginRunUseCase(
@@ -262,10 +270,12 @@ async def build_service(config: Config) -> Service:
         template_repo=template_repo,
         uow_factory=uow_factory,
         clock=clock,
+        metrics_recorder=metrics_recorder,
     )
     submit_stage_report = SubmitStageReportUseCase(
         uow_factory=uow_factory,
         clock=clock,
+        metrics_recorder=metrics_recorder,
     )
     finalize_run = FinalizeRunUseCase(
         uow_factory=uow_factory,
@@ -275,6 +285,7 @@ async def build_service(config: Config) -> Service:
         # this factory's return value on the scheduler. The background
         # coroutine is produced fresh per run.
         background_task_factory=lambda run_id: assemble_and_deliver.execute(run_id),
+        metrics_recorder=metrics_recorder,
     )
 
     # 9. Sweeper. The registry from infrastructure/sweeper/handlers.py
@@ -296,6 +307,7 @@ async def build_service(config: Config) -> Service:
         disposition_actions=config.sweeper.disposition_actions,
         handlers_by_id=handlers_by_id,
         max_candidates_per_iteration=config.sweeper.max_candidates_per_iteration,
+        metrics_recorder=metrics_recorder,
     )
     sweeper_action_dispatcher = SweeperActionDispatcherUseCase(
         uow_factory=uow_factory,

@@ -49,6 +49,10 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from message_service.application.ports.metrics_recorder import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from message_service.domain.aggregates.audit_event import (
     AuditAction,
     AuditEvent,
@@ -115,6 +119,7 @@ class SweeperUseCase:
         disposition_actions: Sequence[DispositionAction],
         handlers_by_id: Mapping[DispositionAction, DispositionHandler],
         max_candidates_per_iteration: int = 1_000,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Construct a sweeper use case bound to its collaborators.
 
@@ -140,6 +145,8 @@ class SweeperUseCase:
                 L3-SWEEP-008). Backlogs larger than this drain across
                 multiple ticks at the configured polling cadence.
                 Default 1000 mirrors L3-SWEEP-008's spec.
+            metrics_recorder: L1-OBS-002 metrics port. Defaults to
+                a NoOp instance for tests.
 
         Raises:
             ConfigurationError: ``disposition_actions`` contains an
@@ -167,6 +174,7 @@ class SweeperUseCase:
         self._disposition_actions = tuple(disposition_actions)
         self._handlers = dict(handlers_by_id)
         self._max_candidates = max_candidates_per_iteration
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
 
     async def tick(self) -> TickResult:
         """Run one polling iteration.
@@ -301,7 +309,15 @@ class SweeperUseCase:
                     action_name=action_id,
                     enqueued_at=now,
                 )
-            return True
+
+            # Capture for post-commit metric emission. ORPHANED is a
+            # terminal state, so the duration histogram closes here.
+            duration_seconds = (now - run.created_at).total_seconds()
+
+        # L1-OBS-002 / L3-OBS-009 metrics, post-commit.
+        self._metrics.record_run_state_transition(next_state)
+        self._metrics.observe_run_duration_seconds(duration_seconds)
+        return True
 
 
 __all__ = ["SweeperUseCase", "TickResult"]

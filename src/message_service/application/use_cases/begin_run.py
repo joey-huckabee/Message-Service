@@ -37,6 +37,10 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from message_service.application.ports.clock import Clock, iso_z
+from message_service.application.ports.metrics_recorder import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from message_service.application.ports.tag_vocabulary import TagVocabulary
 from message_service.application.ports.template_repository import TemplateRepository
 from message_service.application.ports.unit_of_work import UnitOfWork
@@ -90,6 +94,7 @@ class BeginRunUseCase:
         template_repo: TemplateRepository,
         uow_factory: Callable[[], UnitOfWork],
         clock: Clock,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Construct the use case with its port dependencies.
 
@@ -100,12 +105,16 @@ class BeginRunUseCase:
             uow_factory: Zero-argument callable returning a fresh UoW
                 per ``execute`` call.
             clock: Port for current UTC timestamp.
+            metrics_recorder: Port for L1-OBS-002 metrics. Defaults
+                to a NoOp instance for tests; production passes the
+                Prometheus adapter from bootstrap.
         """
         self._pipeline_registry = pipeline_registry
         self._tag_vocabulary = tag_vocabulary
         self._template_repo = template_repo
         self._uow_factory = uow_factory
         self._clock = clock
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
 
     async def execute(self, cmd: BeginRunCommand) -> RunId:
         """Validate, mint, persist, audit, and return the new ``RunId``.
@@ -275,6 +284,13 @@ class BeginRunUseCase:
             await uow.run_repo.save(run)
             for stage in initial_stages:
                 await uow.stage_repo.save(stage)
+
+        # L1-OBS-002 / L3-OBS-009: emit transition metrics after the
+        # commit. Metric writes after-the-fact never roll back, but
+        # the events they describe are durable.
+        self._metrics.record_run_state_transition(run.state)
+        for stage in initial_stages:
+            self._metrics.record_stage_state_transition(stage.state)
 
         return run_id
 

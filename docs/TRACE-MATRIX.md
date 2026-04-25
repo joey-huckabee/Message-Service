@@ -325,7 +325,7 @@ the single source of truth.
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Partially Implemented |
-| L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Draft |
+| L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Partially Implemented |
 | L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017 | Partially Implemented |
 | L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Partially Implemented |
 
@@ -337,8 +337,8 @@ the single source of truth.
 | L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events`<br>`tests/unit/infrastructure/persistence/test_audit_log.py::test_record_persists_event` | Partially Implemented |
 | L2-OBS-003 | L3-OBS-005, L3-OBS-006 | _(TBD)_ | Draft |
 | L2-OBS-004 | L3-OBS-007 | _(TBD)_ | Draft |
-| L2-OBS-005 | L3-OBS-008 | _(TBD)_ | Draft |
-| L2-OBS-006 | L3-OBS-009, L3-OBS-010, L3-OBS-011 | _(TBD)_ | Draft |
+| L2-OBS-005 | L3-OBS-008 | `tests/unit/infrastructure/observability/test_metrics.py::test_all_module_metrics_use_message_service_prefix` | Implemented |
+| L2-OBS-006 | L3-OBS-009, L3-OBS-010, L3-OBS-011 | `tests/unit/infrastructure/observability/test_metrics.py::test_email_delivery_outcome_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_state_transition_increments_labeled_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_stage_state_transition_increments_labeled_counter` | Implemented |
 | L2-OBS-007 | L3-OBS-012, L3-OBS-013 | _(TBD)_ | Draft |
 | L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016 | _(TBD)_ | Draft |
 | L2-OBS-009 | L3-OBS-017 | _(TBD)_ | Draft |
@@ -475,14 +475,14 @@ the single source of truth.
 | MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 4 | 13 | 23 | 2 | 6 |
-| OBS | 4 | 17 | 24 | 1 | 1 |
+| OBS | 4 | 17 | 24 | 1 | 5 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **335** | **51** | **84** |
+| **Total** | **65** | **182** | **335** | **51** | **88** |
 
-**Requirements verified by at least one test**: 135 of 517 (26.1%).
+**Requirements verified by at least one test**: 139 of 517 (26.9%).
 
 ### Orphan check
 

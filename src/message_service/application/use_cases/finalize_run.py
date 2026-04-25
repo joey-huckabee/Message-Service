@@ -54,6 +54,10 @@ from message_service.application.ports.background_task_scheduler import (
     BackgroundTaskScheduler,
 )
 from message_service.application.ports.clock import Clock, iso_z
+from message_service.application.ports.metrics_recorder import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from message_service.application.ports.unit_of_work import UnitOfWork
 from message_service.application.use_cases.finalize_run_command import (
     FinalizeRunCommand,
@@ -101,6 +105,7 @@ class FinalizeRunUseCase:
         clock: Clock,
         scheduler: BackgroundTaskScheduler,
         background_task_factory: BackgroundTaskFactory,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Construct with UoW factory, clock, scheduler, and background-task factory.
 
@@ -114,9 +119,12 @@ class FinalizeRunUseCase:
                 background workflow's coroutine. Kept injectable so
                 this use case can be tested in isolation before
                 :class:`AssembleAndDeliverUseCase` exists.
+            metrics_recorder: L1-OBS-002 metrics port. Defaults to a
+                NoOp instance for tests.
         """
         self._uow_factory = uow_factory
         self._clock = clock
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
         self._scheduler = scheduler
         self._background_task_factory = background_task_factory
 
@@ -181,6 +189,9 @@ class FinalizeRunUseCase:
 
             await uow.audit_log.record(audit_event)
             await uow.run_repo.update_state(run_id, RunState.READY, now)
+
+        # L1-OBS-002 / L3-OBS-009: record transition post-commit.
+        self._metrics.record_run_state_transition(RunState.READY)
 
         # UoW has committed. Schedule the background workflow only now;
         # scheduling before commit risks running the workflow against

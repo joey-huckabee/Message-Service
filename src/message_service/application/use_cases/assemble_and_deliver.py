@@ -91,6 +91,10 @@ from message_service.application.ports.mailer import (
     Mailer,
     OutboundEmail,
 )
+from message_service.application.ports.metrics_recorder import (
+    MetricsRecorder,
+    NoOpMetricsRecorder,
+)
 from message_service.application.ports.template_renderer import TemplateRenderer
 from message_service.application.ports.unit_of_work import UnitOfWork
 from message_service.domain.aggregates.audit_event import (
@@ -241,6 +245,7 @@ class AssembleAndDeliverUseCase:
         mailer: Mailer,
         from_address: str,
         email_body_template_ref: TemplateRef,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Construct with ports and config values threaded through.
 
@@ -251,6 +256,9 @@ class AssembleAndDeliverUseCase:
             mailer: Mailer port.
             from_address: Configured sender address.
             email_body_template_ref: Configured email body template.
+            metrics_recorder: L1-OBS-002 metrics port (run state
+                transitions, email delivery outcome, email size,
+                run duration). Defaults to a NoOp instance for tests.
         """
         self._uow_factory = uow_factory
         self._clock = clock
@@ -258,6 +266,7 @@ class AssembleAndDeliverUseCase:
         self._mailer = mailer
         self._from_address = from_address
         self._email_body_template_ref = email_body_template_ref
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
 
     async def execute(self, run_id: RunId) -> None:
         """Drive the assembly-and-delivery workflow for ``run_id``.
@@ -332,6 +341,15 @@ class AssembleAndDeliverUseCase:
                 pipeline_type=run.pipeline_type, tags=run.tags
             )
 
+        # L1-OBS-002 / L3-OBS-009: email size observation.
+        # Approximate the wire size as body + attachment content bytes
+        # (per-attachment base64 overhead is constant ~1.37x; the
+        # mailer's exact MIME size isn't needed for histogram bucketing).
+        email_size_bytes = len(email_body_html.encode("utf-8")) + sum(
+            len(a.content) for a in attachments
+        )
+        self._metrics.observe_email_size_bytes(email_size_bytes)
+
         # Zero-recipient short-circuit per design decision: finalize
         # as SENT with recipient_count=0; do not invoke Mailer.
         if not recipients:
@@ -340,6 +358,9 @@ class AssembleAndDeliverUseCase:
                 recipients=frozenset(),
                 attachment_count=len(attachments),
             )
+            # Treat zero-recipient SENT as a successful delivery for
+            # outcome counting purposes — the run reached terminal SENT.
+            self._metrics.record_email_delivery_outcome("success")
             return
 
         # Non-empty recipients: deliver or fail.
@@ -365,6 +386,14 @@ class AssembleAndDeliverUseCase:
                     },
                 ),
             )
+            # L1-OBS-002 / L3-OBS-009: outcome label distinguishes
+            # transient (retried) vs permanent (no retry) per L1-MAIL-002.
+            outcome = (
+                "transient_failure"
+                if exc.details and exc.details.get("retriable")
+                else "permanent_failure"
+            )
+            self._metrics.record_email_delivery_outcome(outcome)
             return
 
         await self._finalize_sent(
@@ -372,6 +401,7 @@ class AssembleAndDeliverUseCase:
             recipients=recipients,
             attachment_count=len(attachments),
         )
+        self._metrics.record_email_delivery_outcome("success")
 
     # ------------------------------------------------------------------
     # Workflow steps (extracted for readability + testability)
@@ -582,6 +612,15 @@ class AssembleAndDeliverUseCase:
             await uow.audit_log.record(audit_event)
             await uow.run_repo.update_state(run_id, RunState.SENT, now)
 
+            # Capture run.created_at + now for the duration histogram
+            # (L1-OBS-002 / L3-OBS-009 / L3-OBS-011) — emit after
+            # commit just below.
+            duration_seconds = (now - run.created_at).total_seconds()
+
+        # L1-OBS-002 metrics, post-commit.
+        self._metrics.record_run_state_transition(RunState.SENT)
+        self._metrics.observe_run_duration_seconds(duration_seconds)
+
     async def _finalize_failed(self, run_id: RunId, reason: _FailureReason) -> None:
         """Transition current state -> FAILED with SEND_REPORT audit.
 
@@ -617,6 +656,12 @@ class AssembleAndDeliverUseCase:
 
             await uow.audit_log.record(audit_event)
             await uow.run_repo.update_state(run_id, RunState.FAILED, now)
+
+            duration_seconds = (now - run.created_at).total_seconds()
+
+        # L1-OBS-002 metrics, post-commit.
+        self._metrics.record_run_state_transition(RunState.FAILED)
+        self._metrics.observe_run_duration_seconds(duration_seconds)
 
     async def _transition(
         self,
@@ -654,6 +699,13 @@ class AssembleAndDeliverUseCase:
         )
         await uow.audit_log.record(audit_event)
         await uow.run_repo.update_state(run.run_id, to_state, now)
+        # Note: this helper runs INSIDE an outer UoW, so the metric
+        # record happens before the outer commit. If the outer UoW
+        # rolls back the run state stays unchanged but the metric
+        # increment is best-effort visible (Prometheus counters are
+        # in-process, not transactional). v1 accepts this small
+        # divergence — the audit log remains the truth.
+        self._metrics.record_run_state_transition(to_state)
 
 
 __all__ = ["AssembleAndDeliverUseCase"]

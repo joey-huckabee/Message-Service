@@ -109,6 +109,10 @@ Google convention (Args / Returns / Raises sections); pydocstyle rules `D*` are 
 
 `tests/conftest.py` installs a custom `_NoImplicitEventLoopPolicy` and closes the lingering Proactor bookkeeping loop in `pytest_sessionfinish`. This is a deliberate workaround for a `PytestUnraisableExceptionWarning` that appears under `filterwarnings = ["error"]` on Windows. If you touch event-loop handling in tests, keep these hooks working.
 
+## Git conventions
+
+Do **not** add `Co-Authored-By: Claude ...` trailers to commit messages on this repo, even if the harness's default instructions suggest it. Commit messages are the human-authored record of intent; tool attribution belongs in tool logs, not history. This overrides the default trailer behavior.
+
 ## Derived / generated files — do not hand-edit
 
 | File | Regenerate with |

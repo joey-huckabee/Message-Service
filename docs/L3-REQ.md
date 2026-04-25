@@ -23,25 +23,27 @@ of truth for live status; this file holds only the spec content above.
 
 ## Table of categories
 
-| Code      | L2 Parent Count | L3 Count |
-|-----------|-----------------|----------|
-| `API`     | 11              | 18       |
-| `RUN`     | 15              | 30       |
-| `STAGE`   | 9               | 18       |
-| `TMPL`    | 14              | 28       |
-| `AGGR`    | 10              | 20       |
-| `SWEEP`   | 10              | 21       |
-| `SUB`     | 10              | 20       |
-| `AUTH`    | 6               | 13       |
-| `MAIL`    | 13              | 26       |
-| `DASH`    | 11              | 21       |
-| `PERS`    | 10              | 23       |
-| `OBS`     | 17              | 24       |
-| `ERR`     | 10              | 22       |
-| `CFG`     | 8               | 16       |
-| `DEP`     | 9               | 18       |
-| `CICD`    | 15              | 17       |
-| **Total** | **182**         | **335**  |
+| Code      | L2 Count | L3 Count |
+|-----------|----------|----------|
+| `API`     | 11       | 18       |
+| `RUN`     | 16       | 30       |
+| `STAGE`   | 9        | 18       |
+| `TMPL`    | 14       | 28       |
+| `AGGR`    | 10       | 20       |
+| `SWEEP`   | 10       | 21       |
+| `SUB`     | 10       | 20       |
+| `AUTH`    | 6        | 13       |
+| `MAIL`    | 13       | 26       |
+| `DASH`    | 11       | 21       |
+| `PERS`    | 13       | 23       |
+| `OBS`     | 17       | 24       |
+| `ERR`     | 10       | 22       |
+| `CFG`     | 8        | 16       |
+| `DEP`     | 9        | 18       |
+| `CICD`    | 15       | 17       |
+| **Total** | **182**  | **335**  |
+
+The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
 ---
 
@@ -430,7 +432,7 @@ Elapsed time SHALL be `clock.now() - run.last_transition_at`, compared against `
 **L3-SWEEP-007** · Parent: L2-SWEEP-005 · Verification: T
 The repository query SHALL be `SELECT run_id, last_transition_at FROM runs WHERE state IN ('INITIATED', 'AGGREGATING', 'READY', 'SENDING')` with an index on `state`.
 
-**L3-SWEEP-008** · Parent: L2-SWEEP-005 · Verification: T
+**L3-SWEEP-008** · Parent: L2-SWEEP-010 · Verification: T
 The query SHALL fetch at most `sweeper.max_candidates_per_iteration` rows per tick (default 1000) to bound runtime; larger backlogs drain over multiple ticks.
 
 **L3-SWEEP-009** · Parent: L2-SWEEP-006 · Verification: T

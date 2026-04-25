@@ -182,5 +182,116 @@ class SweeperActionRepository(ABC):
             PersistenceError: Infrastructure failure.
         """
 
+    @abstractmethod
+    async def reclaim_stuck(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        stale_threshold_seconds: int,
+        max_attempts: int,
+    ) -> Sequence[ClaimedAction]:
+        """Atomically re-claim stuck rows for retry (L3-SWEEP-020).
+
+        A row is "stuck" when its claim has aged past
+        ``stale_threshold_seconds`` without ``completed_at`` being
+        stamped — typically because the dispatcher process that
+        claimed it crashed. Reclaiming bumps ``attempts`` by 1 and
+        sets ``claimed_at`` to ``now``, then returns the row so the
+        dispatcher can re-invoke the handler.
+
+        Rows whose ``attempts`` already equals ``max_attempts`` SHALL
+        NOT be reclaimed (they need abandonment, not another retry —
+        see :meth:`find_abandoned`).
+
+        Args:
+            now: Timestamp to stamp on the new claim. Sourced from the
+                dispatcher's :class:`Clock`.
+            limit: Maximum rows to reclaim per call.
+            stale_threshold_seconds: A row qualifies if its
+                ``claimed_at`` is at least this many seconds before
+                ``now``. Default operator value is 300; longer if
+                handlers can take >5 min.
+            max_attempts: Reclaim cap — rows already at this attempts
+                count are not reclaimed.
+
+        Returns:
+            Reclaimed rows in claim order. Empty if nothing was stuck.
+            ``ClaimedAction.attempts`` reflects the post-bump value.
+
+        Raises:
+            ValueError: ``limit`` not positive, ``stale_threshold_seconds``
+                or ``max_attempts`` not positive.
+            PersistenceError: Infrastructure failure.
+        """
+
+    @abstractmethod
+    async def find_abandoned(
+        self,
+        *,
+        now: datetime,
+        stale_threshold_seconds: int,
+        max_attempts: int,
+        limit: int,
+    ) -> Sequence[ClaimedAction]:
+        """Return stuck rows whose retries are exhausted (L3-SWEEP-021).
+
+        A row qualifies when ``attempts >= max_attempts`` AND it's
+        stuck (``completed_at IS NULL`` AND ``claimed_at`` older than
+        ``stale_threshold_seconds``).
+
+        Pure-read (does not mutate). The dispatcher follows up with one
+        :meth:`mark_abandoned` call per returned row, plus an audit
+        ``DISPATCHER_ACTION_ABANDONED`` event so operators can see what
+        was given up on.
+
+        Args:
+            now: For computing the stale cutoff.
+            stale_threshold_seconds: Same threshold as
+                :meth:`reclaim_stuck`.
+            max_attempts: Same cap as :meth:`reclaim_stuck`. A row
+                qualifies as abandoned when its ``attempts >= max_attempts``
+                AND it's stuck.
+            limit: Maximum rows to return per call. Bounds per-tick
+                abandonment audit volume.
+
+        Returns:
+            Stuck-and-exhausted rows. Empty if nothing matches.
+
+        Raises:
+            ValueError: any param not positive.
+            PersistenceError: Infrastructure failure.
+        """
+
+    @abstractmethod
+    async def mark_abandoned(
+        self,
+        *,
+        action_id: int,
+        completed_at: datetime,
+        error_message: str,
+    ) -> None:
+        """Mark a row as abandoned: terminal failure after retry exhaustion.
+
+        Sets ``completed_at`` and ``last_error``. Distinct from
+        :meth:`mark_failed` because:
+
+        * Does NOT bump ``attempts`` (the count already reflects the
+          full retry history).
+        * Pairs with a ``DISPATCHER_ACTION_ABANDONED`` audit event
+          emitted by the dispatcher in the same UoW (L3-SWEEP-021).
+
+        Args:
+            action_id: Primary key of the row to abandon.
+            completed_at: When the dispatcher gave up. Same CHECK
+                constraint as :meth:`mark_completed`.
+            error_message: Final failure reason — typically the
+                ``last_error`` already in the row, repeated here so
+                this UPDATE is self-contained.
+
+        Raises:
+            PersistenceError: Infrastructure failure.
+        """
+
 
 __all__ = ["ClaimedAction", "SweeperActionRepository"]

@@ -51,12 +51,17 @@ the claim query's ``enqueued_at, action_id`` ordering)
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import structlog
 
+from message_service.domain.aggregates.audit_event import (
+    AuditAction,
+    AuditEvent,
+    AuditOutcome,
+)
 from message_service.domain.errors import RunNotFoundError
 
 if TYPE_CHECKING:
@@ -82,16 +87,24 @@ class DispatchResult:
 
     Attributes:
         claimed: Rows the dispatcher successfully claimed this tick.
+            Includes both fresh-pending and reclaimed-stuck rows
+            (L3-SWEEP-020).
         succeeded: Rows whose handler ran cleanly and were stamped
             ``completed_at``.
         failed: Rows whose handler raised, were caught, and were
             stamped failed (``attempts++``, ``last_error``).
             ``claimed == succeeded + failed`` always.
+        abandoned: Rows that exhausted retries (``attempts >=
+            max_dispatch_attempts``) and were marked terminal
+            without another handler invocation (L3-SWEEP-021). The
+            dispatcher emits one ``DISPATCHER_ACTION_ABANDONED`` audit
+            event per row so operators can trace giveup decisions.
     """
 
     claimed: int
     succeeded: int
     failed: int
+    abandoned: int = 0
 
 
 class SweeperActionDispatcherUseCase:
@@ -104,6 +117,8 @@ class SweeperActionDispatcherUseCase:
         clock: Clock,
         handlers_by_id: Mapping[DispositionAction, DispositionHandler],
         batch_limit: int = 100,
+        stale_claim_threshold_seconds: int = 300,
+        max_dispatch_attempts: int = 3,
     ) -> None:
         """Bind the dispatcher to its collaborators.
 
@@ -121,34 +136,73 @@ class SweeperActionDispatcherUseCase:
             batch_limit: Maximum rows claimed per tick. Bounds work
                 under heavy backlogs so other adapters (loop heartbeat,
                 etc.) get airtime.
+            stale_claim_threshold_seconds: Stuck-claim recovery
+                threshold (L3-SWEEP-020). A row claimed-but-not-
+                completed for at least this long is reclaimable.
+            max_dispatch_attempts: Cap on stuck-claim retries
+                (L3-SWEEP-021). After this many attempts a row is
+                abandoned with an audit event.
         """
         if batch_limit < 1:
             raise ValueError(f"batch_limit must be positive; got {batch_limit}")
+        if stale_claim_threshold_seconds < 1:
+            raise ValueError(
+                f"stale_claim_threshold_seconds must be positive; "
+                f"got {stale_claim_threshold_seconds}"
+            )
+        if max_dispatch_attempts < 1:
+            raise ValueError(f"max_dispatch_attempts must be positive; got {max_dispatch_attempts}")
         self._uow_factory = uow_factory
         self._clock = clock
         self._handlers = dict(handlers_by_id)
         self._batch_limit = batch_limit
+        self._stale_threshold_seconds = stale_claim_threshold_seconds
+        self._max_attempts = max_dispatch_attempts
 
     async def dispatch_pending(self) -> DispatchResult:
         """Run one drain pass.
+
+        Three phases per tick:
+
+        1. **Abandon** stuck rows whose retries are exhausted (one
+           UoW; one audit event per row).
+        2. **Claim** fresh-pending + reclaim-stuck rows (one UoW
+           combined; reclaim bumps ``attempts``).
+        3. **Settle** each claimed row in its own UoW
+           (mark_completed / mark_failed).
 
         Returns:
             :class:`DispatchResult` summarizing the work done. The
             sweeper loop logs counts at INFO when ``claimed > 0``.
 
         Raises:
-            PersistenceError: A DB-level failure during claim or
-                settle. The caller (sweeper loop) should log and
-                continue to the next tick — claimed-but-unsettled
-                rows persist and will surface in stuck-claim recovery
-                once that lands.
+            PersistenceError: A DB-level failure during any phase.
+                The caller (sweeper loop) should log and continue to
+                the next tick.
         """
-        # Phase 1: claim a batch + load each row's run aggregate.
+        # Phase 0: abandonment. Detect+settle rows whose stuck retries
+        # exhausted before claiming new work, so the abandoned rows
+        # don't hold up the per-tick batch budget.
+        abandoned_count = await self._abandon_exhausted_rows()
+
+        # Phase 1: claim a batch (fresh + stuck-recovery) + load runs.
         async with self._uow_factory() as uow:
-            claimed = await uow.sweeper_action_repo.claim_pending(
-                now=self._clock.now(),
+            now = self._clock.now()
+            claimed_fresh = await uow.sweeper_action_repo.claim_pending(
+                now=now,
                 limit=self._batch_limit,
             )
+            remaining = self._batch_limit - len(claimed_fresh)
+            claimed_stuck: Sequence[ClaimedAction] = []
+            if remaining > 0:
+                claimed_stuck = await uow.sweeper_action_repo.reclaim_stuck(
+                    now=now,
+                    limit=remaining,
+                    stale_threshold_seconds=self._stale_threshold_seconds,
+                    max_attempts=self._max_attempts,
+                )
+            claimed: list[ClaimedAction] = [*claimed_fresh, *claimed_stuck]
+
             runs_by_action_id: dict[int, Run | None] = {}
             for c in claimed:
                 try:
@@ -157,9 +211,14 @@ class SweeperActionDispatcherUseCase:
                     runs_by_action_id[c.action_id] = None
 
         if not claimed:
-            return DispatchResult(claimed=0, succeeded=0, failed=0)
+            return DispatchResult(claimed=0, succeeded=0, failed=0, abandoned=abandoned_count)
 
-        _log.info("dispatcher_claimed_batch", count=len(claimed))
+        _log.info(
+            "dispatcher_claimed_batch",
+            count=len(claimed),
+            fresh=len(claimed_fresh),
+            reclaimed=len(claimed_stuck),
+        )
 
         # Phase 2: invoke handlers outside any UoW (handlers may issue
         # network calls; we MUST NOT hold a DB transaction across them).
@@ -223,7 +282,63 @@ class SweeperActionDispatcherUseCase:
                     )
                     failed += 1
 
-        return DispatchResult(claimed=len(claimed), succeeded=succeeded, failed=failed)
+        return DispatchResult(
+            claimed=len(claimed),
+            succeeded=succeeded,
+            failed=failed,
+            abandoned=abandoned_count,
+        )
+
+    async def _abandon_exhausted_rows(self) -> int:
+        """Find stuck rows whose retries exhausted, audit them, mark them terminal.
+
+        Implements L3-SWEEP-021. Returns the count of abandoned rows.
+        Bounded by ``batch_limit`` per tick so a sudden mass
+        abandonment doesn't dominate one dispatcher iteration.
+        """
+        async with self._uow_factory() as uow:
+            now = self._clock.now()
+            exhausted = await uow.sweeper_action_repo.find_abandoned(
+                now=now,
+                stale_threshold_seconds=self._stale_threshold_seconds,
+                max_attempts=self._max_attempts,
+                limit=self._batch_limit,
+            )
+            for row in exhausted:
+                # Audit first per L3-RUN-026's audit-before-state-update
+                # convention; the audit + mark_abandoned share this UoW
+                # so they commit together.
+                audit_event = AuditEvent(
+                    timestamp=now,
+                    action=AuditAction.DISPATCHER_ACTION_ABANDONED,
+                    actor="system:sweeper_action_dispatcher",
+                    resource=f"sweeper_action:{row.action_id}",
+                    outcome=AuditOutcome.FAILURE,
+                    details={
+                        "action_id": row.action_id,
+                        "run_id": str(row.run_id),
+                        "action_name": row.action_name,
+                        "attempts": row.attempts,
+                        "max_attempts": self._max_attempts,
+                    },
+                )
+                await uow.audit_log.record(audit_event)
+                await uow.sweeper_action_repo.mark_abandoned(
+                    action_id=row.action_id,
+                    completed_at=now,
+                    error_message=(
+                        f"abandoned after {row.attempts} attempts "
+                        f"(max_dispatch_attempts={self._max_attempts})"
+                    ),
+                )
+                _log.warning(
+                    "dispatcher_action_abandoned",
+                    action_id=row.action_id,
+                    run_id=str(row.run_id),
+                    action_name=row.action_name,
+                    attempts=row.attempts,
+                )
+        return len(exhausted)
 
 
 __all__ = ["DispatchResult", "SweeperActionDispatcherUseCase"]

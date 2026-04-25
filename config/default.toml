@@ -46,6 +46,11 @@ poll_interval_seconds = 60
 # L2-SWEEP-010 / L3-SWEEP-008: cap per-tick scan so a backlog
 # can't monopolize the shared SQLite connection.
 max_candidates_per_iteration = 1000
+# L3-SWEEP-020: stuck claims older than this get re-claimed
+# (handles dispatcher crash mid-handler).
+stale_claim_threshold_seconds = 300
+# L3-SWEEP-021: max retries before a stuck row is abandoned.
+max_dispatch_attempts = 3
 # L2-SWEEP-007: disposition policy (any combination)
 disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
 

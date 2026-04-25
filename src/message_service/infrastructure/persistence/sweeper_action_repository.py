@@ -73,6 +73,41 @@ SET completed_at = ?,
 WHERE action_id = ?
 """
 
+# Stuck-claim recovery (L3-SWEEP-020). Two-step like claim_pending:
+# SELECT the candidate ids first (so we know exactly what we own),
+# then UPDATE-with-bumped-attempts on those specific ids.
+_SQL_SELECT_STUCK = """
+SELECT action_id, run_id, action_name, attempts
+FROM sweeper_actions
+WHERE completed_at IS NULL
+  AND claimed_at IS NOT NULL
+  AND claimed_at <= ?
+  AND attempts < ?
+ORDER BY claimed_at, action_id
+LIMIT ?
+"""
+
+# Abandonment detection (L3-SWEEP-021). Same shape as the stuck
+# select but flipped on the attempts cap. Pure read — caller settles
+# via mark_abandoned + audit.
+_SQL_SELECT_ABANDONED = """
+SELECT action_id, run_id, action_name, attempts
+FROM sweeper_actions
+WHERE completed_at IS NULL
+  AND claimed_at IS NOT NULL
+  AND claimed_at <= ?
+  AND attempts >= ?
+ORDER BY claimed_at, action_id
+LIMIT ?
+"""
+
+_SQL_MARK_ABANDONED = """
+UPDATE sweeper_actions
+SET completed_at = ?,
+    last_error = ?
+WHERE action_id = ?
+"""
+
 
 class SqliteSweeperActionRepository(SweeperActionRepository):
     """SQLite-backed outbox for sweeper actions."""
@@ -153,6 +188,107 @@ class SqliteSweeperActionRepository(SweeperActionRepository):
         """Stamp completed_at + attempts + last_error on a failed row."""
         await self._conn.execute(
             _SQL_MARK_FAILED,
+            (iso_z(completed_at), error_message, action_id),
+        )
+
+    async def reclaim_stuck(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+        stale_threshold_seconds: int,
+        max_attempts: int,
+    ) -> Sequence[ClaimedAction]:
+        """SELECT-then-UPDATE on stuck rows; bumps attempts."""
+        if limit < 1:
+            raise ValueError(f"limit must be positive; got {limit}")
+        if stale_threshold_seconds < 1:
+            raise ValueError(
+                f"stale_threshold_seconds must be positive; got {stale_threshold_seconds}"
+            )
+        if max_attempts < 1:
+            raise ValueError(f"max_attempts must be positive; got {max_attempts}")
+
+        from datetime import timedelta
+
+        cutoff = now - timedelta(seconds=stale_threshold_seconds)
+        async with self._conn.execute(
+            _SQL_SELECT_STUCK, (iso_z(cutoff), max_attempts, limit)
+        ) as cur:
+            rows = await cur.fetchall()
+        if not rows:
+            return []
+
+        action_ids = [int(r[0]) for r in rows]
+        placeholders = ",".join("?" * len(action_ids))
+        # Bump attempts AND set claimed_at in one UPDATE.
+        await self._conn.execute(
+            f"UPDATE sweeper_actions "
+            f"SET claimed_at = ?, attempts = attempts + 1 "
+            f"WHERE action_id IN ({placeholders})",
+            (iso_z(now), *action_ids),
+        )
+        # Return the post-bump attempts (selected_attempts + 1).
+        return [
+            ClaimedAction(
+                action_id=int(r[0]),
+                run_id=RunId(str(r[1])),
+                action_name=cast("DispositionAction", str(r[2])),
+                attempts=int(r[3]) + 1,
+            )
+            for r in rows
+        ]
+
+    async def find_abandoned(
+        self,
+        *,
+        now: datetime,
+        stale_threshold_seconds: int,
+        max_attempts: int,
+        limit: int,
+    ) -> Sequence[ClaimedAction]:
+        """Pure-read scan for stuck rows that have exhausted retries."""
+        if limit < 1:
+            raise ValueError(f"limit must be positive; got {limit}")
+        if stale_threshold_seconds < 1:
+            raise ValueError(
+                f"stale_threshold_seconds must be positive; got {stale_threshold_seconds}"
+            )
+        if max_attempts < 1:
+            raise ValueError(f"max_attempts must be positive; got {max_attempts}")
+
+        from datetime import timedelta
+
+        cutoff = now - timedelta(seconds=stale_threshold_seconds)
+        async with self._conn.execute(
+            _SQL_SELECT_ABANDONED, (iso_z(cutoff), max_attempts, limit)
+        ) as cur:
+            rows = await cur.fetchall()
+        return [
+            ClaimedAction(
+                action_id=int(r[0]),
+                run_id=RunId(str(r[1])),
+                action_name=cast("DispositionAction", str(r[2])),
+                attempts=int(r[3]),
+            )
+            for r in rows
+        ]
+
+    async def mark_abandoned(
+        self,
+        *,
+        action_id: int,
+        completed_at: datetime,
+        error_message: str,
+    ) -> None:
+        """Stamp completed_at + last_error WITHOUT bumping attempts.
+
+        Distinct from :meth:`mark_failed` because the abandonment
+        decision is the dispatcher's, not a fresh handler attempt —
+        attempts already reflects the full retry history.
+        """
+        await self._conn.execute(
+            _SQL_MARK_ABANDONED,
             (iso_z(completed_at), error_message, action_id),
         )
 

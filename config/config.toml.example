@@ -104,6 +104,21 @@ poll_interval_seconds = 60
 # matches L3-SWEEP-008's spec.
 max_candidates_per_iteration = 1000
 
+# How long a sweeper_actions row may sit claimed-but-not-completed
+# before the dispatcher will re-claim it. This recovers rows that
+# were claimed by a dispatcher process that crashed mid-handler.
+# Default 300s mirrors L3-SWEEP-020's spec; tune higher if your
+# typical handler can run longer than this.
+stale_claim_threshold_seconds = 300
+
+# Maximum dispatch attempts before a stuck row is abandoned.
+# When a row's attempts reaches this cap and it's still stuck,
+# the dispatcher emits a DISPATCHER_ACTION_ABANDONED audit event
+# and marks the row terminal so it stops being scanned (per
+# L3-SWEEP-021). Operators should query the audit log for the
+# abandoned action_id to investigate what's persistently failing.
+max_dispatch_attempts = 3
+
 # Actions taken per orphaned run, in this order. Currently-supported:
 #   "NOTIFY_ADMINS"        -- logs at WARNING level (hooks to your log pipeline)
 #   "DISCARD_SILENTLY"     -- no further action; audit event is the record

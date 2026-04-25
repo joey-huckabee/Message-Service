@@ -185,6 +185,13 @@ class SweeperConfig(_FrozenForbid):
     # monopolize the shared SQLite connection. Default 1000 mirrors
     # the L3-SWEEP-008 spec.
     max_candidates_per_iteration: int = Field(default=1_000, ge=1)
+    # L3-SWEEP-020: stuck-claim recovery threshold. Rows whose
+    # claim is older than this AND completed_at is NULL get
+    # re-claimed, bumping attempts.
+    stale_claim_threshold_seconds: int = Field(default=300, ge=1)
+    # L3-SWEEP-021: cap on stuck-claim retries. After this many
+    # attempts a row is abandoned (audited + completed_at set).
+    max_dispatch_attempts: int = Field(default=3, ge=1)
     disposition_actions: list[DispositionAction] = Field(
         # The default SHALL only reference action ids that bootstrap actually
         # registers a handler for; otherwise a service started with the

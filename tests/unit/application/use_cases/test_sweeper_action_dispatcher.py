@@ -435,3 +435,242 @@ def test_constructor_rejects_zero_batch_limit(
             handlers_by_id={},
             batch_limit=0,
         )
+
+
+def test_constructor_rejects_zero_stale_threshold(
+    uow_factory: SqliteUnitOfWorkFactory, clock: _FixedClock
+) -> None:
+    with pytest.raises(ValueError, match="stale_claim_threshold_seconds"):
+        SweeperActionDispatcherUseCase(
+            uow_factory=uow_factory,
+            clock=clock,
+            handlers_by_id={},
+            stale_claim_threshold_seconds=0,
+        )
+
+
+def test_constructor_rejects_zero_max_dispatch_attempts(
+    uow_factory: SqliteUnitOfWorkFactory, clock: _FixedClock
+) -> None:
+    with pytest.raises(ValueError, match="max_dispatch_attempts"):
+        SweeperActionDispatcherUseCase(
+            uow_factory=uow_factory,
+            clock=clock,
+            handlers_by_id={},
+            max_dispatch_attempts=0,
+        )
+
+
+# -----------------------------------------------------------------------------
+# Stuck-claim recovery (L3-SWEEP-020)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-020")
+async def test_dispatcher_reclaims_stuck_rows_on_next_tick(
+    uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
+    clock: _FixedClock,
+) -> None:
+    """L3-SWEEP-020: a row whose claim ages past stale_threshold gets
+    reclaimed and the handler runs again. Simulates the
+    crash-mid-handler scenario by manually claiming a row and then
+    advancing the clock past the threshold."""
+    call_log: list[tuple[str, RunState]] = []
+    handlers: dict[DispositionAction, DispositionHandler] = {
+        "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", call_log),
+    }
+    await _seed_orphan_with_actions(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_id="00000000-0000-4000-8000-000000000020",
+        actions=["NOTIFY_ADMINS"],
+        handlers_by_id=handlers,
+    )
+
+    # Simulate a crashed dispatcher: claim the row but DON'T settle.
+    async with uow_factory() as uow:
+        claimed = await uow.sweeper_action_repo.claim_pending(now=clock.now(), limit=10)
+    assert len(claimed) == 1
+
+    # Time passes. Clock advances 10 minutes — past 300s threshold.
+    clock.advance(600)
+
+    dispatcher = SweeperActionDispatcherUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        handlers_by_id=handlers,
+        stale_claim_threshold_seconds=300,
+        max_dispatch_attempts=3,
+    )
+    result = await dispatcher.dispatch_pending()
+
+    # Reclaimed and dispatched cleanly.
+    assert result.claimed == 1
+    assert result.succeeded == 1
+    assert result.failed == 0
+    assert result.abandoned == 0
+    # Handler did run on the reclaim attempt.
+    assert call_log == [("NOTIFY_ADMINS", RunState.ORPHANED)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-020")
+async def test_dispatcher_does_not_reclaim_recently_claimed_rows(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """A row claimed under the stale threshold SHALL stay claimed —
+    the dispatcher might still be processing it."""
+    handlers: dict[DispositionAction, DispositionHandler] = {
+        "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", []),
+    }
+    await _seed_orphan_with_actions(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_id="00000000-0000-4000-8000-000000000021",
+        actions=["NOTIFY_ADMINS"],
+        handlers_by_id=handlers,
+    )
+
+    # Claim the row.
+    async with uow_factory() as uow:
+        await uow.sweeper_action_repo.claim_pending(now=clock.now(), limit=10)
+
+    # Only 60 seconds advance (under the 300s threshold).
+    clock.advance(60)
+
+    dispatcher = SweeperActionDispatcherUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        handlers_by_id=handlers,
+        stale_claim_threshold_seconds=300,
+        max_dispatch_attempts=3,
+    )
+    result = await dispatcher.dispatch_pending()
+    assert result.claimed == 0  # nothing reclaimed
+    assert result.abandoned == 0
+
+
+# -----------------------------------------------------------------------------
+# Abandonment after retry exhaustion (L3-SWEEP-021)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-021")
+async def test_dispatcher_abandons_rows_past_max_attempts(
+    uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
+    clock: _FixedClock,
+) -> None:
+    """L3-SWEEP-021: a stuck row whose attempts has reached the cap
+    SHALL be marked terminal and audited as abandoned, NOT retried
+    again. Operators can find it via SWEEP_ORPHAN's sibling event."""
+    from message_service.domain.aggregates.audit_event import AuditAction
+
+    handlers: dict[DispositionAction, DispositionHandler] = {
+        "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", []),
+    }
+    await _seed_orphan_with_actions(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_id="00000000-0000-4000-8000-000000000022",
+        actions=["NOTIFY_ADMINS"],
+        handlers_by_id=handlers,
+    )
+
+    # Simulate a row that's already been retried 3 times: claim it,
+    # then bump attempts to 3 manually.
+    async with uow_factory() as uow:
+        claimed = await uow.sweeper_action_repo.claim_pending(now=clock.now(), limit=10)
+    aid = claimed[0].action_id
+    await sqlite_conn.execute("UPDATE sweeper_actions SET attempts = 3 WHERE action_id = ?", (aid,))
+    await sqlite_conn.commit()
+
+    clock.advance(600)  # past stale threshold
+
+    dispatcher = SweeperActionDispatcherUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        handlers_by_id=handlers,
+        stale_claim_threshold_seconds=300,
+        max_dispatch_attempts=3,
+    )
+    result = await dispatcher.dispatch_pending()
+
+    assert result.abandoned == 1
+    assert result.claimed == 0  # not re-claimed; abandoned outright
+
+    # Audit event was emitted.
+    async with uow_factory() as uow:
+        events = await uow.audit_log.query(action=AuditAction.DISPATCHER_ACTION_ABANDONED)
+    assert len(events) == 1
+    evt = events[0]
+    assert evt.actor == "system:sweeper_action_dispatcher"
+    assert evt.resource == f"sweeper_action:{aid}"
+    assert evt.outcome.value == "FAILURE"
+    assert evt.details["attempts"] == 3
+    assert evt.details["max_attempts"] == 3
+
+    # Row marked terminal.
+    async with sqlite_conn.execute(
+        "SELECT completed_at, attempts, last_error FROM sweeper_actions WHERE action_id = ?",
+        (aid,),
+    ) as cur:
+        row = await cur.fetchone()
+    assert row is not None
+    assert row[0] is not None  # completed_at set
+    assert row[1] == 3  # attempts NOT bumped (mark_abandoned doesn't bump)
+    assert "abandoned after 3 attempts" in str(row[2])
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-021")
+async def test_abandoned_rows_are_not_re_abandoned(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """A row that's already abandoned (completed_at set) SHALL NOT
+    surface as a new abandonment on subsequent ticks — the
+    abandonment audit fires exactly once per action_id."""
+    from message_service.domain.aggregates.audit_event import AuditAction
+
+    handlers: dict[DispositionAction, DispositionHandler] = {
+        "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", []),
+    }
+    await _seed_orphan_with_actions(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_id="00000000-0000-4000-8000-000000000023",
+        actions=["NOTIFY_ADMINS"],
+        handlers_by_id=handlers,
+    )
+
+    # Push to abandoned state.
+    async with uow_factory() as uow:
+        claimed = await uow.sweeper_action_repo.claim_pending(now=clock.now(), limit=10)
+    aid = claimed[0].action_id
+    async with uow_factory() as uow:
+        await uow.sweeper_action_repo.mark_abandoned(
+            action_id=aid, completed_at=clock.now(), error_message="exhausted"
+        )
+
+    clock.advance(600)
+    dispatcher = SweeperActionDispatcherUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        handlers_by_id=handlers,
+        stale_claim_threshold_seconds=300,
+        max_dispatch_attempts=3,
+    )
+
+    # Two ticks back to back.
+    r1 = await dispatcher.dispatch_pending()
+    r2 = await dispatcher.dispatch_pending()
+    assert r1.abandoned == 0  # already abandoned; not re-abandoned
+    assert r2.abandoned == 0
+    async with uow_factory() as uow:
+        events = await uow.audit_log.query(action=AuditAction.DISPATCHER_ACTION_ABANDONED)
+    assert events == []  # no abandonment audit fired

@@ -30,7 +30,7 @@ of truth for live status; this file holds only the spec content above.
 | `STAGE`   | 9               | 18       |
 | `TMPL`    | 14              | 28       |
 | `AGGR`    | 10              | 20       |
-| `SWEEP`   | 10              | 19       |
+| `SWEEP`   | 10              | 21       |
 | `SUB`     | 10              | 20       |
 | `AUTH`    | 6               | 13       |
 | `MAIL`    | 13              | 26       |
@@ -41,7 +41,7 @@ of truth for live status; this file holds only the spec content above.
 | `CFG`     | 8               | 16       |
 | `DEP`     | 9               | 18       |
 | `CICD`    | 15              | 17       |
-| **Total** | **182**         | **333**  |
+| **Total** | **182**         | **335**  |
 
 ---
 
@@ -465,6 +465,12 @@ The sweeper task SHALL NOT start until after database migrations have completed 
 
 **L3-SWEEP-019** · Parent: L2-SWEEP-007 · Verification: T
 A *known* `DispositionAction` identifier whose handler is not registered in the bootstrap handler registry (e.g., `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS` in v1 — see L1-SWEEP-003's v1 implementation boundary) SHALL cause `SweeperUseCase.__init__` to raise `ConfigurationError`. The error's `details` SHALL include `missing_actions` (the offending ids) and `registered_actions` (the available alternatives), so operators can edit `sweeper.disposition_actions` before retry. Distinct from L3-SWEEP-012 (which covers ids unknown to the type system, caught at Pydantic-validation time).
+
+**L3-SWEEP-020** · Parent: L2-SWEEP-008 · Verification: T
+Stuck-claim recovery. The dispatcher SHALL re-claim `sweeper_actions` rows whose `claimed_at` is older than `sweeper.stale_claim_threshold_seconds` (default 300) AND `completed_at IS NULL` AND `attempts < sweeper.max_dispatch_attempts` (default 3). The reclaim SHALL atomically (a) bump `attempts` by 1 and (b) set `claimed_at` to the current time. This handles the crash-mid-dispatch case identified in 14b.3 — without recovery, a row claimed by a dispatcher process that died mid-handler would remain claimed forever and the disposition would silently never run.
+
+**L3-SWEEP-021** · Parent: L2-SWEEP-008 · Verification: T
+Abandonment after retry exhaustion. When a stuck row's `attempts` has reached `sweeper.max_dispatch_attempts`, the dispatcher SHALL NOT reclaim it. Instead it SHALL emit one `DISPATCHER_ACTION_ABANDONED` audit event per such row (resource = `sweeper_action:<action_id>`, details = `run_id`, `action_name`, `attempts`, `last_error`) and SHALL set `completed_at` so the row is terminal and excluded from future scans. Operators SHALL be able to identify abandoned actions by querying the audit log for this action type.
 
 ---
 

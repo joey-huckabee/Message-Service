@@ -301,6 +301,8 @@ async def build_service(config: Config) -> Service:
         uow_factory=uow_factory,
         clock=clock,
         handlers_by_id=handlers_by_id,
+        stale_claim_threshold_seconds=config.sweeper.stale_claim_threshold_seconds,
+        max_dispatch_attempts=config.sweeper.max_dispatch_attempts,
     )
     sweeper_loop = SweeperLoop(
         sweeper=sweeper,

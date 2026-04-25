@@ -20,8 +20,7 @@ relative to the manifest file's parent directory unless absolute.
 Duplicate ``(name, version)`` pairs raise :class:`ConfigurationError`.
 
 The manifest is loaded once at service start (L2-TMPL-001). No
-hot-reload — a restart is required to pick up changes. See
-docs/ROADMAP.md R-TMPL-002 for the hot-reload future option.
+hot-reload — a restart is required to pick up changes.
 
 Requirement references
 ----------------------

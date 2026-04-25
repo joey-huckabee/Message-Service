@@ -136,9 +136,7 @@ class TemplatesConfig(_FrozenForbid):
         max_rendered_bytes: Reject rendered output larger than this
             (L3-TMPL-028).
         email_body_template_ref: The template used to render the email
-            body for every finalized run. Fixed service-wide in v1
-            (ROADMAP: per-pipeline in a future increment; see
-            ``docs/ROADMAP.md``).
+            body for every finalized run. Fixed service-wide in v1.
     """
 
     manifest_path: Path

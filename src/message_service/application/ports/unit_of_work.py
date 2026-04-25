@@ -55,11 +55,13 @@ from typing import Self
 
 from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.run_repository import RunRepository
+from message_service.application.ports.session_repository import SessionRepository
 from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import SubscriptionRepository
 from message_service.application.ports.sweeper_action_repository import (
     SweeperActionRepository,
 )
+from message_service.application.ports.user_repository import UserRepository
 
 
 class UnitOfWork(ABC):
@@ -89,6 +91,10 @@ class UnitOfWork(ABC):
             this transaction. Used by :class:`SweeperUseCase` to enqueue
             disposition outbox rows in the same transaction as the
             ORPHANED transition (L2-SWEEP-006).
+        user_repo: :class:`UserRepository` scoped to this transaction
+            (Increment 16, L1-AUTH-001).
+        session_repo: :class:`SessionRepository` scoped to this
+            transaction (Increment 16, L1-AUTH-002).
     """
 
     run_repo: RunRepository
@@ -96,6 +102,8 @@ class UnitOfWork(ABC):
     subscription_repo: SubscriptionRepository
     audit_log: AuditLog
     sweeper_action_repo: SweeperActionRepository
+    user_repo: UserRepository
+    session_repo: SessionRepository
 
     @abstractmethod
     async def __aenter__(self) -> Self:

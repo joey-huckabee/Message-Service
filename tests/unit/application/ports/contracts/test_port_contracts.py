@@ -30,13 +30,16 @@ from tests.unit.application.ports.contracts.conftest import (
 from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.background_task_scheduler import BackgroundTaskScheduler
 from message_service.application.ports.mailer import Mailer
+from message_service.application.ports.password_hasher import PasswordHasher
 from message_service.application.ports.run_repository import RunRepository
+from message_service.application.ports.session_repository import SessionRepository
 from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import SubscriptionRepository
 from message_service.application.ports.tag_vocabulary import TagVocabulary
 from message_service.application.ports.template_renderer import TemplateRenderer
 from message_service.application.ports.template_repository import TemplateRepository
 from message_service.application.ports.unit_of_work import UnitOfWork
+from message_service.application.ports.user_repository import UserRepository
 
 ALL_PORTS = [
     RunRepository,
@@ -49,6 +52,9 @@ ALL_PORTS = [
     UnitOfWork,
     TemplateRenderer,
     BackgroundTaskScheduler,
+    PasswordHasher,
+    UserRepository,
+    SessionRepository,
 ]
 
 
@@ -136,6 +142,30 @@ def test_background_task_scheduler_exposes_expected_methods() -> None:
     assert expected == BackgroundTaskScheduler.__abstractmethods__
 
 
+@pytest.mark.requirement("L1-AUTH-001")
+def test_password_hasher_exposes_expected_methods() -> None:
+    expected = {"hash", "verify"}
+    assert expected == PasswordHasher.__abstractmethods__
+
+
+@pytest.mark.requirement("L1-AUTH-001")
+def test_user_repository_exposes_expected_methods() -> None:
+    expected = {"save", "get_by_email", "get_by_id"}
+    assert expected == UserRepository.__abstractmethods__
+
+
+@pytest.mark.requirement("L1-AUTH-002")
+def test_session_repository_exposes_expected_methods() -> None:
+    expected = {
+        "save",
+        "get_by_token_hash",
+        "touch",
+        "delete_by_token_hash",
+        "delete_expired",
+    }
+    assert expected == SessionRepository.__abstractmethods__
+
+
 # -----------------------------------------------------------------------------
 # Async-ness: IO-bound methods are declared async
 # -----------------------------------------------------------------------------
@@ -157,6 +187,17 @@ _ASYNC_METHODS: list[tuple[type, set[str]]] = [
     (Mailer, {"send"}),
     (AuditLog, {"record", "query"}),
     (UnitOfWork, {"__aenter__", "__aexit__", "commit", "rollback"}),
+    (UserRepository, {"save", "get_by_email", "get_by_id"}),
+    (
+        SessionRepository,
+        {
+            "save",
+            "get_by_token_hash",
+            "touch",
+            "delete_by_token_hash",
+            "delete_expired",
+        },
+    ),
 ]
 
 
@@ -213,6 +254,15 @@ def test_background_task_scheduler_is_sync() -> None:
         method = inspect.getattr_static(BackgroundTaskScheduler, method_name)
         assert not inspect.iscoroutinefunction(method), (
             f"BackgroundTaskScheduler.{method_name} should be sync (non-blocking)"
+        )
+
+
+def test_password_hasher_is_sync() -> None:
+    """PasswordHasher is CPU-bound (Argon2); both methods are sync."""
+    for method_name in PasswordHasher.__abstractmethods__:
+        method = inspect.getattr_static(PasswordHasher, method_name)
+        assert not inspect.iscoroutinefunction(method), (
+            f"PasswordHasher.{method_name} should be sync (CPU-bound)"
         )
 
 

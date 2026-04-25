@@ -331,14 +331,21 @@ Closes **L1-OBS-002, L1-OBS-003** (currently Draft).
 - Inject through a thin port so domain/application stay framework-free.
 - Lifts `error_mapping.py` and `logging_setup.py` out of the 0%-covered gap noted in this file's Part 2.
 
-### Increment 16 — Local-account auth adapter
+### Increment 16 — Local-account auth adapter ✅
 
 Closes **L1-AUTH-001, L1-AUTH-002** (Draft). `rest/auth/` is currently empty.
 
-- `argon2-cffi` password hasher (already a dependency).
-- `User` aggregate, `UserRepository` port, SQLite adapter + new migration.
-- Session-cookie + CSRF middleware.
-- Local accounts only — LDAP/OIDC stay in Part 2.
+- `argon2-cffi` `PasswordHasher` adapter (`infrastructure/auth/argon2_hasher.py`),
+  service-scoped singleton wired by `bootstrap.build_service`.
+- `Password`, `User`, `Session` aggregates; `UserRepository`, `SessionRepository`,
+  `PasswordHasher` ports.
+- SQLite adapters + migration `003_auth_schema.sql` (adds `users.password_hash` +
+  `users.is_admin`, creates `sessions`).
+- `LoginUseCase` (mints `secrets.token_urlsafe(32)`, persists SHA-256, audits
+  `LOGIN`/`LOGIN_FAILED` with operator-only `reason` per L3-AUTH-013) and
+  `LogoutUseCase` (idempotent delete by token-hash, audits `LOGOUT`).
+- Session-cookie + CSRF middleware deferred to Increment 17 with the FastAPI
+  chassis. Admin user creation deferred to Increment 19.
 
 ### Increment 17 — FastAPI app factory + bootstrap wiring
 

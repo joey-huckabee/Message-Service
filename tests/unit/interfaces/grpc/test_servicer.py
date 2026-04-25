@@ -49,6 +49,8 @@ from message_service.application.use_cases.assemble_and_deliver import (
 )
 from message_service.application.use_cases.begin_run import BeginRunUseCase
 from message_service.application.use_cases.finalize_run import FinalizeRunUseCase
+from message_service.application.use_cases.login import LoginUseCase
+from message_service.application.use_cases.logout import LogoutUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
@@ -72,11 +74,15 @@ from message_service.config.schema import (
     TemplatesConfig,
 )
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.run_repository import (
     SqliteRunRepository,
+)
+from message_service.infrastructure.persistence.session_repository import (
+    SqliteSessionRepository,
 )
 from message_service.infrastructure.persistence.stage_repository import (
     SqliteStageRepository,
@@ -89,6 +95,9 @@ from message_service.infrastructure.persistence.sweeper_action_repository import
 )
 from message_service.infrastructure.persistence.unit_of_work import (
     SqliteUnitOfWorkFactory,
+)
+from message_service.infrastructure.persistence.user_repository import (
+    SqliteUserRepository,
 )
 from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
@@ -219,6 +228,8 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         subscription_repo_factory=lambda c: SqliteSubscriptionRepository(c, clock=clock),
         audit_log_factory=lambda c: SqliteAuditLog(c),
         sweeper_action_repo_factory=lambda c: SqliteSweeperActionRepository(c),
+        user_repo_factory=lambda c: SqliteUserRepository(c),
+        session_repo_factory=lambda c: SqliteSessionRepository(c),
     )
 
     assemble = AssembleAndDeliverUseCase(
@@ -253,6 +264,24 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         poll_interval_seconds=3600,  # effectively never polls during a test
     )
 
+    # Auth use cases are required for the Service dataclass but are
+    # not exercised by the gRPC servicer tests; they sit on the FastAPI
+    # surface (Increment 17). Keep Argon2 cost low so test-suite
+    # construction stays cheap.
+    password_hasher = Argon2PasswordHasher(
+        memory_cost=8,
+        time_cost=1,
+        parallelism=1,
+        hash_len=16,
+        salt_len=8,
+    )
+    login_uc = LoginUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        password_hasher=password_hasher,
+    )
+    logout_uc = LogoutUseCase(uow_factory=uow_factory, clock=clock)
+
     svc = Service(
         config=service_config,
         clock=clock,
@@ -280,6 +309,9 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         sweeper=sweeper_uc,
         sweeper_action_dispatcher=sweeper_action_dispatcher_uc,
         sweeper_loop=sweeper_loop,
+        password_hasher=password_hasher,
+        login=login_uc,
+        logout=logout_uc,
     )
     try:
         yield svc

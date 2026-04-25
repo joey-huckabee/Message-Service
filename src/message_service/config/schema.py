@@ -252,11 +252,13 @@ class MailConfig(_FrozenForbid):
 
 
 class Argon2Config(_FrozenForbid):
-    """Argon2id KDF parameters (L2-AUTH-002)."""
+    """Argon2id KDF parameters (L2-AUTH-002 / L3-AUTH-002)."""
 
     memory_cost: int = Field(default=65_536, ge=8)
     time_cost: int = Field(default=3, ge=1)
     parallelism: int = Field(default=4, ge=1)
+    hash_len: int = Field(default=32, ge=16)
+    salt_len: int = Field(default=16, ge=8)
 
 
 class AuthConfig(_FrozenForbid):

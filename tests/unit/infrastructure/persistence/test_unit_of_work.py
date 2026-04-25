@@ -43,6 +43,8 @@ async def factory(
         subscription_repo_factory=lambda c: MagicMock(),
         audit_log_factory=lambda c: MagicMock(),
         sweeper_action_repo_factory=lambda c: MagicMock(),
+        user_repo_factory=lambda c: MagicMock(),
+        session_repo_factory=lambda c: MagicMock(),
     )
     try:
         yield uow_factory
@@ -202,6 +204,9 @@ async def test_repos_bound_inside_context_manager(
         assert uow.stage_repo is not None
         assert uow.subscription_repo is not None
         assert uow.audit_log is not None
+        assert uow.sweeper_action_repo is not None
+        assert uow.user_repo is not None
+        assert uow.session_repo is not None
     await factory.close()
 
 

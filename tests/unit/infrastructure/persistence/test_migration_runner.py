@@ -41,8 +41,8 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
     conn = await open_connection(db)
     try:
         applied = await apply_migrations(conn)
-        assert [m.version for m in applied] == [1, 2]
-        # Domain tables from 001 plus the sweeper outbox from 002.
+        assert [m.version for m in applied] == [1, 2, 3]
+        # Domain tables from 001, sweeper outbox from 002, sessions from 003.
         for table in (
             "users",
             "runs",
@@ -50,6 +50,7 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
             "subscriptions",
             "audit_log",
             "sweeper_actions",
+            "sessions",
         ):
             assert await _table_exists(conn, table)
         # Plus the bookkeeping table.
@@ -69,7 +70,53 @@ async def test_reapply_is_noop(tmp_path: Path) -> None:
         second = await apply_migrations(conn)
         assert second == []  # no-op
         # Bookkeeping table records each applied migration exactly once.
-        assert await _applied_versions(conn) == [1, 2]
+        assert await _applied_versions(conn) == [1, 2, 3]
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L1-AUTH-001")
+async def test_003_users_password_hash_and_is_admin_columns(tmp_path: Path) -> None:
+    """003 SHALL add ``password_hash`` and ``is_admin`` to ``users``."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute("PRAGMA table_info(users)") as cur:
+            rows = await cur.fetchall()
+        cols = {row[1]: {"type": row[2], "notnull": bool(row[3])} for row in rows}
+        assert "password_hash" in cols
+        assert cols["password_hash"]["notnull"] is True
+        assert "is_admin" in cols
+        assert cols["is_admin"]["notnull"] is True
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L1-AUTH-002")
+async def test_003_sessions_table_shape(tmp_path: Path) -> None:
+    """The sessions table SHALL have token-hash PK + user FK + timestamps."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute("PRAGMA table_info(sessions)") as cur:
+            rows = await cur.fetchall()
+        cols = {
+            row[1]: {"type": row[2], "notnull": bool(row[3]), "pk": bool(row[5])} for row in rows
+        }
+        assert set(cols.keys()) == {
+            "token_hash",
+            "user_id",
+            "created_at",
+            "last_activity_at",
+        }
+        assert cols["token_hash"]["pk"] is True
+        assert cols["user_id"]["notnull"] is True
+        assert cols["created_at"]["notnull"] is True
+        assert cols["last_activity_at"]["notnull"] is True
     finally:
         await conn.close()
 

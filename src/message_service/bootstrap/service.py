@@ -45,6 +45,8 @@ from message_service.application.use_cases.assemble_and_deliver import (
 )
 from message_service.application.use_cases.begin_run import BeginRunUseCase
 from message_service.application.use_cases.finalize_run import FinalizeRunUseCase
+from message_service.application.use_cases.login import LoginUseCase
+from message_service.application.use_cases.logout import LogoutUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
@@ -54,6 +56,7 @@ from message_service.application.use_cases.sweeper_action_dispatcher import (
 )
 from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
 from message_service.infrastructure.observability.metrics import (
     PrometheusMetricsRecorder,
@@ -62,6 +65,9 @@ from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.run_repository import SqliteRunRepository
+from message_service.infrastructure.persistence.session_repository import (
+    SqliteSessionRepository,
+)
 from message_service.infrastructure.persistence.stage_repository import (
     SqliteStageRepository,
 )
@@ -73,6 +79,9 @@ from message_service.infrastructure.persistence.sweeper_action_repository import
 )
 from message_service.infrastructure.persistence.unit_of_work import (
     SqliteUnitOfWorkFactory,
+)
+from message_service.infrastructure.persistence.user_repository import (
+    SqliteUserRepository,
 )
 from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
@@ -156,6 +165,9 @@ class Service:
     sweeper: SweeperUseCase
     sweeper_action_dispatcher: SweeperActionDispatcherUseCase
     sweeper_loop: SweeperLoop
+    password_hasher: Argon2PasswordHasher
+    login: LoginUseCase
+    logout: LogoutUseCase
 
 
 async def build_service(config: Config) -> Service:
@@ -242,6 +254,8 @@ async def build_service(config: Config) -> Service:
         subscription_repo_factory=lambda c: SqliteSubscriptionRepository(c, clock=clock),
         audit_log_factory=lambda c: SqliteAuditLog(c),
         sweeper_action_repo_factory=lambda c: SqliteSweeperActionRepository(c),
+        user_repo_factory=lambda c: SqliteUserRepository(c),
+        session_repo_factory=lambda c: SqliteSessionRepository(c),
     )
 
     # 8. Use cases. The order between them doesn't matter; each
@@ -330,6 +344,22 @@ async def build_service(config: Config) -> Service:
     # and the second UoW on the same connection hits
     # "cannot start a transaction within a transaction".
 
+    # 10. Auth (Increment 16). The Argon2 hasher is a service-scoped
+    # singleton (L3-AUTH-001) sourced from the auth.argon2.* config keys.
+    password_hasher = Argon2PasswordHasher(
+        memory_cost=config.auth.argon2.memory_cost,
+        time_cost=config.auth.argon2.time_cost,
+        parallelism=config.auth.argon2.parallelism,
+        hash_len=config.auth.argon2.hash_len,
+        salt_len=config.auth.argon2.salt_len,
+    )
+    login = LoginUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        password_hasher=password_hasher,
+    )
+    logout = LogoutUseCase(uow_factory=uow_factory, clock=clock)
+
     _log.info("bootstrap_complete")
 
     return Service(
@@ -348,6 +378,9 @@ async def build_service(config: Config) -> Service:
         sweeper=sweeper,
         sweeper_action_dispatcher=sweeper_action_dispatcher,
         sweeper_loop=sweeper_loop,
+        password_hasher=password_hasher,
+        login=login,
+        logout=logout,
     )
 
 

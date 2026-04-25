@@ -218,19 +218,19 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Draft |
-| L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Draft |
+| L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Partially Implemented |
+| L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | _(TBD)_ | Draft |
-| L2-AUTH-002 | L3-AUTH-002, L3-AUTH-003 | _(TBD)_ | Draft |
-| L2-AUTH-003 | L3-AUTH-004, L3-AUTH-005 | _(TBD)_ | Draft |
-| L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | _(TBD)_ | Draft |
+| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | `tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Partially Implemented |
+| L2-AUTH-002 | L3-AUTH-002, L3-AUTH-003 | `tests/unit/infrastructure/auth/test_argon2_hasher.py::test_cost_parameters_are_honoured` | Partially Implemented |
+| L2-AUTH-003 | L3-AUTH-004, L3-AUTH-005 | `tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_matches_for_same_value`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_rejects_different_values`<br>`tests/unit/domain/aggregates/test_password.py::test_repr_does_not_leak_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_reveal_returns_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_str_does_not_leak_plaintext` | Partially Implemented |
+| L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash` | Implemented |
 | L2-AUTH-005 | L3-AUTH-008, L3-AUTH-009 | _(TBD)_ | Draft |
-| L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | _(TBD)_ | Draft |
+| L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | `tests/unit/infrastructure/persistence/test_session_repository.py::test_delete_expired_only_removes_below_threshold`<br>`tests/unit/infrastructure/persistence/test_session_repository.py::test_touch_updates_last_activity_at` | Partially Implemented |
 
 ### L1-MAIL: Email delivery
 
@@ -349,7 +349,7 @@ the single source of truth.
 | L2-OBS-014 | _(none)_ | _(TBD)_ | Draft |
 | L2-OBS-015 | _(none)_ | _(TBD)_ | Draft |
 | L2-OBS-016 | _(none)_ | _(TBD)_ | Draft |
-| L2-OBS-017 | _(none)_ | _(TBD)_ | Draft |
+| L2-OBS-017 | _(none)_ | `tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Implemented |
 
 ### L1-ERR: Error handling and exception taxonomy
 
@@ -394,7 +394,7 @@ the single source of truth.
 | L2-CFG-001 | L3-CFG-001, L3-CFG-002 | _(TBD)_ | Draft |
 | L2-CFG-002 | L3-CFG-003, L3-CFG-016 | `tests/unit/config/test_schema.py::test_config_is_frozen`<br>`tests/unit/config/test_schema.py::test_nested_config_is_frozen` | Partially Implemented |
 | L2-CFG-003 | L3-CFG-004, L3-CFG-015 | `tests/unit/config/test_loader.py::test_directory_instead_of_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_invalid_toml_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_load_config_accepts_string_path`<br>`tests/unit/config/test_loader.py::test_missing_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_non_utf8_file_raises_configuration_error` | Implemented |
-| L2-CFG-004 | L3-CFG-005, L3-CFG-006 | `tests/unit/config/test_loader.py::test_load_config_returns_frozen_config`<br>`tests/unit/config/test_loader.py::test_unknown_section_rejected_with_extra_forbid`<br>`tests/unit/config/test_schema.py::test_config_model_has_all_declared_sections`<br>`tests/unit/config/test_schema.py::test_grpc_port_out_of_range_rejected`<br>`tests/unit/config/test_schema.py::test_grpc_port_within_range_accepted`<br>`tests/unit/config/test_schema.py::test_optional_sections_fill_from_defaults`<br>`tests/unit/config/test_schema.py::test_unknown_nested_key_is_rejected`<br>`tests/unit/config/test_schema.py::test_unknown_top_level_key_is_rejected` | Implemented |
+| L2-CFG-004 | L3-CFG-005, L3-CFG-006 | `tests/unit/config/test_loader.py::test_load_config_returns_frozen_config`<br>`tests/unit/config/test_loader.py::test_unknown_section_rejected_with_extra_forbid`<br>`tests/unit/config/test_schema.py::test_config_model_has_all_declared_sections`<br>`tests/unit/config/test_schema.py::test_grpc_port_out_of_range_rejected`<br>`tests/unit/config/test_schema.py::test_grpc_port_within_range_accepted`<br>`tests/unit/config/test_schema.py::test_optional_sections_fill_from_defaults`<br>`tests/unit/config/test_schema.py::test_unknown_nested_key_is_rejected`<br>`tests/unit/config/test_schema.py::test_unknown_top_level_key_is_rejected`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_naive_created_at`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_naive_last_activity_at`<br>`tests/unit/domain/aggregates/test_user.py::test_user_rejects_naive_created_at` | Implemented |
 | L2-CFG-005 | L3-CFG-007, L3-CFG-008 | `tests/unit/config/test_loader.py::test_format_validation_errors_numbering_starts_at_one`<br>`tests/unit/config/test_loader.py::test_format_validation_errors_produces_numbered_lines`<br>`tests/unit/config/test_loader.py::test_schema_violation_raises_validation_error` | Partially Implemented |
 | L2-CFG-006 | L3-CFG-009 | _(TBD)_ | Draft |
 | L2-CFG-007 | L3-CFG-010, L3-CFG-011 | `tests/unit/config/test_loader.py::test_absolute_paths_pass_through`<br>`tests/unit/config/test_loader.py::test_all_four_path_fields_are_resolved`<br>`tests/unit/config/test_loader.py::test_relative_paths_resolved_against_config_dir` | Implemented |
@@ -471,18 +471,18 @@ the single source of truth.
 | AGGR | 4 | 10 | 20 | 4 | 6 |
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
-| AUTH | 2 | 6 | 13 | 0 | 0 |
+| AUTH | 2 | 6 | 13 | 5 | 4 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 11 | 21 | 0 | 0 |
 | PERS | 4 | 13 | 23 | 2 | 6 |
-| OBS | 4 | 17 | 24 | 1 | 5 |
+| OBS | 4 | 17 | 24 | 2 | 5 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **335** | **51** | **88** |
+| **Total** | **65** | **182** | **335** | **57** | **92** |
 
-**Requirements verified by at least one test**: 139 of 517 (26.9%).
+**Requirements verified by at least one test**: 149 of 517 (28.8%).
 
 ### Orphan check
 

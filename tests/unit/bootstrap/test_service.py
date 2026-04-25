@@ -244,6 +244,25 @@ async def test_use_cases_all_populated(service: Service) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L1-AUTH-001")
+async def test_auth_components_populated_from_config(service: Service) -> None:
+    """build_service SHALL wire the password hasher and the Login/Logout
+    use cases from the ``[auth]`` section."""
+    from message_service.application.use_cases.login import LoginUseCase
+    from message_service.application.use_cases.logout import LogoutUseCase
+    from message_service.infrastructure.auth.argon2_hasher import (
+        Argon2PasswordHasher,
+    )
+
+    assert isinstance(service.password_hasher, Argon2PasswordHasher)
+    assert isinstance(service.login, LoginUseCase)
+    assert isinstance(service.logout, LogoutUseCase)
+    # Login + Logout SHALL share the hasher singleton (L3-AUTH-001).
+    assert service.login._hasher is service.password_hasher
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
 async def test_pipeline_registry_reflects_config(service: Service) -> None:
     """BeginRun use case's pipeline registry SHALL equal the configured list."""
     # BeginRun stores the registry as a private frozenset; we can access

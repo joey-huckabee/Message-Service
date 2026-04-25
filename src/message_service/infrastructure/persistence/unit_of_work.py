@@ -38,6 +38,7 @@ import structlog
 
 from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.run_repository import RunRepository
+from message_service.application.ports.session_repository import SessionRepository
 from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import (
     SubscriptionRepository,
@@ -46,6 +47,7 @@ from message_service.application.ports.sweeper_action_repository import (
     SweeperActionRepository,
 )
 from message_service.application.ports.unit_of_work import UnitOfWork
+from message_service.application.ports.user_repository import UserRepository
 from message_service.domain.errors import PersistenceError
 
 _log = structlog.get_logger(__name__)
@@ -60,6 +62,8 @@ StageRepoFactory = Callable[[aiosqlite.Connection], StageRepository]
 SubscriptionRepoFactory = Callable[[aiosqlite.Connection], SubscriptionRepository]
 AuditLogFactory = Callable[[aiosqlite.Connection], AuditLog]
 SweeperActionRepoFactory = Callable[[aiosqlite.Connection], SweeperActionRepository]
+UserRepoFactory = Callable[[aiosqlite.Connection], UserRepository]
+SessionRepoFactory = Callable[[aiosqlite.Connection], SessionRepository]
 
 
 class SqliteUnitOfWork(UnitOfWork):
@@ -78,8 +82,10 @@ class SqliteUnitOfWork(UnitOfWork):
         subscription_repo_factory: SubscriptionRepoFactory,
         audit_log_factory: AuditLogFactory,
         sweeper_action_repo_factory: SweeperActionRepoFactory,
+        user_repo_factory: UserRepoFactory,
+        session_repo_factory: SessionRepoFactory,
     ) -> None:
-        """Construct with a live connection and the five repo factories.
+        """Construct with a live connection and the seven repo factories.
 
         Args:
             conn: Shared :class:`aiosqlite.Connection`. This UoW will
@@ -92,6 +98,10 @@ class SqliteUnitOfWork(UnitOfWork):
             audit_log_factory: Same for :class:`AuditLog`.
             sweeper_action_repo_factory: Same for
                 :class:`SweeperActionRepository`.
+            user_repo_factory: Same for :class:`UserRepository`
+                (Increment 16).
+            session_repo_factory: Same for :class:`SessionRepository`
+                (Increment 16).
         """
         self._conn = conn
         self._run_repo_factory = run_repo_factory
@@ -99,6 +109,8 @@ class SqliteUnitOfWork(UnitOfWork):
         self._subscription_repo_factory = subscription_repo_factory
         self._audit_log_factory = audit_log_factory
         self._sweeper_action_repo_factory = sweeper_action_repo_factory
+        self._user_repo_factory = user_repo_factory
+        self._session_repo_factory = session_repo_factory
         self._entered: bool = False
         self._finalized: bool = False
 
@@ -132,6 +144,8 @@ class SqliteUnitOfWork(UnitOfWork):
         self.subscription_repo = self._subscription_repo_factory(self._conn)
         self.audit_log = self._audit_log_factory(self._conn)
         self.sweeper_action_repo = self._sweeper_action_repo_factory(self._conn)
+        self.user_repo = self._user_repo_factory(self._conn)
+        self.session_repo = self._session_repo_factory(self._conn)
         return self
 
     async def __aexit__(
@@ -250,6 +264,8 @@ class SqliteUnitOfWorkFactory:
         subscription_repo_factory: SubscriptionRepoFactory,
         audit_log_factory: AuditLogFactory,
         sweeper_action_repo_factory: SweeperActionRepoFactory,
+        user_repo_factory: UserRepoFactory,
+        session_repo_factory: SessionRepoFactory,
     ) -> None:
         """Construct with the shared connection and repo factories."""
         self._conn = conn
@@ -258,6 +274,8 @@ class SqliteUnitOfWorkFactory:
         self._subscription_repo_factory = subscription_repo_factory
         self._audit_log_factory = audit_log_factory
         self._sweeper_action_repo_factory = sweeper_action_repo_factory
+        self._user_repo_factory = user_repo_factory
+        self._session_repo_factory = session_repo_factory
 
     def __call__(self) -> SqliteUnitOfWork:
         """Produce a fresh UoW bound to the shared connection."""
@@ -268,6 +286,8 @@ class SqliteUnitOfWorkFactory:
             subscription_repo_factory=self._subscription_repo_factory,
             audit_log_factory=self._audit_log_factory,
             sweeper_action_repo_factory=self._sweeper_action_repo_factory,
+            user_repo_factory=self._user_repo_factory,
+            session_repo_factory=self._session_repo_factory,
         )
 
     async def close(self) -> None:
@@ -283,9 +303,11 @@ class SqliteUnitOfWorkFactory:
 __all__ = [
     "AuditLogFactory",
     "RunRepoFactory",
+    "SessionRepoFactory",
     "SqliteUnitOfWork",
     "SqliteUnitOfWorkFactory",
     "StageRepoFactory",
     "SubscriptionRepoFactory",
     "SweeperActionRepoFactory",
+    "UserRepoFactory",
 ]

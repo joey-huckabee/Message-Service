@@ -69,6 +69,9 @@ from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.run_repository import SqliteRunRepository
+from message_service.infrastructure.persistence.session_repository import (
+    SqliteSessionRepository,
+)
 from message_service.infrastructure.persistence.stage_repository import (
     SqliteStageRepository,
 )
@@ -80,6 +83,9 @@ from message_service.infrastructure.persistence.sweeper_action_repository import
 )
 from message_service.infrastructure.persistence.unit_of_work import (
     SqliteUnitOfWorkFactory,
+)
+from message_service.infrastructure.persistence.user_repository import (
+    SqliteUserRepository,
 )
 from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
@@ -226,6 +232,8 @@ def uow_factory(sqlite_conn: aiosqlite.Connection, clock: _FixedClock) -> Sqlite
         subscription_repo_factory=lambda c: SqliteSubscriptionRepository(c, clock=clock),
         audit_log_factory=lambda c: SqliteAuditLog(c),
         sweeper_action_repo_factory=lambda c: SqliteSweeperActionRepository(c),
+        user_repo_factory=lambda c: SqliteUserRepository(c),
+        session_repo_factory=lambda c: SqliteSessionRepository(c),
     )
 
 

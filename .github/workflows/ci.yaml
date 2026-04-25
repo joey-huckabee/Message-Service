@@ -149,9 +149,12 @@ jobs:
 
   # ---------------------------------------------------------------------
   # L1-CICD-004 — Traceability gate.
-  # Increment 26b lands a stand-in that catches stale matrix files;
-  # Increment 26c will swap this for `python scripts/build-trace-matrix.py
-  # --check` with the distinct exit codes pinned by L3-CICD-011 / L3-CICD-012.
+  # Uses `build-trace-matrix.py --check` (added in Increment 26c) with
+  # the distinct exit codes pinned by L3-CICD-011 / L3-CICD-012:
+  #   0 — clean (matches committed AND rollups consistent)
+  #   1 — byte-diff (committed matrix stale; regenerate and commit)
+  #   2 — input-doc parse failure (L1/L2/L3-REQ.md unreadable)
+  #   3 — rollup inconsistency (matrix violates Increment 25a propagation)
   # ---------------------------------------------------------------------
   trace-matrix:
     name: Trace matrix coherence
@@ -169,25 +172,17 @@ jobs:
         run: pip install "poetry==${POETRY_VERSION}"
 
       - name: Install project dependencies
-        # The script itself is stdlib-only, but installing keeps the
-        # poetry-managed Python interpreter consistent with the other
-        # jobs.
+        # Needed because --check re-collects test markers via AST scan;
+        # poetry-managed interpreter must match the test environment.
         run: poetry install --no-interaction --no-ansi
 
-      - name: Regenerate trace matrix and verify clean
-        # 26b stand-in — replaces with `--check` mode in 26c per
-        # L3-CICD-010..012.
-        run: |
-          poetry run python scripts/build-trace-matrix.py
-          if ! git diff --quiet docs/TRACE-MATRIX.md; then
-            echo "::error::TRACE-MATRIX.md is out of sync with the regenerated output."
-            echo "Run 'poetry run python scripts/build-trace-matrix.py' locally and commit."
-            git --no-pager diff docs/TRACE-MATRIX.md
-            exit 1
-          fi
+      - name: Verify trace matrix coherence (--check)
+        run: poetry run python scripts/build-trace-matrix.py --check
 
       - name: Upload trace matrix artifact
-        # L2-CICD-015: the regenerated matrix is part of build provenance.
+        # L2-CICD-015: the committed matrix is part of build provenance,
+        # uploaded regardless of pass/fail so reviewers can inspect a
+        # rollup-violation failure post-hoc.
         if: always()
         uses: actions/upload-artifact@v4
         with:

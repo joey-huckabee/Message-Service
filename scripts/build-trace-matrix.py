@@ -36,7 +36,9 @@ Or via pre-commit / CI. The output overwrites ``docs/TRACE-MATRIX.md``.
 
 from __future__ import annotations
 
+import argparse
 import ast
+import difflib
 import re
 import sys
 from collections import defaultdict
@@ -332,8 +334,11 @@ def build_matrix() -> str:
         for req_id in unknown_markers:
             count = len(test_markers[req_id])
             lines.append(f"* `{req_id}` — referenced by {count} test(s)")
-    lines.append("")
 
+    # Trailing "\n" + no final "" entry → output ends with exactly one
+    # newline. The pre-commit end-of-file-fixer hook would otherwise
+    # silently trim a double-newline tail, hiding the drift from
+    # `--check`'s byte comparison (caught while implementing 26c).
     return "\n".join(lines) + "\n"
 
 
@@ -414,8 +419,245 @@ def _l2_status(
     )
 
 
+# -----------------------------------------------------------------------------
+# --check mode (Increment 26c): traceability gate for CI.
+# Exit codes (per L3-CICD-011 / L3-CICD-012):
+#   0 — clean (regenerated output matches committed; rollups consistent)
+#   1 — byte-diff against committed file
+#   2 — input doc parse failure (or committed matrix unreadable)
+#   3 — rollup inconsistency in the committed matrix
+# -----------------------------------------------------------------------------
+
+# Status values the matrix may print. Order matters for the
+# byte-diff regex below (longest first so "Partially Implemented"
+# isn't shadowed by "Implemented").
+_STATUS_RE = r"(?:Partially Implemented|Implemented|Draft|Verified)"
+
+_L1_ROW_RE = re.compile(
+    rf"^\|\s+(L1-[A-Z]+-\d+)\s+\|\s+([^|]*?)\s+\|\s+({_STATUS_RE})\s+\|\s*$",
+    re.MULTILINE,
+)
+
+_L2_ROW_RE = re.compile(
+    rf"^\|\s+(L2-[A-Z]+-\d+)\s+\|\s+([^|]*?)\s+\|\s+[^|]*?\s+\|\s+({_STATUS_RE})\s+\|\s*$",
+    re.MULTILINE,
+)
+
+
+def _parse_committed_l1_rows(matrix_text: str) -> dict[str, tuple[list[str], str]]:
+    """Parse L1 rows from a committed trace matrix.
+
+    Returns:
+        Mapping ``l1_id -> (l2_children, status)``. Children are the
+        comma-separated ids in the "L2 Children" column; ``_(none)_``
+        is normalized to an empty list.
+    """
+    result: dict[str, tuple[list[str], str]] = {}
+    for match in _L1_ROW_RE.finditer(matrix_text):
+        l1_id, children_str, status = match.groups()
+        children: list[str]
+        if children_str.strip() == "_(none)_":
+            children = []
+        else:
+            children = [c.strip() for c in children_str.split(",") if c.strip()]
+        result[l1_id] = (children, status)
+    return result
+
+
+def _parse_committed_l2_rows(matrix_text: str) -> dict[str, str]:
+    """Parse L2 rows from a committed trace matrix.
+
+    Returns:
+        Mapping ``l2_id -> status``. The L3-children and artifacts
+        columns are not returned — for the 26c rollup check they are
+        not needed (L1 verification only reads L2 statuses).
+    """
+    result: dict[str, str] = {}
+    for match in _L2_ROW_RE.finditer(matrix_text):
+        l2_id, _children_str, status = match.groups()
+        result[l2_id] = status
+    return result
+
+
+def verify_rollup_consistency(
+    matrix_text: str,
+    *,
+    test_markers: dict[str, list[str]] | None = None,
+    l2_to_l3: dict[str, list[str]] | None = None,
+) -> list[str]:
+    """Self-consistency check on the committed matrix.
+
+    For every L1 and L2 row, verifies that the committed status agrees
+    with what :func:`compute_status` produces under the Increment 25a
+    propagation rule. Catches a hand-edited matrix or a matrix produced
+    by an older script version whose rollup rule differed.
+
+    The check needs ``test_markers`` to know whether each row has direct
+    verification artifacts (markers tagged with the row's id directly),
+    and it needs ``l2_to_l3`` to compute L3 children's statuses for the
+    L2 rollup. Both default to a fresh re-collection from the live test
+    tree and L3 source doc.
+
+    Args:
+        matrix_text: Contents of ``docs/TRACE-MATRIX.md``.
+        test_markers: Optional pre-collected markers (used by tests
+            to inject synthetic state). Defaults to a fresh
+            :func:`collect_test_markers` pass.
+        l2_to_l3: Optional pre-built L2→L3 children map. Defaults to a
+            fresh parse of L3-REQ.md.
+
+    Returns:
+        List of human-readable violation descriptions, sorted by row
+        id. Empty list means the matrix is internally consistent.
+    """
+    if test_markers is None:
+        test_markers = collect_test_markers(TESTS_DIR)
+    if l2_to_l3 is None:
+        l3_doc = L3_DOC.read_text(encoding="utf-8")
+        l3_parent = parse_l3_parent_map(l3_doc)
+        l2_to_l3_built: dict[str, list[str]] = defaultdict(list)
+        for l3_id, l2_id in l3_parent.items():
+            l2_to_l3_built[l2_id].append(l3_id)
+        l2_to_l3 = l2_to_l3_built
+
+    l1_rows = _parse_committed_l1_rows(matrix_text)
+    l2_rows = _parse_committed_l2_rows(matrix_text)
+
+    violations: list[str] = []
+
+    # L2 rows: rebuild expected status from L3 children + direct markers.
+    for l2_id, committed_status in sorted(l2_rows.items()):
+        l3_children = l2_to_l3.get(l2_id, [])
+        l3_statuses = [
+            compute_status(
+                has_direct_artifacts=bool(test_markers.get(l3_id)),
+                children_statuses=[],
+            )
+            for l3_id in l3_children
+        ]
+        expected = compute_status(
+            has_direct_artifacts=bool(test_markers.get(l2_id)),
+            children_statuses=l3_statuses,
+        )
+        if expected != committed_status:
+            violations.append(
+                f"{l2_id}: committed status '{committed_status}' but "
+                f"L3 children {l3_children} → statuses {l3_statuses} → "
+                f"expected '{expected}' under the propagation rule (Increment 25a)"
+            )
+
+    # L1 rows: rebuild expected status from L2 children's committed
+    # statuses + direct markers on the L1 id.
+    for l1_id, (children, committed_status) in sorted(l1_rows.items()):
+        l2_statuses = [l2_rows[c] for c in children if c in l2_rows]
+        # Skip rows whose children we can't resolve — that's an
+        # orphan-trace problem, surfaced separately by the matrix's
+        # "Orphan check" section. Don't double-fail.
+        if len(l2_statuses) != len(children):
+            continue
+        expected = compute_status(
+            has_direct_artifacts=bool(test_markers.get(l1_id)),
+            children_statuses=l2_statuses,
+        )
+        if expected != committed_status:
+            violations.append(
+                f"{l1_id}: committed status '{committed_status}' but L2 children "
+                f"{children} → statuses {l2_statuses} → expected '{expected}' "
+                f"under the propagation rule (Increment 25a)"
+            )
+    return violations
+
+
+def _check_main() -> int:
+    """``--check`` mode body. See exit-code table at the top of this section."""
+    # Step 1: regenerate in memory. Catches input-doc parse failures.
+    try:
+        regenerated = build_matrix()
+    except Exception as exc:
+        print(
+            f"error: failed to parse requirement source docs: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Step 2: read committed matrix. Catches missing/unreadable file.
+    try:
+        committed = TRACE_DOC.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        print(
+            f"error: {TRACE_DOC.relative_to(ROOT)} does not exist",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Step 3: byte-diff. The common drift mode (forgot to regen) lands here.
+    if regenerated != committed:
+        print(
+            "error: TRACE-MATRIX.md is out of sync with the regenerated output.",
+            file=sys.stderr,
+        )
+        diff = difflib.unified_diff(
+            committed.splitlines(keepends=True),
+            regenerated.splitlines(keepends=True),
+            fromfile="committed/docs/TRACE-MATRIX.md",
+            tofile="regenerated",
+            n=3,
+        )
+        sys.stderr.writelines(diff)
+        print(
+            "\nfix: run 'poetry run python scripts/build-trace-matrix.py' and commit.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Step 4: independent rollup audit on the committed file. Catches a
+    # script bug or hand-edited matrix where the propagation rule has
+    # been violated even though byte-diff is clean.
+    violations = verify_rollup_consistency(committed)
+    if violations:
+        print(
+            "error: trace matrix has rollup inconsistencies (Increment 25a propagation rule):",
+            file=sys.stderr,
+        )
+        for v in violations:
+            print(f"  - {v}", file=sys.stderr)
+        return 3
+
+    print(f"trace matrix OK ({len(regenerated.splitlines())} lines)")
+    return 0
+
+
 def main() -> int:
-    """CLI entry point: regenerate the trace matrix on disk."""
+    """CLI entry point.
+
+    Default mode: regenerate ``docs/TRACE-MATRIX.md`` from the source
+    docs + test markers. ``--check`` mode: gate for CI; see exit-code
+    table at the top of this section.
+    """
+    parser = argparse.ArgumentParser(
+        prog="build-trace-matrix",
+        description=(
+            "Regenerate the requirements trace matrix from the L1/L2/L3 "
+            "source docs and pytest markers. With --check, verify the "
+            "committed matrix is up to date and internally consistent "
+            "without writing changes (used by CI per L1-CICD-004)."
+        ),
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Verification mode: do not write. Exit 0 if the committed "
+            "matrix matches the regenerated output AND the propagation "
+            "rule holds; 1 on byte-diff; 2 on input-doc parse failure; "
+            "3 on rollup inconsistency."
+        ),
+    )
+    args = parser.parse_args()
+
+    if args.check:
+        return _check_main()
+
     output = build_matrix()
     # newline="\n" forces LF on every platform; the repo standard is LF
     # (enforced by the mixed-line-ending pre-commit hook).

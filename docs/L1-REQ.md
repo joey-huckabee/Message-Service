@@ -29,8 +29,13 @@ Each requirement carries the following fields:
 - **Statement** — the SHALL obligation itself
 - **Rationale** — the reason the requirement exists, for the benefit of future maintainers
 - **Verification Method** — how compliance is demonstrated, drawn from the DO-178 vocabulary: Test (T), Analysis (A), Inspection (I), Demonstration (D). Multiple methods may apply to one requirement.
-- **Verification Artifact** — path in the repository to the concrete artifact that demonstrates compliance (a test function, an analysis document, a review record, or a procedure document). Marked `(TBD)` until implementation.
-- **Status** — one of `Draft`, `Approved`, `Implemented`, `Verified`.
+
+**Status and verification artifacts** are tracked in
+[`docs/TRACE-MATRIX.md`](TRACE-MATRIX.md) — regenerated from
+`@pytest.mark.requirement` markers and the parent links in this file by
+`scripts/build-trace-matrix.py`. Per Increment 25a, the matrix is the
+single source of truth for live status; the source docs in this file,
+`L2-REQ.md`, and `L3-REQ.md` carry only the spec content above.
 
 ### Verification method vocabulary
 
@@ -72,10 +77,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-API-002
 
 **Statement**: The service SHALL implement all gRPC endpoints as unary request/response RPCs; server-streaming, client-streaming, and bidirectional-streaming methods SHALL NOT be present in v1.
@@ -83,10 +84,6 @@ Each requirement carries the following fields:
 **Rationale**: Unary RPCs are sufficient for the known call patterns (`BeginRun`, `SubmitStageReport`, `FinalizeRun`) and minimize complexity in both service and pipeline client implementations. Streaming interfaces are recorded on the ROADMAP.
 
 **Verification Method**: Inspection (I)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-API-003
 
@@ -96,10 +93,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-API-004
 
 **Statement**: The service SHALL return structured gRPC status codes and error messages for all client-facing validation and operational failures, and SHALL NOT expose implementation stack traces or internal exception details to clients.
@@ -107,10 +100,6 @@ Each requirement carries the following fields:
 **Rationale**: Structured errors enable pipeline clients to handle failures programmatically; withholding internal details prevents information leakage and enforces a stable contract boundary.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -124,10 +113,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-RUN-002
 
 **Statement**: The service SHALL maintain a run-lifecycle state machine with the states `INITIATED`, `AGGREGATING`, `READY`, `SENDING`, `SENT`, `ORPHANED`, and `FAILED`, and SHALL enforce the permitted transitions defined in the L2 derivations of this requirement.
@@ -135,10 +120,6 @@ Each requirement carries the following fields:
 **Rationale**: A formal state machine ensures lifecycle logic is deterministic and auditable and provides a clear basis for L2 and L3 decomposition of transition rules.
 
 **Verification Method**: Test (T), Analysis (A)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-RUN-003
 
@@ -148,10 +129,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-RUN-004
 
 **Statement**: The service SHALL provide a `FinalizeRun` RPC that transitions a run from `AGGREGATING` to `READY`, triggering the assembly and delivery pipeline.
@@ -160,10 +137,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-RUN-005
 
 **Statement**: The service SHALL record the UTC timestamp of every run state transition together with the triggering event, and SHALL include these records in the audit log.
@@ -171,10 +144,6 @@ Each requirement carries the following fields:
 **Rationale**: Timestamped transitions are essential for orphan analysis, performance profiling, and incident investigation.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -188,10 +157,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Analysis (A)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-STAGE-002
 
 **Statement**: The service SHALL treat `SubmitStageReport` calls as idempotent with respect to the composite key `(run_id, stage_id)`: a subsequent submission with the same key SHALL supersede any prior submission, and only the most recent submission SHALL participate in the final aggregated report.
@@ -199,10 +164,6 @@ Each requirement carries the following fields:
 **Rationale**: Idempotency allows pipelines to retry transient submission failures safely without duplicating stage contributions in the final report.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-STAGE-003
 
@@ -212,10 +173,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-STAGE-004
 
 **Statement**: The service SHALL reject `SubmitStageReport` calls whose `stage_id` is not declared in the corresponding run's `BeginRun` metadata, and SHALL return a structured error code indicating the mismatch.
@@ -223,10 +180,6 @@ Each requirement carries the following fields:
 **Rationale**: Rejection prevents stray or erroneous submissions from polluting run state and enforces the declared-stages contract.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -240,10 +193,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Inspection (I)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-TMPL-002
 
 **Statement**: Every template reference submitted by a pipeline SHALL specify both a `template_name` and a `template_version`, where `template_version` is either an explicit semantic version matching a manifest entry or the literal string `"latest"`, in which case the service SHALL resolve it to the highest available semver for that template.
@@ -251,10 +200,6 @@ Each requirement carries the following fields:
 **Rationale**: Version-pinned templates guarantee report reproducibility; the `"latest"` escape hatch accommodates casual use while preserving the ability to pin.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-TMPL-003
 
@@ -264,10 +209,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Inspection (I)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-TMPL-004
 
 **Statement**: Each template entry in the manifest SHALL declare a JSON Schema for its permitted context, and the service SHALL validate each submitted context against this schema before rendering.
@@ -276,10 +217,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-TMPL-005
 
 **Statement**: The service SHALL enforce configurable maximum byte-size limits on both the submitted context and the rendered output of every template render operation, and SHALL reject renders that exceed either limit with a structured error code.
@@ -287,10 +224,6 @@ Each requirement carries the following fields:
 **Rationale**: Size limits prevent a malicious or buggy stage from causing denial of service via extremely large context dictionaries or rendered output.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -304,10 +237,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-AGGR-002
 
 **Statement**: The service SHALL support two attachment modes, declared per run in `BeginRun` metadata: `SINGLE_AGGREGATED`, in which all stage report contributions are composed into one attachment through the run's aggregation template, and `PER_STAGE`, in which each stage's report contribution becomes a separate attachment.
@@ -315,10 +244,6 @@ Each requirement carries the following fields:
 **Rationale**: Different pipelines have different presentation needs; the per-run attachment mode accommodates both without requiring separate services.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-AGGR-003
 
@@ -328,10 +253,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-AGGR-004
 
 **Statement**: When a run's `attachment_mode` is `SINGLE_AGGREGATED`, the service SHALL require an `aggregation_template` to be declared in `BeginRun` metadata, and SHALL reject `BeginRun` requests that omit it.
@@ -339,10 +260,6 @@ Each requirement carries the following fields:
 **Rationale**: A single aggregated attachment requires an explicit composition template; making this a validation error at run initiation prevents late failures at send time.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -356,10 +273,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Inspection (I)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-SWEEP-002
 
 **Statement**: The service SHALL classify a run as orphaned when the elapsed time since its last state transition exceeds the globally configured run-timeout value.
@@ -368,10 +281,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-SWEEP-003
 
 **Statement**: The service SHALL apply to every orphaned run a globally configured disposition policy consisting of any combination of the following actions: `SEND_PARTIAL_FLAGGED`, `DISCARD_SILENTLY`, `NOTIFY_SUBSCRIBERS`, and `NOTIFY_ADMINS`.
@@ -379,10 +288,6 @@ Each requirement carries the following fields:
 **Rationale**: Different deployment contexts require different orphan behaviors; combining actions in a set permits, for example, both notifying administrators and sending a partial report flagged as incomplete.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -396,10 +301,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-SUB-002
 
 **Statement**: New user accounts SHALL have no active subscriptions by default; all subscriptions SHALL require explicit opt-in through the dashboard interface.
@@ -407,10 +308,6 @@ Each requirement carries the following fields:
 **Rationale**: Opt-in default prevents unwanted email delivery to new users and places the subscription decision in each user's hands.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-SUB-003
 
@@ -420,10 +317,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-SUB-004
 
 **Statement**: At run-completion time, the service SHALL construct the recipient list as the union of all active subscribers whose `GLOBAL`, `PIPELINE`, or `TAG` subscriptions match the run's pipeline type or declared tags, with per-user de-duplication.
@@ -431,10 +324,6 @@ Each requirement carries the following fields:
 **Rationale**: Union semantics match the principle of least surprise — a user receives a notification if any of their subscriptions apply — and de-duplication prevents multiple emails to users with overlapping subscriptions.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -448,10 +337,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Inspection (I)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-AUTH-002
 
 **Statement**: The service SHALL issue and validate session credentials for authenticated dashboard users with a configurable idle-timeout, after which re-authentication SHALL be required.
@@ -459,10 +344,6 @@ Each requirement carries the following fields:
 **Rationale**: An idle-timeout limits the window of exposure for unattended sessions on shared workstations.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -476,10 +357,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-MAIL-002
 
 **Statement**: The service SHALL retry transient SMTP failures using exponential backoff, with the maximum retry count, the initial backoff interval, and the maximum backoff interval each independently configurable.
@@ -487,10 +364,6 @@ Each requirement carries the following fields:
 **Rationale**: Transient SMTP failures (relay unreachable, temporary rejection) are common and recoverable; exponential backoff avoids hammering a struggling relay.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-MAIL-003
 
@@ -500,10 +373,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-MAIL-004
 
 **Statement**: When a composed email exceeds `max_email_size_bytes`, the service SHALL transition the run to `FAILED` with reason `EMAIL_SIZE_EXCEEDED`, SHALL NOT attempt SMTP delivery, SHALL persist the rendered report to the filesystem store, and SHALL notify administrators via the same channel used for orphan administrator notifications.
@@ -512,10 +381,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-MAIL-005
 
 **Statement**: The service SHALL record every delivery attempt — both successful and failed — in the audit log with timestamp, recipient list, run identifier, and outcome status.
@@ -523,10 +388,6 @@ Each requirement carries the following fields:
 **Rationale**: Delivery audit records support operational troubleshooting and satisfy the audit-log scope agreed for v1.
 
 **Verification Method**: Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -540,10 +401,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-DASH-002
 
 **Statement**: The dashboard SHALL allow authenticated users to create, view, modify, and delete their own subscriptions at each of the three supported granularities (`GLOBAL`, `PIPELINE`, `TAG`).
@@ -551,10 +408,6 @@ Each requirement carries the following fields:
 **Rationale**: Self-service subscription management removes operational burden from administrators and gives users control over their own notification stream.
 
 **Verification Method**: Test (T), Demonstration (D)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-DASH-003
 
@@ -564,10 +417,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Demonstration (D)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-DASH-004
 
 **Statement**: The dashboard SHALL present Prometheus service metrics as embedded visualizations, in addition to exposing them at the standard `/metrics` endpoint for external scraping.
@@ -575,10 +424,6 @@ Each requirement carries the following fields:
 **Rationale**: Embedded visualizations give operators immediate visibility without requiring a separate Grafana deployment, while the scrape endpoint preserves integration with standard monitoring stacks.
 
 **Verification Method**: Test (T), Demonstration (D)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -592,10 +437,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Inspection (I), Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-PERS-002
 
 **Statement**: The service SHALL store rendered HTML reports and Jinja2 template source files on the local filesystem at configurable paths, with one file per rendered report named by its `run_id`.
@@ -604,10 +445,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Inspection (I), Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-PERS-003
 
 **Statement**: The service SHALL access all persistence stores through repository-pattern abstractions; domain and application layer code SHALL NOT contain direct database queries or filesystem calls.
@@ -615,10 +452,6 @@ Each requirement carries the following fields:
 **Rationale**: The repository pattern enforces Fowler-style separation of concerns and preserves the ability to swap persistence backends without touching domain logic.
 
 **Verification Method**: Inspection (I)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -632,10 +465,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Inspection (I), Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-OBS-002
 
 **Statement**: The service SHALL expose Prometheus-format metrics at a standard `/metrics` endpoint, covering at minimum: run-lifecycle state transition counts, stage submission counts, email delivery outcome counts, email size percentiles, and orphan sweep outcome counts.
@@ -643,10 +472,6 @@ Each requirement carries the following fields:
 **Rationale**: These metrics cover the primary operational concerns — throughput, success rate, resource pressure, and failure modes. Additional metrics may be added as needs emerge.
 
 **Verification Method**: Test (T), Inspection (I)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-OBS-003
 
@@ -656,10 +481,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-OBS-004
 
 **Statement**: The service SHALL emit log records at appropriate severity levels drawn from the Python `logging` standard taxonomy (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`), with consistent level-assignment rules applied across all components.
@@ -667,10 +488,6 @@ Each requirement carries the following fields:
 **Rationale**: Consistent level assignment is what makes log filtering in production useful; without a documented convention, operators face a mix of overly-verbose and overly-quiet components.
 
 **Verification Method**: Inspection (I), Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -684,10 +501,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Inspection (I), Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-ERR-002
 
 **Statement**: The service SHALL attach a stable machine-readable error code to every exception instance, drawn from a single enumerated set shared between the exception classes and the proto-defined error codes.
@@ -695,10 +508,6 @@ Each requirement carries the following fields:
 **Rationale**: A shared error code set keeps the exception-to-gRPC-status mapping mechanical and prevents drift between internal and external error identifiers.
 
 **Verification Method**: Inspection (I), Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ### L1-ERR-003
 
@@ -708,10 +517,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Inspection (I)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-ERR-004
 
 **Statement**: Exceptions SHALL NOT be silently swallowed; every caught exception SHALL either be logged, re-raised, or translated to a transport error with an associated log record.
@@ -719,10 +524,6 @@ Each requirement carries the following fields:
 **Rationale**: Silent swallowing is the single most common source of "it doesn't work and I can't tell why" operational issues; explicit handling of every caught exception is the remedy.
 
 **Verification Method**: Inspection (I), Analysis (A)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -736,10 +537,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Inspection (I), Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-CFG-002
 
 **Statement**: The service SHALL validate all configuration values at startup against a schema, and SHALL refuse to start with a structured error if any required value is missing, malformed, or out of range.
@@ -748,10 +545,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-CFG-003
 
 **Statement**: The configuration schema SHALL include at minimum the following settings: gRPC listen address and port, FastAPI listen address and port, SQLite database path, rendered-report directory path, template manifest path, tag vocabulary path, global run timeout, orphan sweeper poll interval, orphan disposition policy set, maximum email size in bytes, SMTP relay address and credentials, session idle timeout, and audit log retention duration.
@@ -759,10 +552,6 @@ Each requirement carries the following fields:
 **Rationale**: Explicit enumeration of required settings ensures that no critical behavior is driven by hidden defaults, and gives the operations team a checklist for deployment configuration.
 
 **Verification Method**: Inspection (I)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 
@@ -776,10 +565,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Test (T), Demonstration (D)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-DEP-002
 
 **Statement**: The service SHALL provide a systemd unit file for Linux deployment and a documented installation procedure for Windows Service deployment via NSSM, with both mechanisms supporting the standard lifecycle operations of start, stop, restart, and status.
@@ -788,10 +573,6 @@ Each requirement carries the following fields:
 
 **Verification Method**: Demonstration (D), Inspection (I)
 
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
-
 ### L1-DEP-003
 
 **Statement**: The service SHALL be packaged and distributable as a single installable Poetry project, with all runtime and development dependencies pinned to specific versions in the Poetry lockfile.
@@ -799,10 +580,6 @@ Each requirement carries the following fields:
 **Rationale**: Poetry and pinned dependencies produce reproducible builds, which are essential for air-gapped ISOLAN deployments where offline installation is the norm.
 
 **Verification Method**: Inspection (I), Test (T)
-
-**Verification Artifact**: (TBD)
-
-**Status**: Draft
 
 ---
 

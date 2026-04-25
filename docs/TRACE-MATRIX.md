@@ -8,9 +8,14 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 ## Status rollup
 
-* **Draft** — no verification artifact yet
-* **Implemented** — at least one test marker linked
-* **Verified** — [future] all required methods covered
+Status is computed by `scripts/build-trace-matrix.py`'s rollup rule.
+Source-doc `Status:` fields were removed in Increment 25a; this matrix is
+the single source of truth.
+
+* **Draft** — no verification artifact anywhere in the subtree.
+* **Partially Implemented** — at least one child has artifacts but not all are Implemented; or the row itself has direct artifacts but its children include Drafts.
+* **Implemented** — every child rolls up to Implemented (or, for a leaf, the row has at least one direct verification artifact).
+* **Verified** — *(future)* every required Verification Method category has at least one corresponding artifact.
 
 ---
 
@@ -20,10 +25,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-API-001 | L2-API-001, L2-API-002, L2-API-003 | Implemented |
+| L1-API-001 | L2-API-001, L2-API-002, L2-API-003 | Partially Implemented |
 | L1-API-002 | L2-API-004, L2-API-005 | Draft |
 | L1-API-003 | L2-API-006, L2-API-007 | Draft |
-| L1-API-004 | L2-API-008, L2-API-009, L2-API-010, L2-API-011 | Implemented |
+| L1-API-004 | L2-API-008, L2-API-009, L2-API-010, L2-API-011 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -36,8 +41,8 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-API-005 | L3-API-007 | _(TBD)_ | Draft |
 | L2-API-006 | L3-API-008 | _(TBD)_ | Draft |
 | L2-API-007 | L3-API-009, L3-API-010 | _(TBD)_ | Draft |
-| L2-API-008 | L3-API-011, L3-API-012 | `tests/unit/interfaces/grpc/test_servicer.py::test_unknown_pipeline_translates_to_invalid_argument` | Implemented |
-| L2-API-009 | L3-API-013 | `tests/unit/interfaces/grpc/test_servicer.py::test_submit_to_unknown_run_translates_to_not_found` | Implemented |
+| L2-API-008 | L3-API-011, L3-API-012 | `tests/unit/interfaces/grpc/test_servicer.py::test_unknown_pipeline_translates_to_invalid_argument` | Partially Implemented |
+| L2-API-009 | L3-API-013 | `tests/unit/interfaces/grpc/test_servicer.py::test_submit_to_unknown_run_translates_to_not_found` | Partially Implemented |
 | L2-API-010 | L3-API-014, L3-API-015, L3-API-016 | _(TBD)_ | Draft |
 | L2-API-011 | L3-API-017, L3-API-018 | _(TBD)_ | Draft |
 
@@ -48,10 +53,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-RUN-001 | L2-RUN-001, L2-RUN-002, L2-RUN-003 | Implemented |
-| L1-RUN-002 | L2-RUN-004, L2-RUN-005, L2-RUN-006 | Implemented |
-| L1-RUN-003 | L2-RUN-007, L2-RUN-008, L2-RUN-009, L2-RUN-010, L2-RUN-011 | Implemented |
-| L1-RUN-004 | L2-RUN-012, L2-RUN-013 | Implemented |
-| L1-RUN-005 | L2-RUN-014, L2-RUN-015 | Implemented |
+| L1-RUN-002 | L2-RUN-004, L2-RUN-005, L2-RUN-006 | Partially Implemented |
+| L1-RUN-003 | L2-RUN-007, L2-RUN-008, L2-RUN-009, L2-RUN-010, L2-RUN-011 | Partially Implemented |
+| L1-RUN-004 | L2-RUN-012, L2-RUN-013 | Partially Implemented |
+| L1-RUN-005 | L2-RUN-014, L2-RUN-015 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -60,18 +65,18 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-RUN-001 | L3-RUN-001 | `tests/unit/application/use_cases/test_begin_run.py::test_each_execute_mints_distinct_run_ids`<br>`tests/unit/domain/test_ids.py::test_new_run_id_generates_unique_values`<br>`tests/unit/domain/test_ids.py::test_new_run_id_returns_canonical_uuid4_string` | Implemented |
 | L2-RUN-002 | L3-RUN-002, L3-RUN-003, L3-RUN-030 | `tests/unit/application/use_cases/test_finalize_run.py::test_malformed_run_id_short_circuits`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_malformed_run_id_raises_before_any_port_call`<br>`tests/unit/domain/state_machines/test_run_states.py::test_run_state_is_str_enum`<br>`tests/unit/domain/state_machines/test_run_states.py::test_run_state_values_match_names`<br>`tests/unit/domain/test_ids.py::test_new_type_run_id_is_runtime_str`<br>`tests/unit/domain/test_ids.py::test_validate_run_id_accepts_canonical_form`<br>`tests/unit/domain/test_ids.py::test_validate_run_id_error_includes_expected_pattern`<br>`tests/unit/domain/test_ids.py::test_validate_run_id_rejects_malformed` | Implemented |
 | L2-RUN-003 | L3-RUN-004, L3-RUN-005 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_unit_of_work_exposes_expected_methods`<br>`tests/unit/application/use_cases/test_begin_run.py::test_one_stage_saved_per_declared_stage`<br>`tests/unit/application/use_cases/test_begin_run.py::test_run_saved_with_initiated_state`<br>`tests/unit/application/use_cases/test_begin_run.py::test_uow_entered_and_exited_once`<br>`tests/unit/application/use_cases/test_begin_run.py::test_validation_failures_do_not_open_uow`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_uow_entered_and_exited_once`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_uow_exits_cleanly_on_invalid_state_error`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_uow_entered_and_exited_once`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_uow_entered_even_when_run_not_found`<br>`tests/unit/domain/aggregates/test_run.py::test_declared_stages_is_tuple`<br>`tests/unit/domain/aggregates/test_run.py::test_declared_stages_preserves_order`<br>`tests/unit/domain/aggregates/test_run.py::test_run_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_run.py::test_run_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_run.py::test_run_is_frozen`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_updated_at_before_created_at`<br>`tests/unit/domain/aggregates/test_run.py::test_run_uses_slots`<br>`tests/unit/domain/aggregates/test_run.py::test_run_with_different_state_is_not_equal`<br>`tests/unit/infrastructure/persistence/test_unit_of_work.py::test_clean_exit_commits`<br>`tests/unit/infrastructure/persistence/test_unit_of_work.py::test_exception_rolls_back` | Implemented |
-| L2-RUN-004 | L3-RUN-006, L3-RUN-007, L3-RUN-028, L3-RUN-029 | `tests/unit/domain/state_machines/test_run_states.py::test_all_state_pairs_respect_transition_table`<br>`tests/unit/domain/state_machines/test_run_states.py::test_canonical_happy_path_edges_permitted`<br>`tests/unit/domain/state_machines/test_run_states.py::test_every_non_terminal_state_can_transition_to_failed`<br>`tests/unit/domain/state_machines/test_run_states.py::test_every_non_terminal_state_can_transition_to_orphaned`<br>`tests/unit/domain/state_machines/test_run_states.py::test_transition_table_is_frozen_dict_of_frozensets`<br>`tests/unit/domain/state_machines/test_run_states.py::test_valid_transition_returns_new_state` | Implemented |
+| L2-RUN-004 | L3-RUN-006, L3-RUN-007, L3-RUN-028, L3-RUN-029 | `tests/unit/domain/state_machines/test_run_states.py::test_all_state_pairs_respect_transition_table`<br>`tests/unit/domain/state_machines/test_run_states.py::test_canonical_happy_path_edges_permitted`<br>`tests/unit/domain/state_machines/test_run_states.py::test_every_non_terminal_state_can_transition_to_failed`<br>`tests/unit/domain/state_machines/test_run_states.py::test_every_non_terminal_state_can_transition_to_orphaned`<br>`tests/unit/domain/state_machines/test_run_states.py::test_transition_table_is_frozen_dict_of_frozensets`<br>`tests/unit/domain/state_machines/test_run_states.py::test_valid_transition_returns_new_state` | Partially Implemented |
 | L2-RUN-005 | L3-RUN-008 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_first_submission_transitions_run_initiated_to_aggregating`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_run_already_aggregating_not_transitioned`<br>`tests/unit/domain/state_machines/test_run_states.py::test_illegal_transition_raises_with_structured_details` | Implemented |
 | L2-RUN-006 | L3-RUN-009 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_submission_to_terminal_run_raises`<br>`tests/unit/domain/state_machines/test_run_states.py::test_partition_is_disjoint_and_covers_all_states`<br>`tests/unit/domain/state_machines/test_run_states.py::test_terminal_states_are_exactly_sent_failed_orphaned`<br>`tests/unit/domain/state_machines/test_run_states.py::test_terminal_states_have_no_outgoing_transitions`<br>`tests/unit/domain/state_machines/test_run_states.py::test_terminal_states_reject_transitions_to_non_terminal` | Implemented |
-| L2-RUN-007 | L3-RUN-010, L3-RUN-011 | `tests/unit/application/use_cases/test_begin_run.py::test_unknown_pipeline_does_not_touch_persistence`<br>`tests/unit/application/use_cases/test_begin_run.py::test_unknown_pipeline_type_raises` | Implemented |
+| L2-RUN-007 | L3-RUN-010, L3-RUN-011 | `tests/unit/application/use_cases/test_begin_run.py::test_unknown_pipeline_does_not_touch_persistence`<br>`tests/unit/application/use_cases/test_begin_run.py::test_unknown_pipeline_type_raises` | Partially Implemented |
 | L2-RUN-008 | L3-RUN-012, L3-RUN-013 | `tests/unit/application/use_cases/test_begin_run.py::test_multiple_unknown_tags_all_reported`<br>`tests/unit/application/use_cases/test_begin_run.py::test_tag_check_is_case_sensitive` | Implemented |
 | L2-RUN-009 | L3-RUN-014, L3-RUN-015 | `tests/unit/application/use_cases/test_begin_run.py::test_duplicate_stage_ids_raises_with_all_duplicates`<br>`tests/unit/application/use_cases/test_begin_run.py::test_empty_declared_stages_permitted`<br>`tests/unit/domain/aggregates/test_declared_stage.py::test_declared_stage_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_declared_stage.py::test_declared_stage_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_declared_stage.py::test_declared_stage_is_frozen`<br>`tests/unit/domain/aggregates/test_declared_stage.py::test_declared_stage_rejects_negative_order`<br>`tests/unit/domain/aggregates/test_run.py::test_declared_stage_ids_property_returns_frozenset`<br>`tests/unit/domain/aggregates/test_run.py::test_run_permits_empty_declared_stages`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_duplicate_stage_ids` | Implemented |
 | L2-RUN-010 | L3-RUN-016, L3-RUN-017 | `tests/unit/application/use_cases/test_begin_run.py::test_unknown_aggregation_template_raises`<br>`tests/unit/application/use_cases/test_begin_run.py::test_unknown_report_template_raises`<br>`tests/unit/application/use_cases/test_begin_run.py::test_unknown_template_details_include_name_and_version` | Implemented |
 | L2-RUN-011 | L3-RUN-018, L3-RUN-019 | `tests/unit/application/use_cases/test_begin_run.py::test_per_stage_silently_drops_aggregation_template`<br>`tests/unit/application/use_cases/test_begin_run.py::test_per_stage_without_aggregation_template_succeeds`<br>`tests/unit/application/use_cases/test_begin_run.py::test_single_aggregated_without_template_raises`<br>`tests/unit/domain/aggregates/test_run.py::test_per_stage_does_not_require_aggregation_template`<br>`tests/unit/domain/aggregates/test_run.py::test_single_aggregated_requires_aggregation_template` | Implemented |
-| L2-RUN-012 | L3-RUN-020, L3-RUN-021 | `tests/unit/application/use_cases/test_finalize_run.py::test_non_aggregating_run_raises_invalid_state` | Implemented |
-| L2-RUN-013 | L3-RUN-022, L3-RUN-023 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_background_task_scheduler_exposes_expected_methods`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_background_task_scheduled_after_commit`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_execute_returns_before_background_runs`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_scheduled_task_has_descriptive_name`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_raising_coroutine_does_not_affect_siblings`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_raising_coroutine_does_not_propagate`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_schedule_returns_immediately_without_awaiting`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_schedule_runs_coroutine` | Implemented |
+| L2-RUN-012 | L3-RUN-020, L3-RUN-021 | `tests/unit/application/use_cases/test_finalize_run.py::test_non_aggregating_run_raises_invalid_state` | Partially Implemented |
+| L2-RUN-013 | L3-RUN-022, L3-RUN-023 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_background_task_scheduler_exposes_expected_methods`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_background_task_scheduled_after_commit`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_execute_returns_before_background_runs`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_scheduled_task_has_descriptive_name`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_raising_coroutine_does_not_affect_siblings`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_raising_coroutine_does_not_propagate`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_schedule_returns_immediately_without_awaiting`<br>`tests/unit/infrastructure/scheduler/test_asyncio_scheduler.py::test_schedule_runs_coroutine` | Partially Implemented |
 | L2-RUN-014 | L3-RUN-024, L3-RUN-025 | `tests/unit/application/ports/test_clock.py::test_clock_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_clock.py::test_clock_now_is_abstract`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_accepts_valid_forms`<br>`tests/unit/application/ports/test_clock.py::test_is_iso_z_rejects_invalid_forms`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_converts_non_utc_to_utc`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_emits_literal_z_suffix`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_omits_microseconds_when_zero`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_output_always_passes_is_iso_z`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_pattern_matches_spec`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_preserves_microseconds`<br>`tests/unit/application/ports/test_clock.py::test_iso_z_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_accepts_negative_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_adds_positive_delta`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_advance_by_zero_is_a_noop`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_default_epoch_is_2026_01_01_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_at_epoch_starts_at_unix_epoch`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_is_a_clock`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_now_returns_tz_aware_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_fake_clock_output_flows_through_iso_z`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_init_rejects_naive_datetime`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_repeated_now_calls_return_identical_values`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_jumps_to_absolute_time`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_normalizes_non_utc_to_utc`<br>`tests/unit/application/ports/test_fake_clock_fixture.py::test_set_rejects_naive_datetime`<br>`tests/unit/application/use_cases/test_begin_run.py::test_run_and_stages_share_clock_timestamp`<br>`tests/unit/domain/aggregates/test_audit_event.py::test_audit_event_rejects_naive_timestamp`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_created_at`<br>`tests/unit/domain/aggregates/test_run.py::test_run_rejects_naive_updated_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_rejects_naive_submitted_at`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_advances_between_calls`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_is_instance_of_clock`<br>`tests/unit/infrastructure/time/test_system_clock.py::test_system_clock_returns_timezone_aware_utc` | Implemented |
-| L2-RUN-015 | L3-RUN-026, L3-RUN-027 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_audit_precedes_state_update_on_ready_to_sending`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_recorded_before_run_save`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_recorded_before_state_update`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_first_submission_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_recorded_before_stage_save` | Implemented |
+| L2-RUN-015 | L3-RUN-026, L3-RUN-027 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_audit_precedes_state_update_on_ready_to_sending`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_begin_run.py::test_audit_recorded_before_run_save`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_recorded_before_state_update`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_first_submission_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_recorded_before_stage_save` | Partially Implemented |
 
 ### L1-STAGE: Stage lifecycle and idempotency
 
@@ -79,24 +84,24 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-STAGE-001 | L2-STAGE-001, L2-STAGE-002 | Implemented |
-| L1-STAGE-002 | L2-STAGE-003, L2-STAGE-004, L2-STAGE-005 | Implemented |
-| L1-STAGE-003 | L2-STAGE-006, L2-STAGE-007 | Implemented |
-| L1-STAGE-004 | L2-STAGE-008, L2-STAGE-009 | Implemented |
+| L1-STAGE-001 | L2-STAGE-001, L2-STAGE-002 | Partially Implemented |
+| L1-STAGE-002 | L2-STAGE-003, L2-STAGE-004, L2-STAGE-005 | Partially Implemented |
+| L1-STAGE-003 | L2-STAGE-006, L2-STAGE-007 | Partially Implemented |
+| L1-STAGE-004 | L2-STAGE-008, L2-STAGE-009 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-STAGE-001 | L3-STAGE-001, L3-STAGE-002, L3-STAGE-017 | `tests/unit/domain/state_machines/test_stage_states.py::test_partition_covers_all_states`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_stage_state_is_str_enum`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_stage_state_values_match_names`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_stage_states_reject_further_transitions`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_states_are_accepted_timeout_failed`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_states_have_no_outgoing_transitions` | Implemented |
-| L2-STAGE-002 | L3-STAGE-003, L3-STAGE-004, L3-STAGE-018 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_submission_to_terminal_stage_raises`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_all_state_pairs_respect_transition_table`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_every_active_state_can_transition_to_failed`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_every_active_state_can_transition_to_timeout`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_happy_path_edges_permitted`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_illegal_transition_carries_structured_details`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_has_no_inbound_edges`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_has_no_outbound_edges`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_is_declared_reserved`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_transition_to_in_progress_is_rejected`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_valid_transition_returns_new_state` | Implemented |
-| L2-STAGE-003 | L3-STAGE-005 | `tests/unit/domain/aggregates/test_stage.py::test_stage_constructs_in_pending_without_submission`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_is_frozen` | Implemented |
+| L2-STAGE-001 | L3-STAGE-001, L3-STAGE-002, L3-STAGE-017 | `tests/unit/domain/state_machines/test_stage_states.py::test_partition_covers_all_states`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_stage_state_is_str_enum`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_stage_state_values_match_names`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_stage_states_reject_further_transitions`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_states_are_accepted_timeout_failed`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_terminal_states_have_no_outgoing_transitions` | Partially Implemented |
+| L2-STAGE-002 | L3-STAGE-003, L3-STAGE-004, L3-STAGE-018 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_submission_to_terminal_stage_raises`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_all_state_pairs_respect_transition_table`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_every_active_state_can_transition_to_failed`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_every_active_state_can_transition_to_timeout`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_happy_path_edges_permitted`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_illegal_transition_carries_structured_details`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_has_no_inbound_edges`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_has_no_outbound_edges`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_in_progress_is_declared_reserved`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_transition_to_in_progress_is_rejected`<br>`tests/unit/domain/state_machines/test_stage_states.py::test_valid_transition_returns_new_state` | Partially Implemented |
+| L2-STAGE-003 | L3-STAGE-005 | `tests/unit/domain/aggregates/test_stage.py::test_stage_constructs_in_pending_without_submission`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_is_frozen` | Partially Implemented |
 | L2-STAGE-004 | L3-STAGE-006, L3-STAGE-007 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_retry_overwrites_prior_content`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_second_submission_transitions_submitted_to_retried`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_stage_saved_with_submitted_state_and_content`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_third_submission_stays_in_retried`<br>`tests/unit/domain/aggregates/test_stage.py::test_pending_stage_must_not_have_submitted_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_submission_state_requires_submitted_at`<br>`tests/unit/domain/aggregates/test_stage.py::test_submitted_state_accepts_valid_submitted_at` | Implemented |
-| L2-STAGE-005 | L3-STAGE-008, L3-STAGE-009 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_omitting_email_body_on_retry_clears_it`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_report_and_email_body_contexts_are_independent` | Implemented |
+| L2-STAGE-005 | L3-STAGE-008, L3-STAGE-009 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_omitting_email_body_on_retry_clears_it`<br>`tests/unit/domain/aggregates/test_stage.py::test_stage_report_and_email_body_contexts_are_independent` | Partially Implemented |
 | L2-STAGE-006 | L3-STAGE-010, L3-STAGE-011 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_both_contexts_omitted_stored_as_null`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_empty_report_context_stored_as_empty_json_object`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_first_submission_transitions_pending_to_submitted` | Implemented |
 | L2-STAGE-007 | L3-STAGE-012, L3-STAGE-013 | _(TBD)_ | Draft |
-| L2-STAGE-008 | L3-STAGE-014, L3-STAGE-015 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_unknown_stage_raises_after_run_lookup` | Implemented |
-| L2-STAGE-009 | L3-STAGE-016 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_run_not_found_raises_before_stage_check` | Implemented |
+| L2-STAGE-008 | L3-STAGE-014, L3-STAGE-015 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_unknown_stage_raises_after_run_lookup` | Partially Implemented |
+| L2-STAGE-009 | L3-STAGE-016 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_run_not_found_raises_before_stage_check` | Partially Implemented |
 
 ### L1-TMPL: Template governance and sandboxing
 
@@ -104,30 +109,30 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Implemented |
-| L1-TMPL-002 | L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 | Implemented |
-| L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Implemented |
+| L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Partially Implemented |
+| L1-TMPL-002 | L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 | Partially Implemented |
+| L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Partially Implemented |
 | L1-TMPL-004 | L2-TMPL-010, L2-TMPL-011 | Draft |
-| L1-TMPL-005 | L2-TMPL-012, L2-TMPL-013, L2-TMPL-014 | Implemented |
+| L1-TMPL-005 | L2-TMPL-012, L2-TMPL-013, L2-TMPL-014 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-TMPL-001 | L3-TMPL-001, L3-TMPL-002 | `tests/unit/domain/aggregates/test_template_metadata.py::test_optional_fields_default_to_none`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_rejects_empty_name_or_version`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_metadata.py::test_template_metadata_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_constructs_with_valid_values`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_equality_is_value_based`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_is_frozen`<br>`tests/unit/domain/aggregates/test_template_ref.py::test_template_ref_rejects_empty_fields`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_accepts_all_template_kinds`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_accepts_empty_manifest`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_allows_multiple_versions_of_same_name`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_preserves_absolute_source_path`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_raises_on_malformed_toml`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_raises_when_file_missing`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_reads_minimal_manifest`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_duplicate_name_version`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_missing_required_field`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_unknown_kind`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_unknown_template_key`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_rejects_unknown_top_level_key`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_loader_resolves_relative_source_path`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_repository_exists_returns_false_on_unknown`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_repository_get_raises_on_unknown` | Implemented |
-| L2-TMPL-002 | L3-TMPL-003, L3-TMPL-004 | `tests/unit/domain/aggregates/test_template_metadata.py::test_all_template_kinds_construct` | Implemented |
+| L2-TMPL-002 | L3-TMPL-003, L3-TMPL-004 | `tests/unit/domain/aggregates/test_template_metadata.py::test_all_template_kinds_construct` | Partially Implemented |
 | L2-TMPL-003 | L3-TMPL-005, L3-TMPL-006, L3-TMPL-027 | _(TBD)_ | Draft |
-| L2-TMPL-004 | L3-TMPL-007, L3-TMPL-008 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_template_renderer_exposes_expected_methods` | Implemented |
+| L2-TMPL-004 | L3-TMPL-007, L3-TMPL-008 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_template_renderer_exposes_expected_methods` | Partially Implemented |
 | L2-TMPL-005 | L3-TMPL-009, L3-TMPL-010 | _(TBD)_ | Draft |
 | L2-TMPL-006 | L3-TMPL-011, L3-TMPL-012 | _(TBD)_ | Draft |
-| L2-TMPL-007 | L3-TMPL-013, L3-TMPL-014, L3-TMPL-028 | `tests/unit/infrastructure/templating/test_renderer.py::test_sandbox_has_no_range_global` | Implemented |
-| L2-TMPL-008 | L3-TMPL-015, L3-TMPL-016 | `tests/unit/infrastructure/templating/test_renderer.py::test_allowed_filter_works`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_removed_filter_raises` | Implemented |
-| L2-TMPL-009 | L3-TMPL-017 | `tests/unit/infrastructure/templating/test_renderer.py::test_undefined_variable_raises_template_render_error` | Implemented |
+| L2-TMPL-007 | L3-TMPL-013, L3-TMPL-014, L3-TMPL-028 | `tests/unit/infrastructure/templating/test_renderer.py::test_sandbox_has_no_range_global` | Partially Implemented |
+| L2-TMPL-008 | L3-TMPL-015, L3-TMPL-016 | `tests/unit/infrastructure/templating/test_renderer.py::test_allowed_filter_works`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_removed_filter_raises` | Partially Implemented |
+| L2-TMPL-009 | L3-TMPL-017 | `tests/unit/infrastructure/templating/test_renderer.py::test_undefined_variable_raises_template_render_error` | Partially Implemented |
 | L2-TMPL-010 | L3-TMPL-018, L3-TMPL-019 | _(TBD)_ | Draft |
 | L2-TMPL-011 | L3-TMPL-020 | _(TBD)_ | Draft |
 | L2-TMPL-012 | L3-TMPL-021, L3-TMPL-022 | _(TBD)_ | Draft |
 | L2-TMPL-013 | L3-TMPL-023, L3-TMPL-024 | _(TBD)_ | Draft |
-| L2-TMPL-014 | L3-TMPL-025, L3-TMPL-026 | `tests/unit/infrastructure/templating/test_renderer.py::test_non_json_serializable_context_raises_template_render_error`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_context_raises_before_template_invoked`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_render_raises` | Implemented |
+| L2-TMPL-014 | L3-TMPL-025, L3-TMPL-026 | `tests/unit/infrastructure/templating/test_renderer.py::test_non_json_serializable_context_raises_template_render_error`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_context_raises_before_template_invoked`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_render_raises` | Partially Implemented |
 
 ### L1-AGGR: Aggregation and composition
 
@@ -135,22 +140,22 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-AGGR-001 | L2-AGGR-001, L2-AGGR-002, L2-AGGR-003 | Implemented |
-| L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Implemented |
-| L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Implemented |
+| L1-AGGR-001 | L2-AGGR-001, L2-AGGR-002, L2-AGGR-003 | Partially Implemented |
+| L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Partially Implemented |
+| L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Partially Implemented |
 | L1-AGGR-004 | L2-AGGR-009, L2-AGGR-010 | Draft |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | `tests/unit/interfaces/grpc/test_servicer.py::test_nested_struct_round_trips_into_stage_context` | Implemented |
+| L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | `tests/unit/interfaces/grpc/test_servicer.py::test_nested_struct_round_trips_into_stage_context` | Partially Implemented |
 | L2-AGGR-002 | L3-AGGR-003, L3-AGGR-018 | _(TBD)_ | Draft |
 | L2-AGGR-003 | L3-AGGR-004, L3-AGGR-005 | _(TBD)_ | Draft |
-| L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Implemented |
-| L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_pending_stages_excluded_from_assembly`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_produces_one_attachment_per_non_empty_stage`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_whitespace_only_excluded_as_empty`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_with_all_empty_produces_zero_attachments` | Implemented |
+| L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Partially Implemented |
+| L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_pending_stages_excluded_from_assembly`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_produces_one_attachment_per_non_empty_stage`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_whitespace_only_excluded_as_empty`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_with_all_empty_produces_zero_attachments` | Partially Implemented |
 | L2-AGGR-006 | L3-AGGR-010, L3-AGGR-011 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_caps_at_255_bytes`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_per_stage_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_sanitizes_both_components`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_single_aggregated_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sanitize_filename_replaces_disallowed_chars_with_underscore` | Implemented |
-| L2-AGGR-007 | L3-AGGR-012 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
+| L2-AGGR-007 | L3-AGGR-012 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Partially Implemented |
 | L2-AGGR-008 | L3-AGGR-013, L3-AGGR-014 | _(TBD)_ | Draft |
 | L2-AGGR-009 | L3-AGGR-015 | _(TBD)_ | Draft |
 | L2-AGGR-010 | L3-AGGR-016 | _(TBD)_ | Draft |
@@ -161,9 +166,9 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-SWEEP-001 | L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-003 | Implemented |
-| L1-SWEEP-002 | L2-SWEEP-004, L2-SWEEP-005, L2-SWEEP-006 | Implemented |
-| L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009 | Implemented |
+| L1-SWEEP-001 | L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-003 | Partially Implemented |
+| L1-SWEEP-002 | L2-SWEEP-004, L2-SWEEP-005, L2-SWEEP-006 | Partially Implemented |
+| L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -171,12 +176,12 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 |-------|-------------|----------------|--------|
 | L2-SWEEP-001 | L3-SWEEP-001, L3-SWEEP-002, L3-SWEEP-018 | _(TBD)_ | Draft |
 | L2-SWEEP-002 | L3-SWEEP-003, L3-SWEEP-017 | _(TBD)_ | Draft |
-| L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_counter_exists_in_default_registry`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Implemented |
-| L2-SWEEP-004 | L3-SWEEP-006 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_returns_runs_older_than_cutoff_in_active_states`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_uses_updated_at_not_created_at` | Implemented |
+| L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_counter_exists_in_default_registry`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Partially Implemented |
+| L2-SWEEP-004 | L3-SWEEP-006 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_returns_runs_older_than_cutoff_in_active_states`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_uses_updated_at_not_created_at` | Partially Implemented |
 | L2-SWEEP-005 | L3-SWEEP-007, L3-SWEEP-008 | _(TBD)_ | Draft |
-| L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/integration/test_sweeper_pipeline.py::test_dispatcher_drains_enqueued_actions`<br>`tests/integration/test_sweeper_pipeline.py::test_pending_rows_survive_process_restart`<br>`tests/integration/test_sweeper_pipeline.py::test_sweep_orphan_audit_event_recorded`<br>`tests/unit/application/use_cases/test_sweeper.py::test_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper.py::test_failed_enqueue_rolls_back_orphan_transition`<br>`tests/unit/application/use_cases/test_sweeper.py::test_handlers_are_not_invoked_in_tick`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_invokes_handler_and_stamps_completed`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_check_constraints_block_invalid_writes`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_pending_index_is_partial`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_schema_shape`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_claim_pending_respects_limit`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_claim_pending_returns_oldest_first`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_enqueue_inserts_pending_row`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_mark_completed_stamps_completed_at`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_mark_failed_bumps_attempts_and_records_error`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_dispatcher_failure_does_not_crash_loop`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_each_tick_drives_sweeper_then_dispatcher`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_failure_still_drains_dispatcher` | Implemented |
-| L2-SWEEP-007 | L3-SWEEP-011, L3-SWEEP-012 | `tests/conformance/test_sweeper_handler_registration.py::test_schema_default_actions_are_all_registered`<br>`tests/unit/application/use_cases/test_sweeper.py::test_empty_disposition_actions_still_transitions_to_orphaned`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_empty_list`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_multiple_actions`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_rejects_unknown_action` | Implemented |
-| L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014 | `tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_empty_outbox_returns_zero_counts`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_handler_failure_is_swallowed_and_recorded`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_one_handler_failure_does_not_block_siblings` | Implemented |
+| L2-SWEEP-006 | L3-SWEEP-009, L3-SWEEP-010 | `tests/integration/test_sweeper_pipeline.py::test_dispatcher_drains_enqueued_actions`<br>`tests/integration/test_sweeper_pipeline.py::test_pending_rows_survive_process_restart`<br>`tests/integration/test_sweeper_pipeline.py::test_sweep_orphan_audit_event_recorded`<br>`tests/unit/application/use_cases/test_sweeper.py::test_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper.py::test_failed_enqueue_rolls_back_orphan_transition`<br>`tests/unit/application/use_cases/test_sweeper.py::test_handlers_are_not_invoked_in_tick`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event`<br>`tests/unit/application/use_cases/test_sweeper.py::test_tick_transitions_expired_run_to_orphaned`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_invokes_handler_and_stamps_completed`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_check_constraints_block_invalid_writes`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_pending_index_is_partial`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_sweeper_actions_schema_shape`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_claim_pending_respects_limit`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_claim_pending_returns_oldest_first`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_enqueue_inserts_pending_row`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_mark_completed_stamps_completed_at`<br>`tests/unit/infrastructure/persistence/test_sweeper_action_repository.py::test_mark_failed_bumps_attempts_and_records_error`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_dispatcher_failure_does_not_crash_loop`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_each_tick_drives_sweeper_then_dispatcher`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_failure_still_drains_dispatcher` | Partially Implemented |
+| L2-SWEEP-007 | L3-SWEEP-011, L3-SWEEP-012 | `tests/conformance/test_sweeper_handler_registration.py::test_schema_default_actions_are_all_registered`<br>`tests/unit/application/use_cases/test_sweeper.py::test_empty_disposition_actions_still_transitions_to_orphaned`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_empty_list`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_accepts_multiple_actions`<br>`tests/unit/config/test_schema.py::test_sweeper_disposition_rejects_unknown_action` | Partially Implemented |
+| L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014 | `tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_empty_outbox_returns_zero_counts`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_handler_failure_is_swallowed_and_recorded`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_one_handler_failure_does_not_block_siblings` | Partially Implemented |
 | L2-SWEEP-009 | L3-SWEEP-015 | `tests/integration/test_sweeper_pipeline.py::test_disposition_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_invokes_handlers_in_enqueue_order` | Implemented |
 
 ### L1-SUB: Subscriptions and tags
@@ -185,17 +190,17 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Implemented |
+| L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Partially Implemented |
 | L1-SUB-002 | L2-SUB-004, L2-SUB-005 | Draft |
-| L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Implemented |
-| L1-SUB-004 | L2-SUB-009, L2-SUB-010 | Implemented |
+| L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Partially Implemented |
+| L1-SUB-004 | L2-SUB-009, L2-SUB-010 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | `tests/unit/domain/aggregates/test_subscription.py::test_rejects_naive_created_at`<br>`tests/unit/infrastructure/persistence/test_subscription_repository.py::test_duplicate_global_subscription_rejected`<br>`tests/unit/infrastructure/persistence/test_subscription_repository.py::test_duplicate_pipeline_subscription_rejected` | Implemented |
-| L2-SUB-002 | L3-SUB-003, L3-SUB-004 | `tests/unit/domain/aggregates/test_subscription.py::test_global_rejects_non_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_subscription_constructs_with_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_empty_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_pipeline_subscription_requires_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_subscription_is_frozen`<br>`tests/unit/domain/aggregates/test_subscription.py::test_tag_subscription_requires_target`<br>`tests/unit/infrastructure/persistence/test_subscription_repository.py::test_add_global_subscription_persists` | Implemented |
+| L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | `tests/unit/domain/aggregates/test_subscription.py::test_rejects_naive_created_at`<br>`tests/unit/infrastructure/persistence/test_subscription_repository.py::test_duplicate_global_subscription_rejected`<br>`tests/unit/infrastructure/persistence/test_subscription_repository.py::test_duplicate_pipeline_subscription_rejected` | Partially Implemented |
+| L2-SUB-002 | L3-SUB-003, L3-SUB-004 | `tests/unit/domain/aggregates/test_subscription.py::test_global_rejects_non_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_subscription_constructs_with_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_empty_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_pipeline_subscription_requires_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_subscription_is_frozen`<br>`tests/unit/domain/aggregates/test_subscription.py::test_tag_subscription_requires_target`<br>`tests/unit/infrastructure/persistence/test_subscription_repository.py::test_add_global_subscription_persists` | Partially Implemented |
 | L2-SUB-003 | L3-SUB-005, L3-SUB-006, L3-SUB-020 | _(TBD)_ | Draft |
 | L2-SUB-004 | L3-SUB-007 | _(TBD)_ | Draft |
 | L2-SUB-005 | L3-SUB-008 | _(TBD)_ | Draft |
@@ -203,7 +208,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-SUB-007 | L3-SUB-011, L3-SUB-012 | _(TBD)_ | Draft |
 | L2-SUB-008 | L3-SUB-013, L3-SUB-014 | _(TBD)_ | Draft |
 | L2-SUB-009 | L3-SUB-015, L3-SUB-016 | _(TBD)_ | Draft |
-| L2-SUB-010 | L3-SUB-017, L3-SUB-018 | `tests/unit/infrastructure/persistence/test_subscription_repository.py::test_disabled_user_excluded_from_recipients` | Implemented |
+| L2-SUB-010 | L3-SUB-017, L3-SUB-018 | `tests/unit/infrastructure/persistence/test_subscription_repository.py::test_disabled_user_excluded_from_recipients` | Partially Implemented |
 
 ### L1-AUTH: Authentication
 
@@ -231,28 +236,28 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Implemented |
-| L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Implemented |
-| L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Implemented |
+| L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Partially Implemented |
+| L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Partially Implemented |
+| L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Partially Implemented |
 | L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
-| L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Implemented |
+| L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-MAIL-001 | L3-MAIL-001, L3-MAIL-020 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_each_send_constructs_a_new_smtp_client` | Implemented |
-| L2-MAIL-002 | L3-MAIL-002, L3-MAIL-003, L3-MAIL-022 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_starttls_skipped_when_disabled` | Implemented |
-| L2-MAIL-003 | L3-MAIL-004 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_empty_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_subject`<br>`tests/unit/config/test_schema.py::test_invalid_admin_recipient_rejected`<br>`tests/unit/config/test_schema.py::test_invalid_from_address_rejected` | Implemented |
+| L2-MAIL-001 | L3-MAIL-001, L3-MAIL-020 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_each_send_constructs_a_new_smtp_client` | Partially Implemented |
+| L2-MAIL-002 | L3-MAIL-002, L3-MAIL-003, L3-MAIL-022 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_starttls_skipped_when_disabled` | Partially Implemented |
+| L2-MAIL-003 | L3-MAIL-004 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_empty_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_from_address`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_rejects_newlines_in_subject`<br>`tests/unit/config/test_schema.py::test_invalid_admin_recipient_rejected`<br>`tests/unit/config/test_schema.py::test_invalid_from_address_rejected` | Partially Implemented |
 | L2-MAIL-004 | L3-MAIL-005, L3-MAIL-006 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_421_treated_as_permanent_no_retry`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_4xx_response_codes`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_connect_timeout_is_transient`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_gaierror_is_transient`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_smtp_server_disconnected_is_transient`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_dns_failure_is_transient` | Implemented |
-| L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_constructs_with_valid_values`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_is_frozen`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_rejects_empty_fields`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_with_attachments`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_5xx_is_permanent`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_authentication_error_is_permanent`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_permanent_failure_does_not_retry` | Implemented |
-| L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_capped_at_max_interval`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_schedule_follows_exponential_formula`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_exhausts_retries`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_retries_then_succeeds` | Implemented |
+| L2-MAIL-005 | L3-MAIL-007, L3-MAIL-008, L3-MAIL-023 | `tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_constructs_with_valid_values`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_is_frozen`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_email_attachment_rejects_empty_fields`<br>`tests/unit/application/ports/contracts/test_mailer_value_objects.py::test_outbound_email_with_attachments`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_5xx_is_permanent`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_classify_authentication_error_is_permanent`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_permanent_failure_does_not_retry` | Partially Implemented |
+| L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_capped_at_max_interval`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_schedule_follows_exponential_formula`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_exhausts_retries`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_retries_then_succeeds` | Partially Implemented |
 | L2-MAIL-007 | L3-MAIL-012, L3-MAIL-021 | _(TBD)_ | Draft |
-| L2-MAIL-008 | L3-MAIL-013 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_oversize_email_raises_before_smtp_traffic` | Implemented |
+| L2-MAIL-008 | L3-MAIL-013 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_oversize_email_raises_before_smtp_traffic` | Partially Implemented |
 | L2-MAIL-009 | L3-MAIL-014 | _(TBD)_ | Draft |
 | L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016 | _(TBD)_ | Draft |
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
-| L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Implemented |
+| L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Partially Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | _(TBD)_ | Draft |
 
 ### L1-DASH: Dashboard
@@ -288,17 +293,17 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-PERS-001 | L2-PERS-001, L2-PERS-002, L2-PERS-003, L2-PERS-004 | Implemented |
+| L1-PERS-001 | L2-PERS-001, L2-PERS-002, L2-PERS-003, L2-PERS-004 | Partially Implemented |
 | L1-PERS-002 | L2-PERS-005, L2-PERS-006, L2-PERS-007 | Draft |
-| L1-PERS-003 | L2-PERS-008, L2-PERS-009, L2-PERS-010 | Implemented |
+| L1-PERS-003 | L2-PERS-008, L2-PERS-009, L2-PERS-010 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-PERS-001 | L3-PERS-001, L3-PERS-018 | `tests/unit/infrastructure/persistence/test_connection.py::test_creates_missing_parent_directory`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_existing_parent_is_not_disturbed` | Implemented |
-| L2-PERS-002 | L3-PERS-002, L3-PERS-003, L3-PERS-019 | `tests/unit/infrastructure/persistence/test_connection.py::test_busy_timeout_is_5000_ms`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_foreign_keys_enabled`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_synchronous_is_normal`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_wal_journal_mode_set_on_disk_db`<br>`tests/unit/infrastructure/persistence/test_unit_of_work.py::test_foreign_key_violation_triggers_rollback` | Implemented |
-| L2-PERS-003 | L3-PERS-004, L3-PERS-005, L3-PERS-020 | `tests/unit/infrastructure/persistence/test_migration_runner.py::test_gap_in_version_sequence_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_migrations_table_records_version_name_timestamp`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_missing_three_digit_prefix_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_non_conforming_filename_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_non_sequential_starting_version_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_packaged_migrations_create_expected_tables`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_reapply_is_noop` | Implemented |
+| L2-PERS-001 | L3-PERS-001, L3-PERS-018 | `tests/unit/infrastructure/persistence/test_connection.py::test_creates_missing_parent_directory`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_existing_parent_is_not_disturbed` | Partially Implemented |
+| L2-PERS-002 | L3-PERS-002, L3-PERS-003, L3-PERS-019 | `tests/unit/infrastructure/persistence/test_connection.py::test_busy_timeout_is_5000_ms`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_foreign_keys_enabled`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_synchronous_is_normal`<br>`tests/unit/infrastructure/persistence/test_connection.py::test_wal_journal_mode_set_on_disk_db`<br>`tests/unit/infrastructure/persistence/test_unit_of_work.py::test_foreign_key_violation_triggers_rollback` | Partially Implemented |
+| L2-PERS-003 | L3-PERS-004, L3-PERS-005, L3-PERS-020 | `tests/unit/infrastructure/persistence/test_migration_runner.py::test_gap_in_version_sequence_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_migrations_table_records_version_name_timestamp`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_missing_three_digit_prefix_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_non_conforming_filename_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_non_sequential_starting_version_fails`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_packaged_migrations_create_expected_tables`<br>`tests/unit/infrastructure/persistence/test_migration_runner.py::test_reapply_is_noop` | Partially Implemented |
 | L2-PERS-004 | L3-PERS-006, L3-PERS-007, L3-PERS-021 | _(TBD)_ | Draft |
 | L2-PERS-005 | L3-PERS-008, L3-PERS-009, L3-PERS-022 | _(TBD)_ | Draft |
 | L2-PERS-006 | L3-PERS-010, L3-PERS-011 | _(TBD)_ | Draft |
@@ -313,17 +318,17 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Implemented |
+| L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Partially Implemented |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Draft |
-| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009 | Draft |
-| L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Implemented |
+| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009 | Partially Implemented |
+| L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-OBS-001 | L3-OBS-001, L3-OBS-002, L3-OBS-018 | _(TBD)_ | Draft |
-| L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events`<br>`tests/unit/infrastructure/persistence/test_audit_log.py::test_record_persists_event` | Implemented |
+| L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events`<br>`tests/unit/infrastructure/persistence/test_audit_log.py::test_record_persists_event` | Partially Implemented |
 | L2-OBS-003 | L3-OBS-005, L3-OBS-006 | _(TBD)_ | Draft |
 | L2-OBS-004 | L3-OBS-007 | _(TBD)_ | Draft |
 | L2-OBS-005 | L3-OBS-008 | _(TBD)_ | Draft |
@@ -332,7 +337,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016 | _(TBD)_ | Draft |
 | L2-OBS-009 | L3-OBS-017 | _(TBD)_ | Draft |
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | _(TBD)_ | Draft |
-| L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Implemented |
+| L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Partially Implemented |
 | L2-OBS-012 | L3-OBS-023, L3-OBS-024 | _(TBD)_ | Draft |
 
 ### L1-ERR: Error handling and exception taxonomy
@@ -367,8 +372,8 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-CFG-001 | L2-CFG-001, L2-CFG-002, L2-CFG-003 | Implemented |
-| L1-CFG-002 | L2-CFG-004, L2-CFG-005, L2-CFG-006 | Implemented |
+| L1-CFG-001 | L2-CFG-001, L2-CFG-002, L2-CFG-003 | Partially Implemented |
+| L1-CFG-002 | L2-CFG-004, L2-CFG-005, L2-CFG-006 | Partially Implemented |
 | L1-CFG-003 | L2-CFG-007, L2-CFG-008 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -376,10 +381,10 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-CFG-001 | L3-CFG-001, L3-CFG-002 | _(TBD)_ | Draft |
-| L2-CFG-002 | L3-CFG-003, L3-CFG-016 | `tests/unit/config/test_schema.py::test_config_is_frozen`<br>`tests/unit/config/test_schema.py::test_nested_config_is_frozen` | Implemented |
+| L2-CFG-002 | L3-CFG-003, L3-CFG-016 | `tests/unit/config/test_schema.py::test_config_is_frozen`<br>`tests/unit/config/test_schema.py::test_nested_config_is_frozen` | Partially Implemented |
 | L2-CFG-003 | L3-CFG-004, L3-CFG-015 | `tests/unit/config/test_loader.py::test_directory_instead_of_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_invalid_toml_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_load_config_accepts_string_path`<br>`tests/unit/config/test_loader.py::test_missing_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_non_utf8_file_raises_configuration_error` | Implemented |
 | L2-CFG-004 | L3-CFG-005, L3-CFG-006 | `tests/unit/config/test_loader.py::test_load_config_returns_frozen_config`<br>`tests/unit/config/test_loader.py::test_unknown_section_rejected_with_extra_forbid`<br>`tests/unit/config/test_schema.py::test_config_model_has_all_declared_sections`<br>`tests/unit/config/test_schema.py::test_grpc_port_out_of_range_rejected`<br>`tests/unit/config/test_schema.py::test_grpc_port_within_range_accepted`<br>`tests/unit/config/test_schema.py::test_optional_sections_fill_from_defaults`<br>`tests/unit/config/test_schema.py::test_unknown_nested_key_is_rejected`<br>`tests/unit/config/test_schema.py::test_unknown_top_level_key_is_rejected` | Implemented |
-| L2-CFG-005 | L3-CFG-007, L3-CFG-008 | `tests/unit/config/test_loader.py::test_format_validation_errors_numbering_starts_at_one`<br>`tests/unit/config/test_loader.py::test_format_validation_errors_produces_numbered_lines`<br>`tests/unit/config/test_loader.py::test_schema_violation_raises_validation_error` | Implemented |
+| L2-CFG-005 | L3-CFG-007, L3-CFG-008 | `tests/unit/config/test_loader.py::test_format_validation_errors_numbering_starts_at_one`<br>`tests/unit/config/test_loader.py::test_format_validation_errors_produces_numbered_lines`<br>`tests/unit/config/test_loader.py::test_schema_violation_raises_validation_error` | Partially Implemented |
 | L2-CFG-006 | L3-CFG-009 | _(TBD)_ | Draft |
 | L2-CFG-007 | L3-CFG-010, L3-CFG-011 | `tests/unit/config/test_loader.py::test_absolute_paths_pass_through`<br>`tests/unit/config/test_loader.py::test_all_four_path_fields_are_resolved`<br>`tests/unit/config/test_loader.py::test_relative_paths_resolved_against_config_dir` | Implemented |
 | L2-CFG-008 | L3-CFG-012, L3-CFG-013, L3-CFG-014 | `tests/unit/config/test_loader.py::test_env_var_substitution_in_substitutable_field`<br>`tests/unit/config/test_loader.py::test_env_var_substitution_multiple_vars_in_one_value`<br>`tests/unit/config/test_loader.py::test_missing_env_var_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_substitution_does_not_apply_to_non_substitutable_field`<br>`tests/unit/config/test_schema.py::test_non_substitutable_fields_do_not_carry_marker`<br>`tests/unit/config/test_schema.py::test_substitutable_marker_is_on_smtp_credentials` | Implemented |
@@ -390,8 +395,8 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-DEP-001 | L2-DEP-001, L2-DEP-002, L2-DEP-003 | Draft |
-| L1-DEP-002 | L2-DEP-004, L2-DEP-005, L2-DEP-006 | Implemented |
+| L1-DEP-001 | L2-DEP-001, L2-DEP-002, L2-DEP-003 | Partially Implemented |
+| L1-DEP-002 | L2-DEP-004, L2-DEP-005, L2-DEP-006 | Partially Implemented |
 | L1-DEP-003 | L2-DEP-007, L2-DEP-008, L2-DEP-009 | Draft |
 
 **L2 → L3 → Verification Artifacts**
@@ -403,7 +408,7 @@ Forward trace from L1 through L2 and L3 to verification artifacts. This file is 
 | L2-DEP-003 | L3-DEP-005, L3-DEP-018 | _(TBD)_ | Draft |
 | L2-DEP-004 | L3-DEP-006, L3-DEP-007 | _(TBD)_ | Draft |
 | L2-DEP-005 | L3-DEP-008, L3-DEP-009 | _(TBD)_ | Draft |
-| L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012 | `tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg` | Implemented |
+| L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012 | `tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg` | Partially Implemented |
 | L2-DEP-007 | L3-DEP-013 | _(TBD)_ | Draft |
 | L2-DEP-008 | L3-DEP-014 | _(TBD)_ | Draft |
 | L2-DEP-009 | L3-DEP-015, L3-DEP-016 | _(TBD)_ | Draft |

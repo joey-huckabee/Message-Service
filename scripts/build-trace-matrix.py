@@ -12,18 +12,26 @@ The output per requirement row includes:
 
 * L2/L3 children (from parent fields)
 * Test artifacts (from pytest markers) in pytest discovery format
-* Status rolled up: "Verified" if every required verification method has an
-  artifact, otherwise "Implemented" if at least one test marker exists,
-  otherwise "Draft".
+* Status rolled up by :func:`compute_status` per the rule:
+
+  - **Implemented** — every child is Implemented (or, for a leaf, the
+    requirement has at least one direct verification artifact)
+  - **Partially Implemented** — some children done, some not (or all
+    children Draft but the parent itself has direct artifacts)
+  - **Draft** — no verification artifact anywhere in the subtree
+  - **Verified** — *(future)* every required Verification Method has an
+    artifact
+
+Status and verification-artifact fields used to live in the L1/L2/L3
+source docs. Increment 25a removed them so this script is the sole
+authority — the source docs hold pure spec content, this matrix holds
+live status.
 
 Run from the project root:
 
     poetry run python scripts/build-trace-matrix.py
 
 Or via pre-commit / CI. The output overwrites ``docs/TRACE-MATRIX.md``.
-Any hand-written sections at the top of the file (Purpose, Conventions)
-are preserved between the markers ``<!-- trace:begin -->`` and
-``<!-- trace:end -->``.
 """
 
 from __future__ import annotations
@@ -187,9 +195,24 @@ def build_matrix() -> str:
     lines.append("")
     lines.append("## Status rollup")
     lines.append("")
-    lines.append("* **Draft** — no verification artifact yet")
-    lines.append("* **Implemented** — at least one test marker linked")
-    lines.append("* **Verified** — [future] all required methods covered")
+    lines.append("Status is computed by `scripts/build-trace-matrix.py`'s rollup rule.")
+    lines.append("Source-doc `Status:` fields were removed in Increment 25a; this matrix is")
+    lines.append("the single source of truth.")
+    lines.append("")
+    lines.append("* **Draft** — no verification artifact anywhere in the subtree.")
+    lines.append(
+        "* **Partially Implemented** — at least one child has artifacts but"
+        " not all are Implemented; or the row itself has direct artifacts but"
+        " its children include Drafts."
+    )
+    lines.append(
+        "* **Implemented** — every child rolls up to Implemented (or, for a"
+        " leaf, the row has at least one direct verification artifact)."
+    )
+    lines.append(
+        "* **Verified** — *(future)* every required Verification Method"
+        " category has at least one corresponding artifact."
+    )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -210,7 +233,11 @@ def build_matrix() -> str:
         for l1_id in cat_l1s:
             children = l1_to_l2.get(l1_id, [])
             children_str = ", ".join(children) if children else "_(none)_"
-            status = _rollup_l1_status(l1_id, l1_to_l2, l2_to_l3, test_markers)
+            child_statuses = [_l2_status(l2_id, l2_to_l3, test_markers) for l2_id in children]
+            status = compute_status(
+                has_direct_artifacts=bool(test_markers.get(l1_id)),
+                children_statuses=child_statuses,
+            )
             lines.append(f"| {l1_id} | {children_str} | {status} |")
         lines.append("")
 
@@ -227,7 +254,7 @@ def build_matrix() -> str:
         for l2_id in cat_l2s:
             l3_children = l2_to_l3.get(l2_id, [])
             # Aggregate test artifacts across all L3 children AND any markers
-            # pointing directly at the L2 id.
+            # pointing directly at the L2 id, for the visible artifacts column.
             artifacts: list[str] = list(test_markers.get(l2_id, []))
             for l3_id in l3_children:
                 artifacts.extend(test_markers.get(l3_id, []))
@@ -235,7 +262,7 @@ def build_matrix() -> str:
 
             children_str = ", ".join(l3_children) if l3_children else "_(none)_"
             artifacts_str = "<br>".join(f"`{a}`" for a in artifacts) if artifacts else "_(TBD)_"
-            status = "Implemented" if artifacts else "Draft"
+            status = _l2_status(l2_id, l2_to_l3, test_markers)
             lines.append(f"| {l2_id} | {children_str} | {artifacts_str} | {status} |")
         lines.append("")
 
@@ -317,19 +344,73 @@ def _sort_key(req_id: str) -> tuple[str, int]:
     return (m.group("cat"), int(m.group("num")))
 
 
-def _rollup_l1_status(
-    l1_id: str,
-    l1_to_l2: dict[str, list[str]],
+def compute_status(
+    *,
+    has_direct_artifacts: bool,
+    children_statuses: list[str],
+) -> str:
+    """Roll up status for one requirement node (single source of truth).
+
+    Used for both L1 (children = L2 statuses) and L2 (children = L3
+    statuses) rows in the trace matrix. Leaf-level rows (L3 here, since
+    we don't model individual verification methods yet) are computed
+    by passing ``children_statuses=[]`` and the leaf's direct artifacts.
+
+    Args:
+        has_direct_artifacts: True if at least one test marker points
+            directly at this requirement id.
+        children_statuses: List of child requirement statuses, each one
+            of ``{"Implemented", "Partially Implemented", "Draft"}``.
+            Pass ``[]`` for leaf nodes.
+
+    Returns:
+        One of ``"Implemented"``, ``"Partially Implemented"``, or
+        ``"Draft"``.
+
+    Rules:
+
+    * **Leaf** (no children): ``Implemented`` iff direct artifacts exist;
+      otherwise ``Draft``.
+    * **Parent**:
+
+      - All children ``Implemented`` → ``Implemented``.
+      - All children ``Draft`` AND no direct artifacts → ``Draft``.
+      - Otherwise (mix of statuses, or all-Draft with direct
+        artifacts, or any ``Partially Implemented`` child) →
+        ``Partially Implemented``.
+    """
+    if not children_statuses:
+        return "Implemented" if has_direct_artifacts else "Draft"
+
+    n = len(children_statuses)
+    impl_count = sum(1 for s in children_statuses if s == "Implemented")
+    draft_count = sum(1 for s in children_statuses if s == "Draft")
+
+    if impl_count == n:
+        return "Implemented"
+    if draft_count == n and not has_direct_artifacts:
+        return "Draft"
+    return "Partially Implemented"
+
+
+def _l2_status(
+    l2_id: str,
     l2_to_l3: dict[str, list[str]],
     test_markers: dict[str, list[str]],
 ) -> str:
-    for l2_id in l1_to_l2.get(l1_id, []):
-        if test_markers.get(l2_id):
-            return "Implemented"
-        for l3_id in l2_to_l3.get(l2_id, []):
-            if test_markers.get(l3_id):
-                return "Implemented"
-    return "Draft"
+    """Compute one L2's status by rolling up its L3 children + direct markers."""
+    l3_children = l2_to_l3.get(l2_id, [])
+    child_statuses = [
+        compute_status(
+            has_direct_artifacts=bool(test_markers.get(l3_id)),
+            children_statuses=[],
+        )
+        for l3_id in l3_children
+    ]
+    return compute_status(
+        has_direct_artifacts=bool(test_markers.get(l2_id)),
+        children_statuses=child_statuses,
+    )
 
 
 def main() -> int:

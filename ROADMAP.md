@@ -9,11 +9,30 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **13b — SweeperLoop + bootstrap wiring** (commit `7ad1f9a`). The list below is keyed off the still-Draft rows in `docs/TRACE-MATRIX.md` and the empty source/test directories under `src/message_service/interfaces/rest/`, `tests/e2e/`, and `docs/adr/`.
+Last full increment merged: **16 — local-account auth adapter (Argon2 + sessions)** (commit `7ede66c`).
+
+### Status snapshot (as of 2026-04-25)
+
+Done:
+
+- **Cluster 14 (sweeper hardening)** — 14a `04a88dc`, 14b.1 `460d127`, 14b.2 `7c33c87`, 14b.3 `3b48d38`, 14b.4 `5456f2e`, 14c.1 `9b28e2b`, 14c.2 `3fd0673`, 14d `4b24818`, 14e `fb54f98`, 14f `1cdfc3d`. 14g superseded by 25a; 14c.3 obviated by 14b's post-transition fetch.
+- **Cluster 25 (requirements spec cleanup)** — 25a `1f26f2f`, 25b `eb5f537`, 25c `c5b9854`, 25d `3f45426`, 25e `d67539a`.
+- **Cluster 26 (CI/CD requirements + workflows)** — 26a `220c1d5`, 26b `c22ebc9`, 26c `f99f795`, 26d `aa6550c`.
+- **Increment 15** — Prometheus metrics adapter (`fe5c3a4`).
+- **Increment 16** — Local-account auth adapter, Argon2 + sessions (`7ede66c`).
+
+Still open:
+
+- **14h** — Unit-test I/O guard (the `_forbid_io` fixture at `tests/unit/conftest.py:47` is still a no-op; the test-relocation half is the bulk of the work).
+- **Increments 17–24** — FastAPI chassis through documentation deliverables. See sections below; sequencing refreshed at the bottom.
+
+The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
 Re-order freely. Each item names the requirement category it closes so trace-matrix impact is visible.
 
-### Increment 14a — Default sweeper config aligned with implemented handlers  *(team-flagged, top priority — small)*
+The completed-increment sections (14a–f, 25a–e, 26a–d) are retained below as historical record. They describe the rationale for each landed change; future readers may find them useful as ADR-adjacent context.
+
+### Increment 14a — Default sweeper config aligned with implemented handlers  *(✅ done — commit `04a88dc`)*
 
 **Problem**
 
@@ -42,7 +61,7 @@ A service started with the default config hits `NotImplementedError` on every or
 
 When `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS` are actually implemented (Part 2 may eventually demand them), reverse step 2 and update the conformance test.
 
-### Increment 14b — Sweeper exactly-once: atomic transition + outbox table  *(team-flagged, top priority)*
+### Increment 14b — Sweeper exactly-once: atomic transition + outbox table  *(✅ done — commits `460d127`, `7c33c87`, `3b48d38`, `5456f2e`)*
 
 Closes the real gap behind **L2-SWEEP-006**, which is currently mis-rolled-up as Implemented in `docs/TRACE-MATRIX.md:177` even though its L3 children (`L3-SWEEP-009`, `L3-SWEEP-010`) are still Draft.
 
@@ -69,7 +88,7 @@ Closes the real gap behind **L2-SWEEP-006**, which is currently mis-rolled-up as
 
 The current entry for L2-SWEEP-006 should be downgraded to Draft until this increment lands, so the matrix doesn't claim a guarantee the code doesn't deliver. `scripts/build-trace-matrix.py` regenerates the file; the misclassification is upstream of that — likely a marker on a sweeper test that needs removing or retargeting. Audit the markers under `tests/integration/test_sweeper_pipeline.py` and `tests/unit/.../sweeper*` for `@pytest.mark.requirement("L2-SWEEP-006")` claims that don't actually verify atomicity.
 
-### Increment 14c — Sweeper conformance fixes  *(team-flagged, medium — three small items)*
+### Increment 14c — Sweeper conformance fixes  *(✅ 14c.1 `9b28e2b`, 14c.2 `3fd0673`; 14c.3 obviated by 14b's post-transition fetch)*
 
 Three smaller deviations from the SWEEP requirements that don't fit inside 14a or 14b but should land before the sweeper category is declared done.
 
@@ -98,7 +117,7 @@ L3-SWEEP-004 (`docs/L3-REQ.md:416`) mandates `message_service_sweeper_iterations
 
 **Sequencing note vs. 14b**: 14b moves dispatch out of the tick path entirely (handlers run from the `sweeper_actions` outbox dispatcher, not in-process after commit). When 14b lands, the dispatcher will fetch the run fresh anyway, so 14c.3 becomes redundant in that path. If 14b is going to ship soon, skip 14c.3 and let 14b handle it. If 14b is more than a sprint out, do 14c.3 now — it's a small, contained fix and the latent bug is real. 14c.1 and 14c.2 stand independent of 14b.
 
-### Increment 14d — Stuck-claim recovery for the sweeper outbox  *(follow-up from 14b.3)*
+### Increment 14d — Stuck-claim recovery for the sweeper outbox  *(✅ done — commit `4b24818`)*
 
 **Problem**
 
@@ -122,7 +141,7 @@ The crash semantics noted in `application/use_cases/sweeper_action_dispatcher.py
 
 No new L1/L2/L3 statements yet — this is a quality refinement under the existing L2-SWEEP-006 / L3-SWEEP-013 umbrella. Consider whether to author an L3 statement pinning the stale-claim semantics so the contract is reviewable.
 
-### Increment 14e — Wire `max_candidates_per_iteration` + L2-SWEEP-005 tests  *(team-flagged High; follow-up from 14b)*
+### Increment 14e — Wire `max_candidates_per_iteration` + L2-SWEEP-005 tests  *(✅ done — commit `fb54f98`)*
 
 **Problem (correctness, not just traceability)**
 
@@ -147,7 +166,7 @@ The L2 parent (`L2-SWEEP-005`) is still rolled up as **Draft** in the trace matr
 
 **Trace impact**: L3-SWEEP-007 + L3-SWEEP-008 Draft → Implemented; L2-SWEEP-005 rolls up to Implemented; L1-SWEEP-002 rollup becomes consistent (see 14g for the broader rollup fix); L1-CFG-003 enumeration grows by one entry.
 
-### Increment 14f — Sweeper boundary alignment: L1↔L3↔SQL all inclusive  *(team-flagged High)*
+### Increment 14f — Sweeper boundary alignment: L1↔L3↔SQL all inclusive  *(✅ done — commit `1cdfc3d`)*
 
 **Problem**
 
@@ -171,7 +190,7 @@ Pick one convention and propagate it through every layer. Recommendation: **incl
 
 **Sequencing**: small SQL change + L1 wording fix + two new tests. Land as a single commit.
 
-### Increment 14g — Trace-matrix rollup correctness  *(team-flagged Medium)*
+### Increment 14g — Trace-matrix rollup correctness  *(superseded by 25a `1f26f2f`)*
 
 **Problem**
 
@@ -188,7 +207,7 @@ Pick one convention and propagate it through every layer. Recommendation: **incl
 
 **Sequencing**: best to land 14g *after* 14e and 14f so the post-rollup state isn't a confusing flood of regressions in one PR.
 
-### Increment 14h — Implement the unit-test I/O guard  *(team-flagged Medium)*
+### Increment 14h — Implement the unit-test I/O guard  *(team-flagged Medium — still open)*
 
 **Problem**
 
@@ -213,7 +232,7 @@ Pick one convention and propagate it through every layer. Recommendation: **incl
 
 Born from two reviews (mine + the team's) of L1/L2/L3 source docs vs. the implemented code and the trace matrix. These are mostly docs-only edits, but several cross over into small code changes (added L1/L2 statements, added or reworded L3 statements, audit-log docstring fix). They should land **before** Cluster 15+ feature work — every new feature increment otherwise compounds the spec drift.
 
-### Increment 25a — Source-of-truth for status + artifacts
+### Increment 25a — Source-of-truth for status + artifacts  *(✅ done — commit `1f26f2f`)*
 
 Per team recommendation: **remove `Status` and `Verification Artifact` fields from L1/L2/L3 source docs entirely**, keep them only in `TRACE-MATRIX.md`, and make `scripts/build-trace-matrix.py` the sole authority. This is cleaner than auto-syncing two sources, which would forever risk drift between commits.
 
@@ -237,7 +256,7 @@ Per team recommendation: **remove `Status` and `Verification Artifact` fields fr
 
 **Sequencing**: largely supersedes Increment 14g; merge them. **Land 25a first** in Cluster 25 — it's the team's recommended step 1 and the foundation everything else's trace-matrix work depends on.
 
-### Increment 25b — L1 contradictions and v1/v2 boundaries
+### Increment 25b — L1 contradictions and v1/v2 boundaries  *(✅ done — commit `eb5f537`)*
 
 Per team recommended step 2. Four L1 fixes that resolve direct spec-vs-spec or spec-vs-implementation contradictions.
 
@@ -250,7 +269,7 @@ Per team recommended step 2. Four L1 fixes that resolve direct spec-vs-spec or s
 
    Recommendation: **(a)** — keeps the type stable and makes the v1 implementation boundary explicit. Pair with the new L3 in 25c step 3 (known-but-unregistered → `ConfigurationError`).
 
-### Increment 25c — Cross-layer drift fixes
+### Increment 25c — Cross-layer drift fixes  *(✅ done — commit `c5b9854`)*
 
 Per team recommended step 3. Three drift fixes between requirement statements and the code/L2 reality they describe.
 
@@ -262,7 +281,7 @@ Per team recommended step 3. Three drift fixes between requirement statements an
    Recommendation: **(b)** per team framing — operator value of "which stages were missing when this orphaned" is real for incident investigation. (a) is the doc-only escape hatch if (b) feels too big.
 3. **Sweeper action availability — new L3.** Pair with 25b.4: add an explicit L3 under L2-SWEEP-007 (or L2-SWEEP-008): *"Known disposition action identifiers in `DispositionAction` whose handlers are not registered SHALL raise `ConfigurationError` at startup with `details.unregistered_actions` listing the offenders."* This pins the runtime behavior Increment 14a already delivers and closes the spec gap the team flagged.
 
-### Increment 25d — Net-new requirements: report retention, clock validity, rate limiting
+### Increment 25d — Net-new requirements: report retention, clock validity, rate limiting  *(✅ done — commit `3f45426`)*
 
 Per team recommended step 4. Real gaps in the spine where the implementation either silently assumes or grows unbounded. **Two earlier proposed items dropped after team verification:**
 
@@ -279,7 +298,7 @@ Remaining real gaps:
 
    Recommendation: **(b)** for v1 — the trusted-ISOLAN context is a real constraint that justifies the omission and matches how L1-API-003 frames plaintext gRPC.
 
-### Increment 25e — Smaller spec cleanup
+### Increment 25e — Smaller spec cleanup  *(✅ done — commit `d67539a`)*
 
 Lower-impact catch-all so these don't get lost. Both team-corrected items removed.
 
@@ -293,7 +312,7 @@ Lower-impact catch-all so these don't get lost. Both team-corrected items remove
 
 The team flagged "Full requirements for CICD" as missing, which is true — there's no L1-CICD category, no L2/L3 derivations, and `.github/workflows/` is empty. This cluster authors the requirements then implements them.
 
-### Increment 26a — Author L1-CICD requirements category
+### Increment 26a — Author L1-CICD requirements category  *(✅ done — commit `220c1d5`)*
 
 Net-new category in `docs/L1-REQ.md`. Proposed L1 statements (final wording subject to spec review):
 
@@ -309,21 +328,21 @@ L2 derivations: workflow filename conventions, matrix entry shape, `ResourceWarn
 
 L3 derivations: specific YAML, the exact pytest invocation per OS (Windows path quoting!), the coverage XML upload path, etc.
 
-### Increment 26b — CI/CD workflow implementation
+### Increment 26b — CI/CD workflow implementation  *(✅ done — commit `c22ebc9`)*
 
 Cash in the L1-CICD requirements as `.github/workflows/ci.yaml`. Matrix (`ubuntu-latest`, `windows-latest`) × (Python `3.12`, `3.13`). Per-job: `poetry install`, `poetry run pre-commit run --all-files`, `poetry run pytest`, `poetry run python scripts/build-trace-matrix.py --check` (new flag — exit non-zero if regenerated matrix differs from committed). Upload `coverage.xml` and `.coverage_html/` as artifacts. Schedule a nightly run on `main` to catch flakes that pass per-PR.
 
-### Increment 26c — Traceability rollup CI gate
+### Increment 26c — Traceability rollup CI gate  *(✅ done — commit `f99f795`)*
 
 Implements **L1-CICD-004** specifically. `scripts/build-trace-matrix.py` gains a `--check` mode that re-derives the matrix in memory, compares against the committed `docs/TRACE-MATRIX.md`, and exits non-zero if they differ OR if any row violates the parent-status-bounded-by-children rule from 25a. Wired into the CI workflow from 26b.
 
-### Increment 26d — Cross-platform pytest hygiene audit
+### Increment 26d — Cross-platform pytest hygiene audit  *(✅ done — commit `aa6550c`)*
 
 Implements **L1-CICD-001 / L1-CICD-005** specifically. Audit `pyproject.toml`'s `filterwarnings` (currently has `"error"` plus a Google-deprecation ignore) for completeness. Verify `.gitignore` includes `.pytest_tmp/` (likely already does — confirm). Run the suite on Windows with `-W error::ResourceWarning -W error::DeprecationWarning` and fix anything that surfaces. The recent Windows-event-loop work (`tests/conftest.py::_NoImplicitEventLoopPolicy`) suggests this surface is already partly clean, but a deliberate pass is worthwhile.
 
 ---
 
-### Increment 15 — Prometheus metrics adapter
+### Increment 15 — Prometheus metrics adapter  *(✅ done — commit `fe5c3a4`)*
 
 Closes **L1-OBS-002, L1-OBS-003** (currently Draft).
 
@@ -331,7 +350,7 @@ Closes **L1-OBS-002, L1-OBS-003** (currently Draft).
 - Inject through a thin port so domain/application stay framework-free.
 - Lifts `error_mapping.py` and `logging_setup.py` out of the 0%-covered gap noted in this file's Part 2.
 
-### Increment 16 — Local-account auth adapter ✅
+### Increment 16 — Local-account auth adapter  *(✅ done — commit `7ede66c`)*
 
 Closes **L1-AUTH-001, L1-AUTH-002** (Draft). `rest/auth/` is currently empty.
 
@@ -410,50 +429,28 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 - **Operator runbook** + **Pipeline integration guide** drafts.
 - All four are explicit Part 2 items; tagging v1 should retire them.
 
-### Cross-cutting tradeoffs
+### Cross-cutting tradeoffs (refreshed 2026-04-25)
 
-**Cluster 14 (sweeper correctness)**
+The historical sequencing block has been pruned now that Clusters 14 (excluding 14h), 25, and 26, plus Increments 15 and 16, are merged. What remains:
 
-- 14a/14b/14c.1/14c.2 have already landed (commits `04a88dc`, `460d127`, `7c33c87`, `3b48d38`, `5456f2e`, `9b28e2b`, `3fd0673`); 14c.3 became unnecessary once 14b.3's dispatcher fetches the post-transition aggregate.
-- 14d (stuck-claim recovery) is benign for v1 idempotent handlers but should land before tagging v1.
-- 14e (`max_candidates_per_iteration`) is a real availability risk under backlog. 14f (boundary alignment across L1↔L3↔SQL) is small.
-- 14g (trace-matrix rollup) is largely **superseded by 25a** — fold them.
-- 14h (I/O guard) is independent and can slot anywhere; the test-relocation half is the larger piece.
+**Still-open from earlier clusters**
 
-**Cluster 25 (requirements spec cleanup) — team-recommended ordering**
+- **14h** — Unit-test I/O guard. Independent of feature work; can slot anywhere. Two parts: implement the guard in `tests/fixtures/io_guard.py` and rewire `tests/unit/conftest.py::_forbid_io`; relocate the SQLite-touching tests under `tests/unit/infrastructure/persistence/` to `tests/integration/`. The relocation half is the bulk of the work.
 
-- Should land **before** Cluster 15+ feature work. Every new feature increment otherwise compounds the spec drift identified by both reviews.
-- Per team recommendation, the cluster ordering is: **25a → 25b → 25c → 25d → 25e**.
-  - **25a** (source-of-truth + Partially Implemented + rollup) supersedes 14g and is the foundation everything else's trace impact depends on.
-  - **25b** fixes L1-level contradictions and v1/v2 boundaries. Mostly docs-only; quick wins.
-  - **25c** fixes cross-layer drift (audit-log docstring, stage-orphan wording, sweeper-action-availability L3). Depends on 25b's L1-OBS-003 widening for the audit-log docstring fix to know which L2 numbers to cite.
-  - **25d** authors net-new requirements for retention / clock / rate limiting. Two earlier proposed items (graceful shutdown, mail backoff formula) were dropped after team verification confirmed they're already pinned at L2/L3.
-  - **25e** smaller polish.
+**Feature stream (Increments 17–22)**
 
-**Cluster 26 (CI/CD)**
+- **17** unblocks **18 → 19 → 20**, which together form the dashboard. Increment 16 left `LoginUseCase`/`LogoutUseCase` and the Argon2 hasher wired, but `interfaces/rest/{auth,routes}/` are still empty `__init__.py`s and `__main__.py` only starts gRPC.
+- **21** (E2E harness) can shift earlier — running it after 17 instead of 20 forces the FastAPI chassis to stay testable as routes accrete.
+- **22** (error-mapping + servicer tests) is independent of the dashboard stream and can interleave whenever convenient.
 
-- 26a (author L1-CICD requirements) blocks 26b/26c/26d. The L1 statements need spec review before workflows are written against them.
-- 26c (traceability gate) depends on 25a's rollup rule being settled. Sequence 25a → 26a → 26c.
-- 26b (workflow implementation) can run in parallel with 25b–25e since it touches different files entirely.
-- 26d (ResourceWarnings hygiene) is dependent on 26b being in place to actually run the matrix; the audit can begin sooner against local Windows runs.
+**Recommended next-up sequencing**
 
-**Cluster 15+ (features)**
-
-- Increments 16–20 form one feature stream (dashboard). Interleaving with 15 / 22 keeps category coverage balanced.
-- Increment 15 (metrics) can move earlier if you want OBS rows green before introducing new untested surface.
-- Increment 21 (E2E) can shift earlier — running it after Increment 17 instead of 20 forces the FastAPI chassis to stay testable as routes accrete.
-
-**Recommended overall sequencing (refreshed)**
-
-1. **25a** (status model) — single highest-leverage cleanup; makes the rest of the matrix work meaningful.
-2. **14f** (boundary alignment) — smallest sweeper fix, pins L1↔L3↔SQL.
-3. **14e** (`max_candidates_per_iteration`) — closes the second High and feeds new entries into 25b's L1-CFG-003 expansion.
-4. **25b–25e** in parallel where possible — most are docs-only.
-5. **26a** — author L1-CICD now that the status model is settled.
-6. **26b/26c/26d** in parallel — implement CI workflows + gates + hygiene.
-7. **14d, 14h** — sweeper polish that can slot in any time after 14b landed.
-8. **15** (Prometheus metrics) — first feature increment, with the spec spine no longer drifting.
-9. **16–24** as previously sequenced.
+1. **14h** — small, contained; sharpens the unit/integration boundary before REST routes start landing.
+2. **17** — FastAPI app factory + bootstrap wiring. Direct prerequisite for 18–20.
+3. **18 → 19 → 20** in order — subscriptions, past-runs/resend, admin.
+4. **21** — E2E happy-path + orphan-path harness. Can slot in after 17 if you want the chassis under E2E coverage as routes accrete.
+5. **22** — error-mapping + servicer tests; independent stream.
+6. **23, 24** — deployment polish + documentation deliverables (release-gating).
 
 ---
 

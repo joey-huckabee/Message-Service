@@ -4,9 +4,9 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 ## Status
 
-**Under active development (Increment 2 complete).** Domain state machines and the `Clock` port are implemented with 99 passing tests at 62% branch coverage. Remaining increments will add the config loader, persistence adapters, application use cases, and the gRPC/FastAPI interface layers. See `ROADMAP.md` for the phase plan and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability.
+**Under active development (through Increment 16).** Domain, application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, sweeper outbox with stuck-claim recovery, and Prometheus metrics are all in place. Remaining v1 work is primarily the FastAPI dashboard chassis and routes (Increments 17–20), end-to-end harness (21), error-mapping coverage (22), deployment polish (23), and documentation deliverables (24). See `ROADMAP.md` for the full phase plan and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
 
-Requirement counts: **57 L1 · 157 L2 · 315 L3** across 15 categories.
+Requirement counts: **65 L1 · 182 L2 · 335 L3** across 16 categories (CICD added in Increment 26a).
 
 ## Key characteristics
 
@@ -93,7 +93,7 @@ Dev tooling: **ruff 0.15 · mypy 1.20 · pytest 9.0 · pytest-cov 7.1 · pre-com
 poetry install
 poetry run pre-commit install
 
-# run tests with coverage (gated at ≥60%)
+# run tests with coverage (gated at ≥85%)
 poetry run pytest
 
 # lint and type-check (what the pre-commit hooks run)
@@ -104,7 +104,7 @@ poetry run mypy src tests
 # regenerate the requirements-to-tests trace matrix
 poetry run python scripts/build-trace-matrix.py
 
-# run the service (once implemented)
+# run the service (gRPC server runs today; FastAPI dashboard pending Increment 17+)
 poetry run message-service --config config/default.toml
 ```
 

@@ -16,7 +16,7 @@ poetry run ruff check . --fix
 # 3. Type check — mypy in strict mode
 poetry run mypy src tests
 
-# 4. Run the test suite (coverage is gated at ≥60% via pyproject.toml)
+# 4. Run the test suite (coverage is gated at ≥85% via pyproject.toml)
 poetry run pytest
 
 # 5. Regenerate the trace matrix (if you added requirement markers)
@@ -61,7 +61,7 @@ Verify everything works:
 poetry run pytest
 ```
 
-Expect: all tests passing (currently 99).
+Expect: all tests passing.
 
 ---
 

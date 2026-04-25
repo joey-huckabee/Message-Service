@@ -49,6 +49,9 @@ from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
 from message_service.application.use_cases.sweeper import SweeperUseCase
+from message_service.application.use_cases.sweeper_action_dispatcher import (
+    SweeperActionDispatcherUseCase,
+)
 from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
@@ -124,6 +127,15 @@ class Service:
             (not directly invoked by request handlers; exposed for
             testing and for the FinalizeRun background-task factory
             that :class:`FinalizeRunUseCase` closes over).
+        sweeper: :class:`SweeperUseCase` — orphan detection +
+            outbox enqueue.
+        sweeper_action_dispatcher: :class:`SweeperActionDispatcherUseCase`
+            — drains the outbox produced by ``sweeper``. Both are
+            driven from ``sweeper_loop``.
+        sweeper_loop: Periodic loop that calls
+            ``sweeper.tick()`` then ``sweeper_action_dispatcher.dispatch_pending()``
+            on each tick. Constructed but not started; the CLI
+            entrypoint (or tests) calls ``start()``.
     """
 
     config: Config
@@ -139,6 +151,7 @@ class Service:
     finalize_run: FinalizeRunUseCase
     assemble_and_deliver: AssembleAndDeliverUseCase
     sweeper: SweeperUseCase
+    sweeper_action_dispatcher: SweeperActionDispatcherUseCase
     sweeper_loop: SweeperLoop
 
 
@@ -283,8 +296,14 @@ async def build_service(config: Config) -> Service:
         disposition_actions=config.sweeper.disposition_actions,
         handlers_by_id=handlers_by_id,
     )
+    sweeper_action_dispatcher = SweeperActionDispatcherUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        handlers_by_id=handlers_by_id,
+    )
     sweeper_loop = SweeperLoop(
-        use_case=sweeper,
+        sweeper=sweeper,
+        dispatcher=sweeper_action_dispatcher,
         scheduler=scheduler,
         poll_interval_seconds=config.sweeper.poll_interval_seconds,
     )
@@ -312,6 +331,7 @@ async def build_service(config: Config) -> Service:
         finalize_run=finalize_run,
         assemble_and_deliver=assemble_and_deliver,
         sweeper=sweeper,
+        sweeper_action_dispatcher=sweeper_action_dispatcher,
         sweeper_loop=sweeper_loop,
     )
 

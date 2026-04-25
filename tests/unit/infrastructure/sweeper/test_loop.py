@@ -16,6 +16,9 @@ import pytest
 from prometheus_client import CollectorRegistry
 
 from message_service.application.use_cases.sweeper import TickResult
+from message_service.application.use_cases.sweeper_action_dispatcher import (
+    DispatchResult,
+)
 from message_service.infrastructure.scheduler.asyncio_scheduler import (
     AsyncioBackgroundTaskScheduler,
 )
@@ -25,7 +28,7 @@ from message_service.infrastructure.sweeper.loop import (
 )
 
 # -----------------------------------------------------------------------------
-# Test double
+# Test doubles
 # -----------------------------------------------------------------------------
 
 
@@ -51,6 +54,25 @@ class _StubUseCase:
         return self.next_result or TickResult(orphaned_count=0, enqueued_actions=0)
 
 
+@dataclass
+class _StubDispatcher:
+    """Stand-in for :class:`SweeperActionDispatcherUseCase` exposing only
+    ``dispatch_pending``. By default returns no-op claims so loop tests that
+    do not care about dispatch behavior remain focused on sweeper paths."""
+
+    call_count: int = 0
+    next_result: DispatchResult | None = None
+    next_exception: Exception | None = None
+
+    async def dispatch_pending(self) -> DispatchResult:
+        self.call_count += 1
+        if self.next_exception is not None:
+            exc = self.next_exception
+            self.next_exception = None
+            raise exc
+        return self.next_result or DispatchResult(claimed=0, succeeded=0, failed=0)
+
+
 # -----------------------------------------------------------------------------
 # Fixtures
 # -----------------------------------------------------------------------------
@@ -71,6 +93,11 @@ def stub_use_case() -> _StubUseCase:
     return _StubUseCase()
 
 
+@pytest.fixture
+def stub_dispatcher() -> _StubDispatcher:
+    return _StubDispatcher()
+
+
 # -----------------------------------------------------------------------------
 # Start + stop
 # -----------------------------------------------------------------------------
@@ -79,10 +106,12 @@ def stub_use_case() -> _StubUseCase:
 @pytest.mark.asyncio
 async def test_start_schedules_exactly_one_task(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=1,
     )
@@ -94,10 +123,12 @@ async def test_start_schedules_exactly_one_task(
 @pytest.mark.asyncio
 async def test_start_is_idempotent(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=1,
     )
@@ -110,12 +141,14 @@ async def test_start_is_idempotent(
 @pytest.mark.asyncio
 async def test_stop_exits_loop_cleanly_during_sleep(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     """A long poll interval + stop() signal SHALL exit the loop in <1 second
     rather than waiting out the interval."""
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=3600,  # one hour
     )
@@ -144,11 +177,13 @@ async def test_stop_exits_loop_cleanly_during_sleep(
 @pytest.mark.asyncio
 async def test_loop_ticks_multiple_times_with_short_interval(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     """A short poll interval SHALL produce multiple ticks over a time window."""
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=0,
     )
@@ -170,13 +205,15 @@ async def test_loop_ticks_multiple_times_with_short_interval(
 @pytest.mark.asyncio
 async def test_tick_exception_does_not_crash_loop(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     """An exception raised by the use case SHALL be caught; loop continues."""
     stub_use_case.next_exception = RuntimeError("boom")
 
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=0,
     )
@@ -217,13 +254,15 @@ def _counter_value(outcome: str) -> float:
 @pytest.mark.requirement("L2-SWEEP-003")
 async def test_no_orphans_tick_increments_correct_label(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     before = _counter_value("no_orphans_found")
 
     stub_use_case.next_result = TickResult(orphaned_count=0, enqueued_actions=0)
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=3600,
     )
@@ -239,13 +278,15 @@ async def test_no_orphans_tick_increments_correct_label(
 @pytest.mark.requirement("L2-SWEEP-003")
 async def test_orphans_detected_tick_increments_correct_label(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     before = _counter_value("orphans_detected")
 
     stub_use_case.next_result = TickResult(orphaned_count=3, enqueued_actions=6)
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=3600,
     )
@@ -261,13 +302,15 @@ async def test_orphans_detected_tick_increments_correct_label(
 @pytest.mark.requirement("L2-SWEEP-003")
 async def test_sweeper_error_tick_increments_correct_label(
     stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
     scheduler: AsyncioBackgroundTaskScheduler,
 ) -> None:
     before = _counter_value("sweeper_error")
 
     stub_use_case.next_exception = RuntimeError("database down")
     loop = SweeperLoop(
-        use_case=stub_use_case,  # type: ignore[arg-type]
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
         scheduler=scheduler,
         poll_interval_seconds=3600,
     )
@@ -277,6 +320,85 @@ async def test_sweeper_error_tick_increments_correct_label(
 
     after = _counter_value("sweeper_error")
     assert after > before
+
+
+# -----------------------------------------------------------------------------
+# Dispatcher integration
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_each_tick_drives_sweeper_then_dispatcher(
+    stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
+    scheduler: AsyncioBackgroundTaskScheduler,
+) -> None:
+    """Each loop iteration SHALL invoke the sweeper followed by the
+    dispatcher; the call counts SHALL stay in lockstep across the
+    polling window."""
+    loop = SweeperLoop(
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
+        scheduler=scheduler,
+        poll_interval_seconds=0,
+    )
+    loop.start()
+    await asyncio.sleep(0.1)
+    loop.stop()
+
+    assert stub_use_case.call_count >= 3
+    # Each sweeper tick is paired with exactly one dispatch_pending.
+    assert stub_dispatcher.call_count == stub_use_case.call_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_dispatcher_failure_does_not_crash_loop(
+    stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
+    scheduler: AsyncioBackgroundTaskScheduler,
+) -> None:
+    """A dispatcher exception SHALL be caught at the loop layer; the next
+    sweeper tick still runs."""
+    stub_dispatcher.next_exception = RuntimeError("dispatcher boom")
+    loop = SweeperLoop(
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
+        scheduler=scheduler,
+        poll_interval_seconds=0,
+    )
+    loop.start()
+    await asyncio.sleep(0.1)
+    loop.stop()
+
+    # First dispatch raised; loop is still alive and ticking.
+    assert stub_use_case.call_count >= 2
+    assert stub_dispatcher.call_count >= 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_sweeper_failure_still_drains_dispatcher(
+    stub_use_case: _StubUseCase,
+    stub_dispatcher: _StubDispatcher,
+    scheduler: AsyncioBackgroundTaskScheduler,
+) -> None:
+    """When the sweeper raises, the dispatcher SHALL still drain — pending
+    rows from prior ticks must not be stalled by a transient sweeper error."""
+    stub_use_case.next_exception = RuntimeError("sweeper boom")
+    loop = SweeperLoop(
+        sweeper=stub_use_case,  # type: ignore[arg-type]
+        dispatcher=stub_dispatcher,  # type: ignore[arg-type]
+        scheduler=scheduler,
+        poll_interval_seconds=3600,
+    )
+    loop.start()
+    await asyncio.sleep(0.05)
+    loop.stop()
+
+    assert stub_use_case.call_count == 1
+    assert stub_dispatcher.call_count == 1
 
 
 # -----------------------------------------------------------------------------

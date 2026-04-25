@@ -1,15 +1,23 @@
-"""Infrastructure loop driving :class:`SweeperUseCase`.
+"""Infrastructure loop driving the sweeper + outbox dispatcher.
 
-This module owns the periodic-scheduling concerns that the use case
-deliberately refuses: it picks how often to call :meth:`tick`, what
-to log on errors, and how to increment the Prometheus outcome
-counter. The use case stays pure business logic; the loop stays
-pure scheduling.
+This module owns the periodic-scheduling concerns that the use cases
+deliberately refuse: how often to call them, what to log on errors,
+and how to increment the Prometheus outcome counter. The use cases
+stay pure business logic; the loop stays pure scheduling.
 
-The loop is started by calling :meth:`start` (which asks the
-:class:`BackgroundTaskScheduler` to schedule the internal
-coroutine) and stopped by :meth:`stop` (which flips an internal
-event so the loop exits at the next iteration boundary).
+Each tick runs the sweeper first (which may enqueue ``sweeper_actions``
+rows inside the orphan transaction) and then drains the outbox via the
+dispatcher. Pairing them in one tick:
+
+* keeps freshly-enqueued rows from sitting idle for a full polling
+  interval before being dispatched, and
+* ensures any leftover pending rows from a prior process lifetime
+  (crash recovery) drain on the very first tick after restart.
+
+A dispatcher exception is caught and logged at this layer and does
+not abort the next sweeper tick — the two are independent units of
+work, and a transient handler-side problem must not stall orphan
+detection.
 
 Shutdown ordering note
 ----------------------
@@ -27,6 +35,8 @@ L1-SWEEP-001 (background asyncio task)
 L2-SWEEP-001 (create_task, cancelled on shutdown)
 L2-SWEEP-002 (asyncio.sleep for polling, no APScheduler/Celery)
 L2-SWEEP-003 (Prometheus counter with outcome label)
+L2-SWEEP-006 (exactly-once via the outbox; the loop is what makes the
+dispatch eventually happen after the sweeper enqueues)
 """
 
 from __future__ import annotations
@@ -42,6 +52,9 @@ if TYPE_CHECKING:
         BackgroundTaskScheduler,
     )
     from message_service.application.use_cases.sweeper import SweeperUseCase
+    from message_service.application.use_cases.sweeper_action_dispatcher import (
+        SweeperActionDispatcherUseCase,
+    )
 
 _log = structlog.get_logger(__name__)
 
@@ -56,11 +69,14 @@ _SWEEPER_ITERATION_COUNTER = Counter(
 
 
 class SweeperLoop:
-    """Periodic poller that drives the sweeper use case.
+    """Periodic poller that drives the sweeper + dispatcher pair.
 
     Attributes:
-        use_case: The :class:`SweeperUseCase` whose :meth:`tick` is
-            invoked each iteration.
+        sweeper: The :class:`SweeperUseCase` whose :meth:`tick` is
+            invoked first each iteration.
+        dispatcher: The :class:`SweeperActionDispatcherUseCase` whose
+            :meth:`dispatch_pending` drains the outbox after each
+            sweeper tick.
         scheduler: The :class:`BackgroundTaskScheduler` the loop is
             scheduled on.
         poll_interval_seconds: Delay between ticks. A larger value
@@ -72,7 +88,8 @@ class SweeperLoop:
     def __init__(
         self,
         *,
-        use_case: SweeperUseCase,
+        sweeper: SweeperUseCase,
+        dispatcher: SweeperActionDispatcherUseCase,
         scheduler: BackgroundTaskScheduler,
         poll_interval_seconds: int,
     ) -> None:
@@ -83,7 +100,8 @@ class SweeperLoop:
         bootstrap can build the loop before the scheduler is ready
         to accept work.
         """
-        self._use_case = use_case
+        self._sweeper = sweeper
+        self._dispatcher = dispatcher
         self._scheduler = scheduler
         self._poll_interval = poll_interval_seconds
         self._stop_event = asyncio.Event()
@@ -140,26 +158,55 @@ class SweeperLoop:
             raise
 
     async def _tick_once(self) -> None:
-        """Run one tick and update metrics; never re-raise."""
+        """Run one sweeper tick + one dispatcher drain. Never re-raise.
+
+        The two phases are independent: a dispatcher exception does
+        not invalidate the sweeper's work this tick, and vice versa.
+        Both surface in their own log entry.
+        """
         try:
-            result = await self._use_case.tick()
+            sweeper_result = await self._sweeper.tick()
         except Exception:
             _SWEEPER_ITERATION_COUNTER.labels(outcome="sweeper_error").inc()
             _log.error("sweeper_tick_failed", exc_info=True)
+            # Still attempt to drain whatever's already in the outbox
+            # — a sweeper failure SHOULD NOT block dispatch of rows
+            # enqueued on prior ticks.
+            await self._dispatch_drain()
             return
 
-        outcome = "orphans_detected" if result.orphaned_count > 0 else "no_orphans_found"
+        outcome = "orphans_detected" if sweeper_result.orphaned_count > 0 else "no_orphans_found"
         _SWEEPER_ITERATION_COUNTER.labels(outcome=outcome).inc()
 
-        if result.orphaned_count > 0:
+        if sweeper_result.orphaned_count > 0:
             _log.info(
                 "sweeper_tick_completed",
                 outcome=outcome,
-                orphaned_count=result.orphaned_count,
-                enqueued_actions=result.enqueued_actions,
+                orphaned_count=sweeper_result.orphaned_count,
+                enqueued_actions=sweeper_result.enqueued_actions,
             )
         else:
             _log.debug("sweeper_tick_completed", outcome=outcome)
+
+        await self._dispatch_drain()
+
+    async def _dispatch_drain(self) -> None:
+        """Drain the outbox; log; never re-raise."""
+        try:
+            result = await self._dispatcher.dispatch_pending()
+        except Exception:
+            _log.error("dispatcher_drain_failed", exc_info=True)
+            return
+
+        if result.claimed > 0:
+            _log.info(
+                "dispatcher_drain_completed",
+                claimed=result.claimed,
+                succeeded=result.succeeded,
+                failed=result.failed,
+            )
+        else:
+            _log.debug("dispatcher_drain_completed", claimed=0)
 
 
 __all__ = ["SweeperLoop"]

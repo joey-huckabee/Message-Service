@@ -272,3 +272,120 @@ async def test_disposition_actions_enqueued_in_config_order(
     for _, claimed_at, completed_at in rows:
         assert claimed_at is None
         assert completed_at is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_dispatcher_drains_enqueued_actions(service: Service) -> None:
+    """End-to-end: tick the sweeper to enqueue, then dispatch_pending and
+    confirm every row settled with completed_at and no last_error. This is
+    the green-path proof that the new outbox + dispatcher pair behaves
+    identically (from the operator's perspective) to the old in-tick
+    dispatch — but with the durable handoff in between."""
+    stale = _make_stale_run(
+        run_id="00000000-0000-4000-8000-0000000000dd",
+        staleness_seconds=300,
+    )
+    async with service.uow_factory() as uow:
+        await uow.run_repo.save(stale)
+
+    sweep_result = await service.sweeper.tick()
+    assert sweep_result.orphaned_count == 1
+    assert sweep_result.enqueued_actions == 2
+
+    dispatch_result = await service.sweeper_action_dispatcher.dispatch_pending()
+    assert dispatch_result.claimed == 2
+    assert dispatch_result.succeeded == 2
+    assert dispatch_result.failed == 0
+
+    # Confirm the outbox shape: every row stamped completed_at and
+    # zero attempts (clean run on first try).
+    side_conn = await aiosqlite.connect(service.config.persistence.sqlite_path)
+    try:
+        async with side_conn.execute(
+            "SELECT claimed_at, completed_at, attempts, last_error "
+            "FROM sweeper_actions WHERE run_id = ?",
+            (str(stale.run_id),),
+        ) as cur:
+            rows = list(await cur.fetchall())
+    finally:
+        await side_conn.close()
+    assert len(rows) == 2
+    for claimed_at, completed_at, attempts, last_error in rows:
+        assert claimed_at is not None
+        assert completed_at is not None
+        assert attempts == 0
+        assert last_error is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-SWEEP-006")
+async def test_pending_rows_survive_process_restart(tmp_path: Path) -> None:
+    """The L2-SWEEP-006 exactly-once contract requires that enqueued rows
+    persist across a crash. Simulated here by building two independent
+    services against the same SQLite file: tick the sweeper in service A,
+    shut down without dispatching, then build service B and dispatch.
+    The handler SHALL run exactly once across both lifetimes."""
+    cfg_path = _write_config(tmp_path)
+    config = load_config(cfg_path)
+
+    stale = _make_stale_run(
+        run_id="00000000-0000-4000-8000-0000000000ee",
+        staleness_seconds=300,
+    )
+
+    # --- Service A: sweep, then shut down without dispatching. ---
+    service_a = await build_service(config)
+    try:
+        async with service_a.uow_factory() as uow:
+            await uow.run_repo.save(stale)
+        sweep_result = await service_a.sweeper.tick()
+        assert sweep_result.orphaned_count == 1
+        # Deliberately do NOT call dispatch_pending — simulates a crash
+        # between enqueue and dispatch.
+    finally:
+        await shutdown_service(service_a, timeout=2.0)
+
+    # Confirm the outbox row survived shutdown.
+    side_conn = await aiosqlite.connect(config.persistence.sqlite_path)
+    try:
+        async with side_conn.execute(
+            "SELECT COUNT(*) FROM sweeper_actions WHERE claimed_at IS NULL"
+        ) as cur:
+            row = await cur.fetchone()
+    finally:
+        await side_conn.close()
+    assert row is not None
+    assert row[0] == 2  # both enqueued rows still pending
+
+    # --- Service B: same DB, dispatch the leftover rows. ---
+    service_b = await build_service(config)
+    try:
+        result = await service_b.sweeper_action_dispatcher.dispatch_pending()
+        assert result.claimed == 2
+        assert result.succeeded == 2
+        assert result.failed == 0
+    finally:
+        await shutdown_service(service_b, timeout=2.0)
+
+    # Re-open and confirm: the rows are now completed (claimed_at
+    # AND completed_at set), so a third lifetime would not re-dispatch
+    # them — that's the no-double-dispatch half of the exactly-once
+    # contract.
+    side_conn = await aiosqlite.connect(config.persistence.sqlite_path)
+    try:
+        async with side_conn.execute(
+            "SELECT COUNT(*) FROM sweeper_actions "
+            "WHERE claimed_at IS NOT NULL AND completed_at IS NOT NULL"
+        ) as cur:
+            row = await cur.fetchone()
+        assert row is not None
+        assert row[0] == 2
+        async with side_conn.execute(
+            "SELECT COUNT(*) FROM sweeper_actions WHERE claimed_at IS NULL"
+        ) as cur:
+            row = await cur.fetchone()
+        assert row is not None
+        assert row[0] == 0
+    finally:
+        await side_conn.close()

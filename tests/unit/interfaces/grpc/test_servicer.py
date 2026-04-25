@@ -53,6 +53,9 @@ from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
 from message_service.application.use_cases.sweeper import SweeperUseCase
+from message_service.application.use_cases.sweeper_action_dispatcher import (
+    SweeperActionDispatcherUseCase,
+)
 from message_service.bootstrap.service import Service
 from message_service.config.schema import (
     Config,
@@ -238,8 +241,14 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         disposition_actions=[],
         handlers_by_id={},
     )
+    sweeper_action_dispatcher_uc = SweeperActionDispatcherUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        handlers_by_id={},
+    )
     sweeper_loop = SweeperLoop(
-        use_case=sweeper_uc,
+        sweeper=sweeper_uc,
+        dispatcher=sweeper_action_dispatcher_uc,
         scheduler=scheduler,
         poll_interval_seconds=3600,  # effectively never polls during a test
     )
@@ -269,6 +278,7 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         ),
         assemble_and_deliver=assemble,
         sweeper=sweeper_uc,
+        sweeper_action_dispatcher=sweeper_action_dispatcher_uc,
         sweeper_loop=sweeper_loop,
     )
     try:

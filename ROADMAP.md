@@ -98,6 +98,43 @@ L3-SWEEP-004 (`docs/L3-REQ.md:416`) mandates `message_service_sweeper_iterations
 
 **Sequencing note vs. 14b**: 14b moves dispatch out of the tick path entirely (handlers run from the `sweeper_actions` outbox dispatcher, not in-process after commit). When 14b lands, the dispatcher will fetch the run fresh anyway, so 14c.3 becomes redundant in that path. If 14b is going to ship soon, skip 14c.3 and let 14b handle it. If 14b is more than a sprint out, do 14c.3 now — it's a small, contained fix and the latent bug is real. 14c.1 and 14c.2 stand independent of 14b.
 
+### Increment 14d — Stuck-claim recovery for the sweeper outbox  *(follow-up from 14b.3)*
+
+**Problem**
+
+`SweeperActionDispatcherUseCase.dispatch_pending` claims rows in phase 1 and settles them in phase 3 with the handler invocation in between. A crash anywhere between claim and settle leaves a row in `(claimed_at IS NOT NULL, completed_at IS NULL)` — *in-flight* state. Without recovery, that row is stuck forever: the partial index `WHERE claimed_at IS NULL` skips it, so neither the next dispatcher tick nor a process restart will pick it up.
+
+The crash semantics noted in `application/use_cases/sweeper_action_dispatcher.py` document this as a known limitation. v1 handlers (`NotifyAdminsHandler`, `DiscardSilentlyHandler`) are log-only and idempotent, so re-running them is benign — but the invariant only holds because we don't re-run them today. Future handlers (the deferred `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS`) will issue real side effects and require a deliberate retry policy.
+
+**Work**
+
+- Add a "stale claim" threshold to `SweeperActionRepository`: a row is reclaimable if `completed_at IS NULL AND claimed_at < now - stale_threshold`. Configurable via `config.sweeper.stale_claim_threshold_seconds` (default 300).
+- New repo method `reclaim_stuck(now, stale_threshold, limit)` — sets `claimed_at = now` on stuck rows and returns them as `ClaimedAction` (with `attempts` carrying the previous attempt count). Either folds into `claim_pending` (one query that picks up both pending and stale-in-flight) or runs as a separate phase. Folding keeps the contract simpler.
+- Adjust `claim_pending` SQL accordingly. The existing partial index `idx_sweeper_actions_pending` no longer covers all claimable rows; either widen it (`WHERE completed_at IS NULL`) or add a sister index for the stuck-claim path.
+- Bound retries: when `attempts >= max_attempts`, stop reclaiming the row and emit a `dispatcher_action_abandoned` log + audit event so operators know.
+- Tests: a row whose `claimed_at` is older than the threshold gets reclaimed; the `attempts` counter is preserved across reclaims; rows under the threshold are not touched; rows past `max_attempts` stop reclaiming.
+
+**Why deferred from 14b.3**
+
+14b.3 was already large (port surface + adapter + use case + 20 tests). Stuck-claim recovery is a self-contained follow-up that doesn't change the L2-SWEEP-006 contract — it strengthens the at-least-once guarantee on the dispatch side. Better to land it as its own focused increment than bundle it into 14b.
+
+**Trace impact when complete**
+
+No new L1/L2/L3 statements yet — this is a quality refinement under the existing L2-SWEEP-006 / L3-SWEEP-013 umbrella. Consider whether to author an L3 statement pinning the stale-claim semantics so the contract is reviewable.
+
+### Increment 14e — Promote L2-SWEEP-005 with `list_expired` query tests  *(follow-up from 14b)*
+
+`L2-SWEEP-005` (the `list_expired` repository query) is still rolled up as **Draft** in `docs/TRACE-MATRIX.md` because its L3 children (`L3-SWEEP-007`: query SQL shape; `L3-SWEEP-008`: `max_candidates_per_iteration` LIMIT clause) lack direct tests. The query *is* exercised end-to-end by the sweeper integration tests, but the SQL shape and LIMIT enforcement aren't independently pinned.
+
+**Work**
+
+- Add unit tests under `tests/unit/infrastructure/persistence/test_run_repository.py` that:
+  - Assert the `state` column is one of `INITIATED, AGGREGATING, READY, SENDING` in the SQL (read `sqlite_master` and inspect the prepared statement, OR run with mixed-state seed data and confirm only those four states surface).
+  - Assert the `LIMIT` clause is honored: seed N+1 expired runs, call `list_expired(limit=N)`, assert the result has exactly N entries.
+- If `max_candidates_per_iteration` isn't already wired into the config schema and the sweeper, wire it (small change — currently the call sites probably pass an unbounded query). Default 1000 per L3-SWEEP-008.
+
+Small, focused increment. Mostly tests + maybe one config-schema field.
+
 ### Increment 15 — Prometheus metrics adapter
 
 Closes **L1-OBS-002, L1-OBS-003** (currently Draft).
@@ -183,7 +220,8 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 - Increments 16–20 form one feature stream (dashboard). Interleaving with 15 / 22 keeps category coverage balanced rather than concentrating all DASH work in one stretch.
 - Increment 15 (metrics) can move earlier if you want OBS rows green before introducing new untested surface.
 - Increment 21 (E2E) can shift earlier — running it after Increment 17 instead of 20 forces the FastAPI chassis to stay testable as routes accrete.
-- Increments 14a and 14b are both correctness fixes, not features. 14a is a one-sitting change and unblocks the default config immediately; 14b is the larger redesign that delivers exactly-once. Both block any production release independent of how the dashboard work is sequenced — the trace-matrix correction inside 14b is worth landing on its own even if the table redesign takes longer.
+- Increments 14a, 14b, 14c are correctness fixes, not features. 14a/14b/14c.1/14c.2 have already landed (commits `04a88dc`, `460d127`, `7c33c87`, `3b48d38`, `5456f2e`, `9b28e2b`, `3fd0673`); 14c.3 became unnecessary once 14b.3's dispatcher fetches the post-transition aggregate.
+- 14d (stuck-claim recovery) and 14e (list_expired tests) are smaller follow-ups uncovered during the 14b implementation. Neither blocks a v1 release on its own — 14d's gap is benign for the v1 idempotent handler set; 14e is a trace-matrix completeness item — but both should land before tagging v1.
 
 ---
 

@@ -382,6 +382,59 @@ async def test_list_expired_empty_active_states_returns_empty(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-017")
+async def test_list_expired_inclusive_boundary(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """L3-SWEEP-017 / L1-SWEEP-002: a run whose ``updated_at`` is
+    *exactly* the cutoff SHALL be classified as orphaned (inclusive
+    boundary, not strict ``<``). The off-by-one team finding from
+    Increment 14f.
+    """
+    boundary = _T0 - timedelta(hours=1)  # cutoff
+    # Three runs: one strictly newer than cutoff (younger), one EXACTLY
+    # at the cutoff (boundary case), one strictly older.
+    await repo.save(
+        _make_run(
+            run_id="00000000-0000-4000-8000-0000000000a1",
+            created_at=boundary + timedelta(seconds=1),
+            updated_at=boundary + timedelta(seconds=1),  # 1s newer than cutoff
+            state=RunState.AGGREGATING,
+        )
+    )
+    await repo.save(
+        _make_run(
+            run_id="00000000-0000-4000-8000-0000000000a2",
+            created_at=boundary,
+            updated_at=boundary,  # EXACTLY at cutoff
+            state=RunState.AGGREGATING,
+        )
+    )
+    await repo.save(
+        _make_run(
+            run_id="00000000-0000-4000-8000-0000000000a3",
+            created_at=boundary - timedelta(seconds=1),
+            updated_at=boundary - timedelta(seconds=1),  # 1s older
+            state=RunState.AGGREGATING,
+        )
+    )
+    await conn.commit()
+
+    expired = await repo.list_expired(
+        cutoff=boundary,
+        active_states=frozenset({RunState.AGGREGATING}),
+        limit=100,
+    )
+    expired_ids = sorted(str(r.run_id) for r in expired)
+    # Boundary case (a2) AND strictly older (a3) both surface; the
+    # newer one (a1) does not.
+    assert expired_ids == [
+        "00000000-0000-4000-8000-0000000000a2",
+        "00000000-0000-4000-8000-0000000000a3",
+    ]
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L3-SWEEP-007")
 async def test_list_expired_state_filter_includes_only_active_states(
     repo: SqliteRunRepository, conn: aiosqlite.Connection

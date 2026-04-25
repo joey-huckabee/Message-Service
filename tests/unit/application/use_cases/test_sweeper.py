@@ -643,3 +643,44 @@ async def test_backlog_drains_across_multiple_ticks(
 
     third = await sweeper.tick()
     assert third.orphaned_count == 0  # backlog cleared
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-017")
+async def test_tick_classifies_run_at_exact_timeout_as_orphan(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """L3-SWEEP-017 / L1-SWEEP-002 inclusive boundary: a run whose
+    elapsed time is exactly ``run_timeout_seconds`` SHALL orphan on
+    the very next tick — not after one additional polling interval.
+
+    Use-case-level mirror of the repository-level
+    ``test_list_expired_inclusive_boundary``. Catches any future
+    regression that re-introduces the pre-14f off-by-one in the SQL
+    or any client-side cutoff arithmetic.
+    """
+    timeout_seconds = 3600
+    # Run last transitioned EXACTLY run_timeout_seconds ago relative
+    # to the clock's "now" — the inclusive-boundary case.
+    run = _make_run(
+        run_id="00000000-0000-4000-8000-0000000000bb",
+        state=RunState.AGGREGATING,
+        created_at=_T0 - timedelta(seconds=timeout_seconds),
+        updated_at=_T0 - timedelta(seconds=timeout_seconds),
+    )
+    await _seed_run(uow_factory, run)
+
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=timeout_seconds,
+        disposition_actions=[],
+        handlers_by_id={},
+    )
+    result = await sweeper.tick()
+
+    assert result.orphaned_count == 1  # boundary run swept; no extra tick needed
+    async with uow_factory() as uow:
+        reloaded = await uow.run_repo.get(run.run_id)
+    assert reloaded.state is RunState.ORPHANED

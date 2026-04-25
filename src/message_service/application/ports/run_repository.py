@@ -160,12 +160,15 @@ class RunRepository(ABC):
         expired even if ``created_at`` is older than the cutoff.
 
         Args:
-            cutoff: Runs with ``updated_at < cutoff`` AND ``state in
-                active_states`` are returned. ``cutoff`` is computed by
-                the sweeper as ``clock.now() - run_timeout_seconds``.
-                Per L2-SWEEP-004 the comparison is against the
-                ``last-transition`` timestamp (``updated_at``), not
-                ``created_at``.
+            cutoff: Runs with ``updated_at <= cutoff`` AND ``state in
+                active_states`` are returned. The boundary is inclusive
+                per L1-SWEEP-002 / L3-SWEEP-017 — a run whose
+                ``updated_at`` is *exactly* the cutoff is surfaced (it
+                has aged out, not "almost aged out"). ``cutoff`` is
+                computed by the sweeper as ``clock.now() -
+                run_timeout_seconds``. Per L2-SWEEP-004 the comparison
+                is against the ``last-transition`` timestamp
+                (``updated_at``), not ``created_at``.
             active_states: Typically
                 ``frozenset({RunState.INITIATED, RunState.AGGREGATING,
                 RunState.READY, RunState.SENDING})``.

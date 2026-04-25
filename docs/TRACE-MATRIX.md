@@ -176,7 +176,7 @@ the single source of truth.
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-SWEEP-001 | L3-SWEEP-001, L3-SWEEP-002, L3-SWEEP-018 | _(TBD)_ | Draft |
-| L2-SWEEP-002 | L3-SWEEP-003, L3-SWEEP-017 | _(TBD)_ | Draft |
+| L2-SWEEP-002 | L3-SWEEP-003, L3-SWEEP-017 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_classifies_run_at_exact_timeout_as_orphan`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_inclusive_boundary` | Partially Implemented |
 | L2-SWEEP-003 | L3-SWEEP-004, L3-SWEEP-005, L3-SWEEP-016 | `tests/unit/infrastructure/sweeper/test_loop.py::test_counter_exists_in_default_registry`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_no_orphans_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_orphans_detected_tick_increments_correct_label`<br>`tests/unit/infrastructure/sweeper/test_loop.py::test_sweeper_error_tick_increments_correct_label` | Partially Implemented |
 | L2-SWEEP-004 | L3-SWEEP-006 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_returns_runs_older_than_cutoff_in_active_states`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_uses_updated_at_not_created_at` | Partially Implemented |
 | L2-SWEEP-005 | L3-SWEEP-007, L3-SWEEP-008 | `tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_honors_limit_parameter`<br>`tests/unit/infrastructure/persistence/test_run_repository.py::test_list_expired_state_filter_includes_only_active_states` | Implemented |
@@ -469,7 +469,7 @@ the single source of truth.
 | STAGE | 4 | 9 | 18 | 8 | 9 |
 | TMPL | 5 | 14 | 28 | 7 | 2 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
-| SWEEP | 3 | 10 | 19 | 6 | 8 |
+| SWEEP | 3 | 10 | 19 | 6 | 9 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 0 | 0 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
@@ -480,9 +480,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **333** | **51** | **81** |
+| **Total** | **65** | **182** | **333** | **51** | **82** |
 
-**Requirements verified by at least one test**: 132 of 515 (25.6%).
+**Requirements verified by at least one test**: 133 of 515 (25.8%).
 
 ### Orphan check
 

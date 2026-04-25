@@ -276,9 +276,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-SWEEP-002
 
-**Statement**: The service SHALL classify a run as orphaned when the elapsed time since its last state transition exceeds the globally configured run-timeout value.
+**Statement**: The service SHALL classify a run as orphaned when the elapsed time since its last state transition meets or exceeds the globally configured run-timeout value (inclusive boundary). A run whose elapsed time is exactly equal to `run_timeout_seconds` SHALL be classified as orphaned at the next sweeper tick rather than waiting an additional polling interval.
 
-**Rationale**: A time-since-last-transition criterion catches runs that never finalize and runs whose stages go silent mid-execution alike.
+**Rationale**: A time-since-last-transition criterion catches runs that never finalize and runs whose stages go silent mid-execution alike. The inclusive boundary (matching L3-SWEEP-017's "exactly `run_timeout_seconds` ago" wording) guarantees an operator-set timeout is honored to-the-second rather than to-the-second-plus-one-poll-interval. SQL enforcement is `WHERE updated_at <= cutoff` (per L3 derivation in `infrastructure/persistence/run_repository.py`).
 
 **Verification Method**: Test (T)
 

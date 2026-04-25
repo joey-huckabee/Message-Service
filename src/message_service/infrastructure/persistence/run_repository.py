@@ -109,7 +109,7 @@ SELECT
     tags_json, declared_stages_json, subscription_predicate_tags_json,
     created_at, updated_at
 FROM runs
-WHERE updated_at < ? AND state IN ({placeholders})
+WHERE updated_at <= ? AND state IN ({placeholders})
 ORDER BY updated_at ASC
 LIMIT ?
 """

@@ -388,12 +388,16 @@ def create_app(service: Service) -> FastAPI:
     # -------------------------------------------------------------------------
 
     # Imported here rather than at module top to avoid a circular import:
-    # the routes module imports ``require_session`` from this module.
+    # the routes modules import ``require_session`` from this module.
+    from message_service.interfaces.rest.routes.runs import (
+        build_runs_router,
+    )
     from message_service.interfaces.rest.routes.subscriptions import (
         build_subscriptions_router,
     )
 
     app.include_router(build_subscriptions_router(service))
+    app.include_router(build_runs_router(service))
 
     return app
 

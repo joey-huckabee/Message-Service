@@ -84,7 +84,14 @@ def test_port_methods_are_fully_annotated(port_cls: type) -> None:
 
 @pytest.mark.requirement("L2-PERS-008")
 def test_run_repository_exposes_expected_methods() -> None:
-    expected = {"save", "get", "update_state", "list_in_states", "list_expired"}
+    expected = {
+        "save",
+        "get",
+        "update_state",
+        "list_in_states",
+        "list_expired",
+        "list_paginated",
+    }
     assert expected == RunRepository.__abstractmethods__
 
 

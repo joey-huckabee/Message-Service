@@ -25,7 +25,7 @@ Done:
 
 Still open:
 
-- **Increments 19a, 19b, 19c, 20–24** — Past-runs list / resend / report viewer (split into three sub-increments per the 2026-04-25 spec-first directive) through documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 19b, 19c, 20–24** — Manual resend / filesystem report store + viewer (the remaining two sub-increments of the 19 split) through documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -413,7 +413,7 @@ The original ROADMAP entry combined paginated runs list, resend, and rendered-re
 
 Split into three sub-increments. New L2/L3 statements authored upfront (this commit): L2-DASH-012/013/014, L3-DASH-022..030 (with L3-DASH-013 reworded), L3-PERS-024..026.
 
-#### Increment 19a — Past-runs paginated list + run-detail metadata view
+#### Increment 19a — Past-runs paginated list + run-detail metadata view  *(✅ done; see commit log)*
 
 **Closes**: the "list / view metadata" portion of `L1-DASH-003`.
 
@@ -522,7 +522,7 @@ The historical sequencing block has been pruned now that Clusters 14 (excluding 
 
 **Recommended next-up sequencing**
 
-1. **19a → 19b → 19c** in order — past-runs list + detail; manual resend; filesystem report store + report viewer. The split is documented in the Increment 19 sections; spec deltas (3 new L2, 9 new L3, 1 reword) authored ahead of code per the 2026-04-25 user directive.
+1. **19b → 19c** in order — manual resend; filesystem report store + report viewer. (19a landed; spec deltas for 19a/b/c authored ahead of code per the 2026-04-25 user directive.)
 2. **20** — admin surfaces.
 3. **21** — E2E happy-path + orphan-path harness.
 4. **22** — error-mapping + servicer tests; independent stream.

@@ -45,6 +45,8 @@ from message_service.application.use_cases.assemble_and_deliver import (
 )
 from message_service.application.use_cases.begin_run import BeginRunUseCase
 from message_service.application.use_cases.finalize_run import FinalizeRunUseCase
+from message_service.application.use_cases.get_run_detail import GetRunDetailUseCase
+from message_service.application.use_cases.list_past_runs import ListPastRunsUseCase
 from message_service.application.use_cases.login import LoginUseCase
 from message_service.application.use_cases.logout import LogoutUseCase
 from message_service.application.use_cases.submit_stage_report import (
@@ -172,6 +174,8 @@ class Service:
     logout: LogoutUseCase
     subscribe: SubscribeUseCase
     unsubscribe: UnsubscribeUseCase
+    list_past_runs: ListPastRunsUseCase
+    get_run_detail: GetRunDetailUseCase
 
 
 async def build_service(config: Config) -> Service:
@@ -370,6 +374,8 @@ async def build_service(config: Config) -> Service:
         registered_pipelines=frozenset(config.pipelines.registered),
     )
     unsubscribe = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
+    list_past_runs = ListPastRunsUseCase(uow_factory=uow_factory)
+    get_run_detail = GetRunDetailUseCase(uow_factory=uow_factory)
 
     _log.info("bootstrap_complete")
 
@@ -394,6 +400,8 @@ async def build_service(config: Config) -> Service:
         logout=logout,
         subscribe=subscribe,
         unsubscribe=unsubscribe,
+        list_past_runs=list_past_runs,
+        get_run_detail=get_run_detail,
     )
 
 

@@ -185,5 +185,43 @@ class RunRepository(ABC):
             PersistenceError: Infrastructure failure.
         """
 
+    @abstractmethod
+    async def list_paginated(
+        self,
+        states: frozenset[RunState],
+        *,
+        limit: int,
+        offset: int,
+    ) -> Sequence[Run]:
+        """Return up to ``limit`` runs in any of ``states``, paginated.
+
+        Used by the dashboard "past runs" page. Per L3-DASH-024 the
+        adapter SHALL order by ``runs.created_at DESC`` with
+        ``runs.run_id DESC`` as the deterministic tiebreaker, then
+        apply ``LIMIT ? OFFSET ?``. The dashboard's
+        :class:`ListPastRunsUseCase` provides the default state set
+        (``TERMINAL_STATES``) when the route's ``states`` query
+        parameter is absent (per L3-DASH-023).
+
+        Args:
+            states: State filter; runs whose ``state`` is in this set
+                are returned. Empty set returns an empty sequence.
+            limit: Maximum runs to return. Per L3-DASH-023 the route
+                layer constrains this to ``[1, 200]``; the repo
+                accepts any positive int.
+            offset: Number of rows to skip; per L3-DASH-023 the route
+                constrains this to ``>= 0``.
+
+        Returns:
+            A sequence of at most ``limit`` runs, most recent first.
+            Empty sequence if no rows match (e.g., when ``offset``
+            exceeds the total).
+
+        Raises:
+            ValueError: ``limit`` is not positive or ``offset`` is
+                negative.
+            PersistenceError: Infrastructure failure.
+        """
+
 
 __all__ = ["RunRepository"]

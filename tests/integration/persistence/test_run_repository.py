@@ -581,3 +581,137 @@ async def test_row_with_malformed_json_raises_persistence_error(
     repo = SqliteRunRepository(conn)
     with pytest.raises(PersistenceError, match="decode persisted JSON"):
         await repo.get(RunId("00000000-0000-4000-8000-00000000bad2"))
+
+
+# -----------------------------------------------------------------------------
+# list_paginated (Increment 19a)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-024")
+async def test_list_paginated_orders_most_recent_first(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """L3-DASH-024: results SHALL be ordered by created_at DESC."""
+    runs = [
+        _make_run(
+            run_id=f"00000000-0000-4000-8000-{i:012d}",
+            state=RunState.SENT,
+            created_at=_T0 + timedelta(minutes=i),
+        )
+        for i in range(3)
+    ]
+    for r in runs:
+        await repo.save(r)
+    await conn.commit()
+
+    result = await repo.list_paginated(frozenset({RunState.SENT}), limit=10, offset=0)
+    # Latest run (i=2) appears first.
+    assert [r.run_id for r in result] == [
+        runs[2].run_id,
+        runs[1].run_id,
+        runs[0].run_id,
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-024")
+async def test_list_paginated_uses_run_id_tiebreaker(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """L3-DASH-024: identical created_at rows SHALL be ordered by run_id DESC."""
+    same_time = _T0
+    runs = [
+        _make_run(
+            run_id=f"00000000-0000-4000-8000-{i:012x}",
+            state=RunState.SENT,
+            created_at=same_time,
+        )
+        for i in range(3)
+    ]
+    for r in runs:
+        await repo.save(r)
+    await conn.commit()
+
+    result = await repo.list_paginated(frozenset({RunState.SENT}), limit=10, offset=0)
+    # run_ids sorted DESC by their string form.
+    expected = sorted([r.run_id for r in runs], reverse=True)
+    assert [r.run_id for r in result] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-024")
+async def test_list_paginated_respects_limit_and_offset(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """LIMIT and OFFSET SHALL slice the result window."""
+    runs = [
+        _make_run(
+            run_id=f"00000000-0000-4000-8000-{i:012d}",
+            state=RunState.SENT,
+            created_at=_T0 + timedelta(minutes=i),
+        )
+        for i in range(5)
+    ]
+    for r in runs:
+        await repo.save(r)
+    await conn.commit()
+
+    page1 = await repo.list_paginated(frozenset({RunState.SENT}), limit=2, offset=0)
+    page2 = await repo.list_paginated(frozenset({RunState.SENT}), limit=2, offset=2)
+    page3 = await repo.list_paginated(frozenset({RunState.SENT}), limit=2, offset=4)
+    assert len(page1) == 2
+    assert len(page2) == 2
+    assert len(page3) == 1
+    # Pages are non-overlapping in run_id.
+    seen = {r.run_id for r in (*page1, *page2, *page3)}
+    assert len(seen) == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-023")
+async def test_list_paginated_filters_by_state_set(
+    repo: SqliteRunRepository, conn: aiosqlite.Connection
+) -> None:
+    """The state filter SHALL exclude runs in any other state."""
+    sent = _make_run(
+        run_id="00000000-0000-4000-8000-00000000aaa1",
+        state=RunState.SENT,
+    )
+    failed = _make_run(
+        run_id="00000000-0000-4000-8000-00000000aaa2",
+        state=RunState.FAILED,
+    )
+    initiated = _make_run(
+        run_id="00000000-0000-4000-8000-00000000aaa3",
+        state=RunState.INITIATED,
+    )
+    for r in (sent, failed, initiated):
+        await repo.save(r)
+    await conn.commit()
+
+    result = await repo.list_paginated(
+        frozenset({RunState.SENT, RunState.FAILED}), limit=10, offset=0
+    )
+    ids = {r.run_id for r in result}
+    assert ids == {sent.run_id, failed.run_id}
+
+
+@pytest.mark.asyncio
+async def test_list_paginated_empty_states_returns_empty(
+    repo: SqliteRunRepository,
+) -> None:
+    """An empty state set SHALL yield an empty result without hitting SQL."""
+    assert await repo.list_paginated(frozenset(), limit=10, offset=0) == ()
+
+
+@pytest.mark.asyncio
+async def test_list_paginated_rejects_invalid_args(
+    repo: SqliteRunRepository,
+) -> None:
+    """Limit must be positive, offset must be non-negative."""
+    with pytest.raises(ValueError, match="limit"):
+        await repo.list_paginated(frozenset({RunState.SENT}), limit=0, offset=0)
+    with pytest.raises(ValueError, match="offset"):
+        await repo.list_paginated(frozenset({RunState.SENT}), limit=10, offset=-1)

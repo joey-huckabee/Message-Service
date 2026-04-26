@@ -208,6 +208,43 @@ class SqliteRunRepository(RunRepository):
             rows = await cur.fetchall()
         return [_row_to_run(r) for r in rows]
 
+    # -- list_paginated --------------------------------------------------
+
+    async def list_paginated(  # noqa: D102
+        self,
+        states: frozenset[RunState],
+        *,
+        limit: int,
+        offset: int,
+    ) -> Sequence[Run]:
+        if limit < 1:
+            raise ValueError(f"limit must be positive; got {limit}")
+        if offset < 0:
+            raise ValueError(f"offset must be non-negative; got {offset}")
+        if not states:
+            return ()
+
+        # L3-DASH-024: ORDER BY runs.created_at DESC, runs.run_id DESC
+        # then LIMIT ? OFFSET ?. The state IN clause uses sorted state
+        # values for deterministic parameter binding (consistent with
+        # list_in_states / list_expired above).
+        placeholders = ", ".join("?" * len(states))
+        sql = f"""
+            SELECT
+                run_id, pipeline_type, state, attachment_mode,
+                aggregation_template_name, aggregation_template_version,
+                tags_json, declared_stages_json, subscription_predicate_tags_json,
+                created_at, updated_at
+            FROM runs
+            WHERE state IN ({placeholders})
+            ORDER BY created_at DESC, run_id DESC
+            LIMIT ? OFFSET ?
+        """
+        params = (*sorted(s.value for s in states), limit, offset)
+        async with self._conn.execute(sql, params) as cur:
+            rows = await cur.fetchall()
+        return [_row_to_run(r) for r in rows]
+
 
 # -----------------------------------------------------------------------------
 # Row <-> aggregate mapping

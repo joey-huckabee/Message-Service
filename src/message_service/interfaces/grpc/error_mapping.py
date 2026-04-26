@@ -21,19 +21,18 @@ Requirement references
 
 from __future__ import annotations
 
-import logging
 import uuid
 
 import grpc
 import structlog
 
 from message_service.domain.errors import (
-    InfrastructureError,
     MessageServiceError,
     NotFoundError,
     PreconditionError,
     ValidationError,
 )
+from message_service.observability.logging_setup import redact_sensitive_keys
 
 logger = structlog.get_logger(__name__)
 
@@ -81,21 +80,37 @@ async def _translate_known(
     context: grpc.aio.ServicerContext,
     exc: MessageServiceError,
 ) -> None:
-    """Translate an expected MessageServiceError. Logged at WARNING level."""
-    status = _status_code_for(exc)
+    """Translate an expected MessageServiceError.
 
-    # INFO: expected validation/not-found/precondition; WARNING: infrastructure.
-    log_level = logging.WARNING if isinstance(exc, InfrastructureError) else logging.INFO
+    The boundary log level comes from the exception's class-level
+    ``log_level`` ClassVar (added in Step 2 of Increment 22). The
+    exception's ``details`` dict is run through
+    :func:`redact_sensitive_keys` (per `L3-ERR-016`) before being
+    logged or — if the wire-format upgrade in `R-ERR-001` ever
+    lands — flowed into trailing metadata. The ``details`` dict is
+    NOT currently serialized to the response (only ``error_code``
+    is, in trailing metadata) so the redacted copy is currently only
+    used in the log record; pre-redacting still matters because the
+    structlog processor only redacts top-level event keys, not
+    values nested inside a ``details=`` argument.
+    """
+    status = _status_code_for(exc)
+    safe_details = redact_sensitive_keys(exc.details)
+
     logger.log(
-        log_level,
+        exc.log_level,
         "request_rejected",
         error_code=exc.error_code,
         message=exc.message,
-        details=exc.details,
+        details=safe_details,
         grpc_status=status.name,
     )
 
-    # Detail payload: machine-readable error code plus any structured details.
+    # Trailing metadata: machine-readable error code only. Per
+    # `L3-ERR-015` (reworded in Step 1 of 22), v1 keeps the simpler
+    # context.abort + trailing-metadata shape; the richer
+    # google.rpc.Status + ErrorInfo envelope (which would also carry
+    # safe_details) is deferred to ROADMAP `R-ERR-001`.
     trailing_metadata: tuple[tuple[str, str], ...] = (
         ("x-message-service-error-code", exc.error_code),
     )

@@ -369,25 +369,25 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-ERR-001 | L2-ERR-001, L2-ERR-002, L2-ERR-003 | Draft |
-| L1-ERR-002 | L2-ERR-004, L2-ERR-005 | Draft |
-| L1-ERR-003 | L2-ERR-006, L2-ERR-007, L2-ERR-008 | Draft |
-| L1-ERR-004 | L2-ERR-009, L2-ERR-010 | Draft |
+| L1-ERR-001 | L2-ERR-001, L2-ERR-002, L2-ERR-003 | Partially Implemented |
+| L1-ERR-002 | L2-ERR-004, L2-ERR-005 | Partially Implemented |
+| L1-ERR-003 | L2-ERR-006, L2-ERR-007, L2-ERR-008 | Partially Implemented |
+| L1-ERR-004 | L2-ERR-009, L2-ERR-010 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-ERR-001 | L3-ERR-001, L3-ERR-002, L3-ERR-003 | _(TBD)_ | Draft |
-| L2-ERR-002 | L3-ERR-004, L3-ERR-005 | _(TBD)_ | Draft |
-| L2-ERR-003 | L3-ERR-006, L3-ERR-007 | _(TBD)_ | Draft |
-| L2-ERR-004 | L3-ERR-008, L3-ERR-009 | _(TBD)_ | Draft |
+| L2-ERR-001 | L3-ERR-001, L3-ERR-002, L3-ERR-003 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_log_level_is_warning`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_has_required_classvars`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_init_signature`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_log_level_default_is_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_not_found_error_http_status_default_is_404`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_precondition_error_http_status_default_is_409`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_http_status_default_is_422`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_log_level_is_info` | Partially Implemented |
+| L2-ERR-002 | L3-ERR-004, L3-ERR-005 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_domain_subcategories_inherit_from_domain_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_every_concrete_class_inherits_from_one_intermediate`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_four_intermediate_subclasses_exist` | Implemented |
+| L2-ERR-003 | L3-ERR-006, L3-ERR-007 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_every_leaf_error_code_is_upper_snake_case`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_no_two_leaves_share_a_specific_error_code` | Implemented |
+| L2-ERR-004 | L3-ERR-008, L3-ERR-009 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_passes_for_real_proto`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_raises_when_class_code_missing`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_returns_orphans` | Implemented |
 | L2-ERR-005 | L3-ERR-010, L3-ERR-011 | _(TBD)_ | Draft |
 | L2-ERR-006 | L3-ERR-012, L3-ERR-013 | _(TBD)_ | Draft |
-| L2-ERR-007 | L3-ERR-014, L3-ERR-015, L3-ERR-016 | _(TBD)_ | Draft |
-| L2-ERR-008 | L3-ERR-017, L3-ERR-018 | _(TBD)_ | Draft |
+| L2-ERR-007 | L3-ERR-014, L3-ERR-015, L3-ERR-016 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_configuration_error_maps_to_internal`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_maps_to_internal`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_not_found_error_maps_to_not_found`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_precondition_error_maps_to_failed_precondition`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_does_not_leak_internal_class_name`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_does_not_mutate_original_details`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_redacts_sensitive_keys_in_log_record`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_to_grpc_status_dispatches_known_to_translate_known`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_to_grpc_status_dispatches_unknown_to_translate_unexpected`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_maps_to_invalid_argument` | Implemented |
+| L2-ERR-008 | L3-ERR-017, L3-ERR-018 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_does_not_leak_stack_trace_to_client`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_returns_internal_with_correlation_id` | Partially Implemented |
 | L2-ERR-009 | L3-ERR-019, L3-ERR-020 | _(TBD)_ | Draft |
-| L2-ERR-010 | L3-ERR-021, L3-ERR-022 | _(TBD)_ | Draft |
+| L2-ERR-010 | L3-ERR-021, L3-ERR-022 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_keyboard_interrupt_is_not_caught_by_translator` | Partially Implemented |
 
 ### L1-CFG: Configuration
 
@@ -488,13 +488,13 @@ the single source of truth.
 | DASH | 5 | 16 | 35 | 1 | 25 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
 | OBS | 4 | 18 | 38 | 2 | 16 |
-| ERR | 4 | 10 | 22 | 0 | 0 |
+| ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **67** | **192** | **373** | **58** | **144** |
+| **Total** | **67** | **192** | **373** | **58** | **157** |
 
-**Requirements verified by at least one test**: 202 of 565 (35.8%).
+**Requirements verified by at least one test**: 215 of 565 (38.1%).
 
 ### Orphan check
 

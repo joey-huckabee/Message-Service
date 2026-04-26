@@ -38,7 +38,7 @@ from structlog.typing import EventDict, Processor
 
 # Fields that should never appear in log output even if a call site passes them.
 # Extend this list if new sensitive fields are introduced.
-_SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
+SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
     {
         "password",
         "passwd",
@@ -55,7 +55,42 @@ _SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
     }
 )
 
-_REDACTED = "<redacted>"
+# Backwards-compatible private alias for legacy callers; new code SHALL
+# use the public name above.
+_SENSITIVE_FIELD_NAMES = SENSITIVE_FIELD_NAMES
+
+REDACTED_PLACEHOLDER = "<redacted>"
+_REDACTED = REDACTED_PLACEHOLDER
+
+
+def redact_sensitive_keys(payload: dict[str, object]) -> dict[str, object]:
+    """Return a copy of ``payload`` with L3-OBS-006-sensitive keys redacted.
+
+    Used by the gRPC error translator (per `L3-ERR-016`) before the
+    exception's ``details`` dict is logged or — if the wire-format
+    upgrade in `R-ERR-001` ever lands — flowed into trailing
+    metadata. Keeping the redaction list in ONE place (the
+    module-level :data:`SENSITIVE_FIELD_NAMES` frozenset) is
+    L3-OBS-006's single-source-of-truth obligation; this function
+    is the read-side accessor for non-structlog code paths.
+
+    Comparison is case-insensitive on the key name (per L3-OBS-006);
+    the value's type is irrelevant — sensitive keys are replaced
+    with the literal string ``<redacted>`` regardless of what they
+    held.
+
+    Args:
+        payload: The dict to redact. NOT mutated in place; the
+            caller keeps the original.
+
+    Returns:
+        A shallow copy with sensitive keys' values replaced. Non-
+        sensitive keys keep their original references.
+    """
+    return {
+        key: REDACTED_PLACEHOLDER if key.lower() in SENSITIVE_FIELD_NAMES else value
+        for key, value in payload.items()
+    }
 
 
 def _redact_sensitive_fields(
@@ -69,8 +104,8 @@ def _redact_sensitive_fields(
     sensitive data by accident (L2-OBS-003).
     """
     for key in list(event_dict.keys()):
-        if key.lower() in _SENSITIVE_FIELD_NAMES:
-            event_dict[key] = _REDACTED
+        if key.lower() in SENSITIVE_FIELD_NAMES:
+            event_dict[key] = REDACTED_PLACEHOLDER
     return event_dict
 
 

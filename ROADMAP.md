@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **19c — filesystem report store + report viewer** (commit `b900ce3`); closes `L1-DASH-003` (the dashboard's full read surface — past-runs list, run detail, manual resend, rendered-report viewer). Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
+Last full increment merged: **19c — filesystem report store + report viewer** (commit `b900ce3`); closes the "view past rendered reports" clause of `L1-DASH-003` (clauses 1+2 closed by 19a/19b; clause 3 — template registry inspection — remains for **20a**). Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -24,7 +24,7 @@ Done:
 - **Increment 18** — Subscription CRUD routes (`310ce2d`).
 - **Increment 19a** — Past-runs paginated list + run-detail metadata view (`9b0a87b`).
 - **Increment 19b** — Manual resend (re-renders from saved Stage context) (`f3d7509`).
-- **Increment 19c** — Filesystem report store + report viewer; closes L1-DASH-003 (`b900ce3`).
+- **Increment 19c** — Filesystem report store + report viewer (`b900ce3`); closes clauses 1+2 of L1-DASH-003 (clause 3 — template registry inspection — slated for 20a).
 
 Still open:
 
@@ -499,14 +499,95 @@ Split into three sub-increments. New L2/L3 statements authored upfront (this com
 
 - L3-PERS-024/025/026 promote from Draft → Implemented.
 - L2-DASH-014 + L3-DASH-029/030 promote from Draft → Implemented.
-- L1-DASH-003 fully closed (all three clauses now have implementation + tests).
+- L1-DASH-003 partially closed: clauses 1 ("view past rendered reports") and 2 ("trigger manual resends") are now implemented + tested. The third clause ("inspect the template registry contents in a read-only view") remains for Increment 20a.
 
 ### Increment 20 — Admin surfaces
 
-Closes **L1-DASH-004** (Draft).
+The original ROADMAP entry incorrectly stated "Closes **L1-DASH-004** (Draft)" — but `L1-DASH-004` is about embedded Prometheus metrics visualizations, not admin features. The bullets that followed ("user management, audit-log viewer, template inspection") describe scope that lives under `L1-DASH-003` (clause 3) plus net-new admin obligations that have no existing L1 surface. Survey before kickoff (see session memory `2026-04-26`) confirmed the spec gap and the mislabeling.
 
-- User management, audit-log viewer, template inspection — all read-mostly over existing adapters.
-- Gate behind an `is_admin` flag on `User`.
+Split into three admin sub-increments plus a separately-scoped embedded-metrics increment:
+
+#### Increment 20a — Admin gate + template registry inspection
+
+**Closes**: the third clause of `L1-DASH-003` ("inspect the template registry contents in a read-only view") plus `L2-DASH-007` (admin gate) and `L2-DASH-009` (template inspection read-only). After 20a lands, `L1-DASH-003` is fully closed.
+
+**Spec readiness**: mostly ready. `L2-DASH-007` and `L2-DASH-009` are authored. L3 hooks: `L3-DASH-006`/`L3-DASH-007` cover the `require_admin` dependency; `L3-DASH-019` covers the HTTP-method allow-list for `/templates/*`. Likely needs 1-2 small L3 additions for the inspection-route response shape (list-templates and view-template-detail projections).
+
+**Work**
+
+- Author 1-2 small L3 children for `L2-DASH-009` covering the response shape of the list and detail routes (template id, version, source path, last-modified — but NOT the template body itself, which would re-introduce a content-injection surface).
+- Implement `require_admin` FastAPI dependency in `interfaces/rest/app.py` (mirrors `require_session`; reads `is_admin` per request per `L3-DASH-020`).
+- Add an `is_admin` flag access path on `Service` / on the user repo if not already wired. (User model already has the column per Increment 16.)
+- New router under `interfaces/rest/routes/templates.py`:
+  - `GET /templates` — list all registered templates with their (name, version, kind, source_path) projection.
+  - `GET /templates/{name}/{version}` — detail view (same projection — body NOT included).
+  - `POST/PATCH/DELETE /templates/*` returns 405 per `L3-DASH-019`.
+- Wire into `create_app` via `include_router`.
+- Tests: integration tests for admin-gate enforcement, list/detail projections, 405s on write methods, 401 unauthenticated, 403 non-admin.
+
+**Verification**
+
+- `L2-DASH-007` + `L2-DASH-009` promote from Draft → Implemented.
+- `L1-DASH-003` fully closes (all three clauses).
+- New 20a section in the Status snapshot.
+
+#### Increment 20b — Admin user management (CREATE_USER / UPDATE_USER)
+
+**Closes**: net-new L2/L3 anchored at `L1-AUTH-001` (or possibly a new L1) covering admin-driven user CRUD. Closes the `(Implementation deferred to Increment 20)` tag on `L3-OBS-035`.
+
+**Spec readiness**: gap. Audit-record format (`L3-OBS-035`) is authored, but no L1/L2 obligations exist for the dashboard routes that perform user management. Needs spec authoring before code.
+
+**Work**
+
+- Author L1 (or extend an existing one) covering "the dashboard SHALL allow administrators to create users (with `is_admin` boolean), update existing users (display_name, is_admin, disabled), and reset passwords (admin-driven password set, distinct from the user's own change-password flow)."
+- Author L2 derivations: route obligations, request/response shapes, password-handling rules (new password is hashed via the same `Argon2PasswordHasher` singleton; never stored or echoed in plaintext), validation rules (email uniqueness, display_name length).
+- Author L3 implementation hooks: route paths, status codes, audit-record details (must align with the existing `L3-OBS-035` format: `actor=user:<admin_id>`, `resource=user:<target_user_id>`, `outcome=SUCCESS`, `details={target_user_id, mutated_fields}`).
+- Implement `CreateUserUseCase` + `UpdateUserUseCase` (or extend an existing `RegisterUser` use case) under `application/use_cases/`.
+- New router under `interfaces/rest/routes/admin_users.py` (or merge into an `admin.py` aggregate router).
+- Remove the `(Implementation deferred to Increment 20)` tag from `L3-OBS-035`.
+- Tests covering happy path, validation failures, audit-format assertions, admin-gate enforcement.
+
+**Verification**
+
+- New L2/L3 promote from Draft → Implemented.
+- `L3-OBS-035` no longer carries the "deferred" tag.
+- New 20b section in the Status snapshot.
+
+#### Increment 20c — Audit-log viewer
+
+**Closes**: net-new L1/L2/L3 covering an admin audit-log read API.
+
+**Spec readiness**: full gap. No L1/L2/L3 coverage exists for an audit-log viewer route. The audit log itself is mature (governed by `L1-OBS-003`), but the dashboard surface for reading it is unspecified.
+
+**Work**
+
+- Author L1 (likely under existing `L1-OBS-003` or a new L1-DASH or L1-OBS sibling) covering "the dashboard SHALL allow administrators to read the audit log via a paginated, filtered, read-only API."
+- Author L2 derivations: route obligations, filter parameters (`action`, `actor`, `resource`, `from`, `to`), pagination semantics (offset+limit, capped at a reasonable page size, default ordering most-recent-first).
+- Author L3 implementation hooks: route paths, query-parameter validation, response shape, password/token redaction guarantees (must honor the existing `L3-OBS-036` redaction rule).
+- Implement use case + router under `interfaces/rest/routes/audit.py`.
+- Tests covering happy path, filter combinations, pagination, redaction, admin-gate enforcement.
+
+**Verification**
+
+- New L1/L2/L3 promote from Draft → Implemented.
+- New 20c section in the Status snapshot.
+
+#### Increment 20d — Embedded Prometheus metrics dashboard  *(deferred — separate scope)*
+
+**Closes**: `L1-DASH-004`, `L2-DASH-010`, `L2-DASH-011` — all currently Draft.
+
+This is **NOT** part of the admin-surfaces stream. It was bundled into the original Increment 20 entry by mistake; correctly, it's its own concern (Chart.js-based metrics visualizations, server-side fetched from the service's own `/metrics` endpoint per `L2-DASH-010`, with offline-capable static assets per `L2-DASH-011`).
+
+**Spec readiness**: L1 + two L2s authored; no L3 yet. Needs L3 children covering route paths, asset-bundling approach, and chart-rendering data flow.
+
+**Work** (sketch — not yet planned in detail; revisit before kickoff)
+
+- Author L3 children for `L2-DASH-010` (server-side fetch implementation) and `L2-DASH-011` (asset bundling).
+- Pick a Chart.js bundling approach (vendored static asset under `src/message_service/interfaces/rest/static/` is the air-gapped-friendly choice).
+- Implement `GET /admin/metrics` HTML page that fetches `/metrics` server-side, parses the Prometheus text format, and renders Chart.js dashboards (run-state-transition counts, email-delivery outcomes histogram, run duration, email size, etc.).
+- Tests: integration test for the page rendering and the data-fetch path.
+
+20d may slot anywhere relative to 21-24; **not blocking the admin work in 20a/b/c**. Recommend authoring its L3 children when 21-23 are done so the spec deck is fully decomposed before tagging v1.
 
 ### Increment 21 — E2E happy-path + orphan-path harness
 
@@ -546,16 +627,18 @@ The historical sequencing block has been pruned now that Clusters 14 (excluding 
 
 **Feature stream (Increments 19a–22)**
 
-- **19a → 19b → 19c → 20** complete the dashboard, building on the chassis 17 delivered and the subscription CRUD 18 added. 19a delivers the past-runs paginated list + run-detail view (read-only metadata); 19b adds manual resend (re-renders from saved Stage context, no filesystem-store dependency); 19c lands the filesystem report store + the rendered-report viewer routes. The split was driven by the survey before kickoff — the filesystem store is its own substantive subsystem and benefits from a focused increment.
+- **19a → 19b → 19c → 20a → 20b → 20c** complete the dashboard, building on the chassis 17 delivered and the subscription CRUD 18 added. 19a delivers the past-runs paginated list + run-detail view (read-only metadata); 19b adds manual resend (re-renders from saved Stage context, no filesystem-store dependency); 19c lands the filesystem report store + the rendered-report viewer routes. 20a implements the admin gate + template registry inspection (closing L1-DASH-003's third clause). 20b adds admin-driven user management. 20c adds the audit-log viewer. The 20-split was driven by the survey before kickoff — the original entry mislabeled the closure target and bundled scopes that needed independent spec authoring.
+- **20d** (embedded Prometheus metrics dashboard) is a separate stream from 20a-c and may slot anywhere relative to 21-24. It closes `L1-DASH-004`, which the original Increment 20 entry incorrectly referenced.
 - **21** (E2E harness) can shift earlier — slotting it in after one or two more domain-router increments forces the FastAPI chassis to stay testable as routes accrete.
 - **22** (error-mapping + servicer tests) is independent of the dashboard stream and can interleave whenever convenient.
 
 **Recommended next-up sequencing**
 
-1. **20** — admin surfaces. (19a/19b/19c landed; L1-DASH-003 fully closed.)
+1. **20a → 20b → 20c** — admin surfaces. (19a/19b/19c landed; L1-DASH-003 partially closed — clauses 1 and 2 done, clause 3 lands in 20a.)
 2. **21** — E2E happy-path + orphan-path harness.
 3. **22** — error-mapping + servicer tests; independent stream.
-4. **23, 24** — deployment polish + documentation deliverables (release-gating).
+4. **20d** — embedded Prometheus metrics dashboard (closes `L1-DASH-004`). Recommended slot: after 22, before 23/24, so the spec deck is fully decomposed before release-gating documentation.
+5. **23, 24** — deployment polish + documentation deliverables (release-gating).
 
 ---
 

@@ -85,6 +85,48 @@ class SqliteUserRepository(UserRepository):
             row = await cur.fetchone()
         return _row_to_user(row) if row else None
 
+    async def update(  # noqa: D102
+        self,
+        user_id: int,
+        *,
+        display_name: str | None = None,
+        is_admin: bool | None = None,
+        disabled: bool | None = None,
+        password_hash: str | None = None,
+    ) -> User | None:
+        # Build the SET clause from the supplied (non-None) fields.
+        # Empty-PATCH case: skip the UPDATE entirely and just re-read.
+        sets: list[str] = []
+        params: list[object] = []
+        if display_name is not None:
+            sets.append("display_name = ?")
+            params.append(display_name)
+        if is_admin is not None:
+            sets.append("is_admin = ?")
+            params.append(1 if is_admin else 0)
+        if disabled is not None:
+            sets.append("disabled = ?")
+            params.append(1 if disabled else 0)
+        if password_hash is not None:
+            sets.append("password_hash = ?")
+            params.append(password_hash)
+
+        if sets:
+            params.append(user_id)
+            sql = f"UPDATE users SET {', '.join(sets)} WHERE user_id = ?"
+            try:
+                cur = await self._conn.execute(sql, tuple(params))
+            except aiosqlite.IntegrityError as exc:
+                raise PersistenceError(
+                    f"failed to update user {user_id}: {exc}",
+                    details={"user_id": user_id, "reason": str(exc)},
+                ) from exc
+            if cur.rowcount == 0:
+                # No row updated → user_id did not exist.
+                return None
+
+        return await self.get_by_id(user_id)
+
 
 def _row_to_user(row: aiosqlite.Row) -> User:
     """Map a SELECT row tuple back into a :class:`User`."""

@@ -220,7 +220,7 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Partially Implemented |
 | L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Partially Implemented |
-| L1-AUTH-003 | L2-AUTH-007, L2-AUTH-008, L2-AUTH-009 | Draft |
+| L1-AUTH-003 | L2-AUTH-007, L2-AUTH-008, L2-AUTH-009 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -232,9 +232,9 @@ the single source of truth.
 | L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_deterministic`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_sha256_hex` | Implemented |
 | L2-AUTH-005 | L3-AUTH-008, L3-AUTH-009 | `tests/unit/interfaces/rest/test_app_unit.py::test_set_session_cookie_drops_secure_when_https_only_false`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_session_cookie_uses_named_constants_and_safe_attrs` | Implemented |
 | L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | `tests/integration/persistence/test_session_repository.py::test_delete_expired_only_removes_below_threshold`<br>`tests/integration/persistence/test_session_repository.py::test_touch_updates_last_activity_at`<br>`tests/integration/rest/test_app.py::test_expired_session_is_deleted_on_first_request_past_threshold`<br>`tests/integration/rest/test_app.py::test_session_touch_updates_last_activity_on_each_request` | Partially Implemented |
-| L2-AUTH-007 | L3-AUTH-014, L3-AUTH-015 | _(TBD)_ | Draft |
-| L2-AUTH-008 | L3-AUTH-016 | _(TBD)_ | Draft |
-| L2-AUTH-009 | L3-AUTH-017 | _(TBD)_ | Draft |
+| L2-AUTH-007 | L3-AUTH-014, L3-AUTH-015 | `tests/integration/rest/test_admin_users.py::test_create_user_duplicate_email_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_create_user_extra_fields_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201`<br>`tests/integration/rest/test_admin_users.py::test_create_user_invalid_email_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_non_admin_returns_403`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_does_not_accept_email_field`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_empty_body_is_no_op_success`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_non_positive_id_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_single_field_mutation`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_unknown_id_returns_404`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_happy_path_returns_204`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_unknown_user_returns_404` | Implemented |
+| L2-AUTH-008 | L3-AUTH-016 | `tests/integration/rest/test_admin_users.py::test_create_user_persists_argon2id_hash`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_login_succeeds_with_new_password`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_persists_new_argon2id_hash` | Implemented |
+| L2-AUTH-009 | L3-AUTH-017 | `tests/integration/rest/test_admin_users.py::test_create_user_emits_create_user_audit`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_multi_field_mutated_fields_sorted`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_deadmin_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_disable_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_emits_update_user_audit_with_password_hash_field` | Implemented |
 
 ### L1-MAIL: Email delivery
 
@@ -480,7 +480,7 @@ the single source of truth.
 | AGGR | 4 | 10 | 20 | 4 | 6 |
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
-| AUTH | 3 | 9 | 17 | 5 | 8 |
+| AUTH | 3 | 9 | 17 | 5 | 12 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
 | DASH | 4 | 14 | 32 | 1 | 22 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
@@ -489,9 +489,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **66** | **190** | **370** | **58** | **137** |
+| **Total** | **66** | **190** | **370** | **58** | **141** |
 
-**Requirements verified by at least one test**: 195 of 560 (34.8%).
+**Requirements verified by at least one test**: 199 of 560 (35.5%).
 
 ### Orphan check
 

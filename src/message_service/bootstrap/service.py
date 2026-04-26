@@ -43,6 +43,11 @@ from message_service.application.ports.clock import Clock
 from message_service.application.ports.disposition_handler import DispositionHandler
 from message_service.application.ports.mailer import Mailer
 from message_service.application.ports.report_store import ReportStore
+from message_service.application.use_cases.admin_users import (
+    CreateUserUseCase,
+    ResetPasswordUseCase,
+    UpdateUserUseCase,
+)
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
@@ -224,6 +229,9 @@ class Service:
     list_past_runs: ListPastRunsUseCase
     get_run_detail: GetRunDetailUseCase
     resend_run: ResendRunUseCase
+    create_user: CreateUserUseCase
+    update_user: UpdateUserUseCase
+    reset_password: ResetPasswordUseCase
 
 
 async def build_service(config: Config) -> Service:
@@ -443,6 +451,22 @@ async def build_service(config: Config) -> Service:
         from_address=str(config.mail.from_address),
     )
 
+    # Increment 20b: admin user-management use cases. All three share
+    # the password_hasher singleton (L3-AUTH-016 chokepoint) with
+    # LoginUseCase so admin-set and self-set passwords obey identical
+    # Argon2id discipline.
+    create_user = CreateUserUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        password_hasher=password_hasher,
+    )
+    update_user = UpdateUserUseCase(uow_factory=uow_factory, clock=clock)
+    reset_password = ResetPasswordUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        password_hasher=password_hasher,
+    )
+
     _log.info("bootstrap_complete")
 
     return Service(
@@ -470,6 +494,9 @@ async def build_service(config: Config) -> Service:
         list_past_runs=list_past_runs,
         get_run_detail=get_run_detail,
         resend_run=resend_run,
+        create_user=create_user,
+        update_user=update_user,
+        reset_password=reset_password,
     )
 
 

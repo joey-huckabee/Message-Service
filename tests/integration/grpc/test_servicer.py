@@ -45,6 +45,11 @@ from message_service_proto.v1 import message_service_pb2_grpc as pb_grpc
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.mailer import Mailer
 from message_service.application.ports.report_store import NoOpReportStore
+from message_service.application.use_cases.admin_users import (
+    CreateUserUseCase,
+    ResetPasswordUseCase,
+    UpdateUserUseCase,
+)
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
@@ -340,6 +345,13 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         get_run_detail=get_run_detail_uc,
         resend_run=resend_run_uc,
         report_store=NoOpReportStore(),
+        create_user=CreateUserUseCase(
+            uow_factory=uow_factory, clock=clock, password_hasher=password_hasher
+        ),
+        update_user=UpdateUserUseCase(uow_factory=uow_factory, clock=clock),
+        reset_password=ResetPasswordUseCase(
+            uow_factory=uow_factory, clock=clock, password_hasher=password_hasher
+        ),
     )
     try:
         yield svc

@@ -532,7 +532,7 @@ Split into three admin sub-increments plus a separately-scoped embedded-metrics 
 - `L1-DASH-003` fully closes (all three clauses).
 - New 20a section in the Status snapshot.
 
-#### Increment 20b — Admin user management (CREATE_USER / UPDATE_USER)
+#### Increment 20b — Admin user management (CREATE_USER / UPDATE_USER)  *(✅ done; see commit log)*
 
 **Closes**: net-new L2/L3 anchored at `L1-AUTH-001` (or possibly a new L1) covering admin-driven user CRUD. Closes the `(Implementation deferred to Increment 20)` tag on `L3-OBS-035`.
 

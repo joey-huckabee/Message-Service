@@ -54,5 +54,47 @@ class UserRepository(ABC):
     async def get_by_id(self, user_id: int) -> User | None:
         """Return the user with this primary key, or ``None`` if not found."""
 
+    @abstractmethod
+    async def update(
+        self,
+        user_id: int,
+        *,
+        display_name: str | None = None,
+        is_admin: bool | None = None,
+        disabled: bool | None = None,
+        password_hash: str | None = None,
+    ) -> User | None:
+        """Update specified columns; ``None`` arguments leave them unchanged.
+
+        Used by Increment 20b's admin user-management routes
+        (L1-AUTH-003 / L2-AUTH-007). The ``email`` and ``created_at``
+        columns are deliberately omitted from this signature — both
+        are immutable in v1 (per L2-AUTH-007's "email is not mutable"
+        clause; ``created_at`` is set once at insertion).
+
+        When every keyword argument is ``None`` (the empty-PATCH
+        case per L3-AUTH-015) the implementation SHALL skip the
+        UPDATE statement and just return the existing row.
+
+        Args:
+            user_id: The user's primary key.
+            display_name: Replacement display name, or ``None`` to keep.
+            is_admin: Replacement admin flag, or ``None`` to keep.
+            disabled: Replacement disabled flag, or ``None`` to keep.
+            password_hash: Replacement Argon2id PHC string, or ``None``
+                to keep. Callers SHALL produce this hash via the
+                ``PasswordHasher`` chokepoint per L3-AUTH-016 — the
+                repo does NOT hash; it only persists the bytes the
+                caller hands it.
+
+        Returns:
+            The updated :class:`User` aggregate if ``user_id`` exists;
+            ``None`` if the user was not found (caller surfaces 404).
+
+        Raises:
+            PersistenceError: SQL execution failed for any reason
+                other than user-not-found.
+        """
+
 
 __all__ = ["UserRepository"]

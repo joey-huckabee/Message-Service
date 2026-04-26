@@ -163,7 +163,7 @@ def test_password_hasher_exposes_expected_methods() -> None:
 
 @pytest.mark.requirement("L1-AUTH-001")
 def test_user_repository_exposes_expected_methods() -> None:
-    expected = {"save", "get_by_email", "get_by_id"}
+    expected = {"save", "get_by_email", "get_by_id", "update"}
     assert expected == UserRepository.__abstractmethods__
 
 

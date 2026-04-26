@@ -137,6 +137,31 @@ class RenderedSizeExceededError(ValidationError):
     error_code: ClassVar[str] = "ERROR_CODE_RENDERED_SIZE_EXCEEDED"
 
 
+class DuplicateEmailError(ValidationError):
+    """Admin-initiated user creation collided with an existing email.
+
+    Raised by ``CreateUserUseCase`` when the persistence layer's UNIQUE
+    constraint on ``users.email`` rejects the insert. Surfaced as HTTP
+    409 by the dashboard route per L3-AUTH-015. The HTTP-409 mapping
+    is route-layer (validation errors normally map to gRPC INVALID_ARGUMENT;
+    409 is the right HTTP code for "the request is well-formed but
+    conflicts with current state").
+    """
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
+class InvalidEmailError(ValidationError):
+    """Admin-initiated request supplied a malformed email address.
+
+    Raised by ``CreateUserUseCase`` (and any other admin path that
+    accepts an email) when the syntactic format check fails. Surfaced
+    as HTTP 422 by the dashboard route per L3-AUTH-015.
+    """
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
 class MalformedRequestError(ValidationError):
     """Request failed protobuf-level or syntactic validation."""
 
@@ -162,6 +187,17 @@ class RunNotFoundError(NotFoundError):
 
 class SubscriptionNotFoundError(NotFoundError):
     """Referenced subscription_id does not exist. See L3-DASH-019."""
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
+class UserNotFoundError(NotFoundError):
+    """Referenced ``user_id`` does not exist. See L3-AUTH-014.
+
+    Raised by the admin user-management routes (PATCH and password
+    reset) when the path-parameter ``user_id`` does not match a row.
+    Surfaced as HTTP 404 by the dashboard route.
+    """
 
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
 
@@ -225,6 +261,20 @@ class InvalidStageStateError(PreconditionError):
     error_code: ClassVar[str] = "ERROR_CODE_INVALID_STAGE_STATE"
 
 
+class SelfProtectionError(PreconditionError):
+    """Admin attempted a self-deadmin or self-disable operation. See L2-AUTH-009.
+
+    Raised by ``UpdateUserUseCase`` when the requesting administrator
+    targets their own ``user_id`` with ``is_admin=False`` or
+    ``disabled=True``. Surfaced as HTTP 409 by the dashboard route
+    (per L3-AUTH-017). No audit record is emitted because no
+    successful action occurred — the rejected attempt is captured by
+    a structured-log WARNING line.
+    """
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
 # =============================================================================
 # Infrastructure errors
 # =============================================================================
@@ -282,10 +332,13 @@ __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     "ContextSizeExceededError",
     "RenderedSizeExceededError",
     "MalformedRequestError",
+    "DuplicateEmailError",
+    "InvalidEmailError",
     # Not found
     "NotFoundError",
     "RunNotFoundError",
     "SubscriptionNotFoundError",
+    "UserNotFoundError",
     # Forbidden
     "ForbiddenError",
     "SubscriptionForbiddenError",
@@ -294,6 +347,7 @@ __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     "InvalidRunStateError",
     "InvalidStateTransitionError",
     "InvalidStageStateError",
+    "SelfProtectionError",
     # Infrastructure
     "InfrastructureError",
     "PersistenceError",

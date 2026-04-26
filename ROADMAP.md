@@ -24,7 +24,7 @@ Done:
 
 Still open:
 
-- **Increments 18–24** — Subscription routes through documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 19–24** — Past-runs/resend through documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -399,7 +399,7 @@ Closes **L1-AUTH-001, L1-AUTH-002** (Draft). `rest/auth/` is currently empty.
 - `__main__.py` runs uvicorn alongside `grpc.aio` under one shutdown event.
 - No domain routes yet — chassis + login flow only.
 
-### Increment 18 — Subscription management routes
+### Increment 18 — Subscription management routes  *(✅ done; see commit log)*
 
 Closes **L1-DASH-001, L1-SUB-002** (Draft).
 
@@ -458,15 +458,15 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 
 The historical sequencing block has been pruned now that Clusters 14 (excluding 14h), 25, and 26, plus Increments 15 and 16, are merged. What remains:
 
-**Feature stream (Increments 18–22)**
+**Feature stream (Increments 19–22)**
 
-- **18 → 19 → 20** form the dashboard, building on the chassis 17 delivered. Increment 17 wired the FastAPI app factory, session-cookie middleware, CSRF guard, login/logout flow, and the combined uvicorn + grpc.aio main loop; 18 onwards adds the domain routers (subscriptions, runs, admin) on top.
-- **21** (E2E harness) can shift earlier — slotting it in after one or two domain-router increments forces the FastAPI chassis to stay testable as routes accrete.
+- **19 → 20** complete the dashboard, building on the chassis 17 delivered and the subscription CRUD 18 added. Increment 18 wired `GET/POST/DELETE /subscriptions` with per-user scoping, CSRF on state-changing requests, audit-then-mutation semantics, and tag/pipeline target validation; 19 onwards adds runs / report viewer / resend / admin surfaces on top.
+- **21** (E2E harness) can shift earlier — slotting it in after one or two more domain-router increments forces the FastAPI chassis to stay testable as routes accrete.
 - **22** (error-mapping + servicer tests) is independent of the dashboard stream and can interleave whenever convenient.
 
 **Recommended next-up sequencing**
 
-1. **18 → 19 → 20** in order — subscriptions, past-runs/resend, admin.
+1. **19 → 20** in order — past-runs/resend, admin.
 2. **21** — E2E happy-path + orphan-path harness.
 3. **22** — error-mapping + servicer tests; independent stream.
 4. **23, 24** — deployment polish + documentation deliverables (release-gating).

@@ -76,6 +76,29 @@ class SubscriptionRepository(ABC):
         """
 
     @abstractmethod
+    async def get_by_id(self, subscription_id: SubscriptionId) -> Subscription | None:
+        """Return the subscription with this id, or ``None`` if missing.
+
+        Returns the row regardless of owner; the caller is expected to
+        compare ``user_id`` against the authenticated session and
+        translate cross-user access to
+        :class:`~message_service.domain.errors.SubscriptionForbiddenError`
+        per L3-DASH-007. The dashboard route layer uses this to
+        distinguish "not yours" (HTTP 403) from "doesn't exist"
+        (HTTP 404).
+
+        Args:
+            subscription_id: The id to fetch.
+
+        Returns:
+            The :class:`Subscription` aggregate, or ``None`` if no row
+            with that id exists.
+
+        Raises:
+            PersistenceError: Infrastructure failure.
+        """
+
+    @abstractmethod
     async def list_for_user(self, user_id: UserId) -> Sequence[Subscription]:
         """Return every subscription owned by ``user_id``.
 

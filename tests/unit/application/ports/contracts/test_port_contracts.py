@@ -102,7 +102,13 @@ def test_template_repository_exposes_expected_methods() -> None:
 
 @pytest.mark.requirement("L2-PERS-008")
 def test_subscription_repository_exposes_expected_methods() -> None:
-    expected = {"list_recipients_for_run", "list_for_user", "add", "remove"}
+    expected = {
+        "list_recipients_for_run",
+        "list_for_user",
+        "get_by_id",
+        "add",
+        "remove",
+    }
     assert expected == SubscriptionRepository.__abstractmethods__
 
 

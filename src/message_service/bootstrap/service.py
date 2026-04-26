@@ -50,10 +50,12 @@ from message_service.application.use_cases.logout import LogoutUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
+from message_service.application.use_cases.subscribe import SubscribeUseCase
 from message_service.application.use_cases.sweeper import SweeperUseCase
 from message_service.application.use_cases.sweeper_action_dispatcher import (
     SweeperActionDispatcherUseCase,
 )
+from message_service.application.use_cases.unsubscribe import UnsubscribeUseCase
 from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
@@ -168,6 +170,8 @@ class Service:
     password_hasher: Argon2PasswordHasher
     login: LoginUseCase
     logout: LogoutUseCase
+    subscribe: SubscribeUseCase
+    unsubscribe: UnsubscribeUseCase
 
 
 async def build_service(config: Config) -> Service:
@@ -359,6 +363,13 @@ async def build_service(config: Config) -> Service:
         password_hasher=password_hasher,
     )
     logout = LogoutUseCase(uow_factory=uow_factory, clock=clock)
+    subscribe = SubscribeUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        tag_vocabulary=tag_vocabulary,
+        registered_pipelines=frozenset(config.pipelines.registered),
+    )
+    unsubscribe = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
 
     _log.info("bootstrap_complete")
 
@@ -381,6 +392,8 @@ async def build_service(config: Config) -> Service:
         password_hasher=password_hasher,
         login=login,
         logout=logout,
+        subscribe=subscribe,
+        unsubscribe=unsubscribe,
     )
 
 

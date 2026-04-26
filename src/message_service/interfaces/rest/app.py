@@ -383,6 +383,18 @@ def create_app(service: Service) -> FastAPI:
         _clear_auth_cookies(response)
         return {"status": "ok"}
 
+    # -------------------------------------------------------------------------
+    # Domain routers
+    # -------------------------------------------------------------------------
+
+    # Imported here rather than at module top to avoid a circular import:
+    # the routes module imports ``require_session`` from this module.
+    from message_service.interfaces.rest.routes.subscriptions import (
+        build_subscriptions_router,
+    )
+
+    app.include_router(build_subscriptions_router(service))
+
     return app
 
 

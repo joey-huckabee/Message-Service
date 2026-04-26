@@ -160,6 +160,35 @@ class RunNotFoundError(NotFoundError):
     error_code: ClassVar[str] = "ERROR_CODE_RUN_NOT_FOUND"
 
 
+class SubscriptionNotFoundError(NotFoundError):
+    """Referenced subscription_id does not exist. See L3-DASH-019."""
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
+# =============================================================================
+# Authorization errors (mapped to gRPC PERMISSION_DENIED / HTTP 403)
+# =============================================================================
+
+
+class ForbiddenError(MessageServiceError):
+    """Base for cross-user / unauthorized access failures.
+
+    Distinct from :class:`NotFoundError`: the resource exists but the
+    caller does not own it. Per L2-DASH-004, dashboard CRUD routes
+    SHALL return HTTP 403 for cross-user attempts (rather than masking
+    them as 404), so the route layer can distinguish the two cases.
+    """
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
+class SubscriptionForbiddenError(ForbiddenError):
+    """Subscription exists but the caller is not its owner. See L3-DASH-007."""
+
+    error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+
+
 # =============================================================================
 # Precondition errors (mapped to gRPC FAILED_PRECONDITION)
 # =============================================================================
@@ -256,6 +285,10 @@ __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     # Not found
     "NotFoundError",
     "RunNotFoundError",
+    "SubscriptionNotFoundError",
+    # Forbidden
+    "ForbiddenError",
+    "SubscriptionForbiddenError",
     # Precondition
     "PreconditionError",
     "InvalidRunStateError",

@@ -54,10 +54,12 @@ from message_service.application.use_cases.logout import LogoutUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
+from message_service.application.use_cases.subscribe import SubscribeUseCase
 from message_service.application.use_cases.sweeper import SweeperUseCase
 from message_service.application.use_cases.sweeper_action_dispatcher import (
     SweeperActionDispatcherUseCase,
 )
+from message_service.application.use_cases.unsubscribe import UnsubscribeUseCase
 from message_service.bootstrap.service import Service
 from message_service.config.schema import (
     Config,
@@ -281,6 +283,13 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         password_hasher=password_hasher,
     )
     logout_uc = LogoutUseCase(uow_factory=uow_factory, clock=clock)
+    subscribe_uc = SubscribeUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        tag_vocabulary=tag_vocab,
+        registered_pipelines=frozenset(service_config.pipelines.registered),
+    )
+    unsubscribe_uc = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
 
     svc = Service(
         config=service_config,
@@ -312,6 +321,8 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         password_hasher=password_hasher,
         login=login_uc,
         logout=logout_uc,
+        subscribe=subscribe_uc,
+        unsubscribe=unsubscribe_uc,
     )
     try:
         yield svc

@@ -269,7 +269,7 @@ the single source of truth.
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-DASH-001 | L2-DASH-001, L2-DASH-002, L2-DASH-003 | Partially Implemented |
-| L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Draft |
+| L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Partially Implemented |
 | L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009 | Draft |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Draft |
 
@@ -277,11 +277,11 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Partially Implemented |
-| L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | `tests/unit/config/test_dashboard_port_collision.py::test_collision_raises_validation_error`<br>`tests/unit/config/test_dashboard_port_collision.py::test_distinct_ports_validate` | Partially Implemented |
+| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/integration/rest/test_subscriptions.py::test_post_without_csrf_token_returns_403`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Partially Implemented |
+| L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | `tests/integration/rest/test_subscriptions.py::test_delete_with_non_integer_path_returns_422`<br>`tests/integration/rest/test_subscriptions.py::test_delete_with_zero_path_returns_422`<br>`tests/unit/config/test_dashboard_port_collision.py::test_collision_raises_validation_error`<br>`tests/unit/config/test_dashboard_port_collision.py::test_distinct_ports_validate` | Partially Implemented |
 | L2-DASH-003 | L3-DASH-005, L3-DASH-006, L3-DASH-020 | _(TBD)_ | Draft |
-| L2-DASH-004 | L3-DASH-007, L3-DASH-008 | _(TBD)_ | Draft |
-| L2-DASH-005 | L3-DASH-009 | _(TBD)_ | Draft |
+| L2-DASH-004 | L3-DASH-007, L3-DASH-008 | `tests/integration/rest/test_subscriptions.py::test_delete_on_other_users_subscription_returns_403`<br>`tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_list_subscriptions_returns_only_session_user_rows`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
+| L2-DASH-005 | L3-DASH-009 | `tests/integration/rest/test_subscriptions.py::test_post_rejects_extra_user_id_field`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_global_with_null_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_pipeline_with_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_unknown_granularity`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_user_id_in_body` | Implemented |
 | L2-DASH-006 | L3-DASH-010 | _(TBD)_ | Draft |
 | L2-DASH-007 | L3-DASH-011, L3-DASH-021 | _(TBD)_ | Draft |
 | L2-DASH-008 | L3-DASH-012, L3-DASH-013 | _(TBD)_ | Draft |
@@ -348,7 +348,7 @@ the single source of truth.
 | L2-OBS-013 | L3-OBS-025, L3-OBS-026, L3-OBS-027 | `tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_event_captures_finalize_run_transition`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata` | Implemented |
 | L2-OBS-014 | L3-OBS-028, L3-OBS-029 | _(TBD)_ | Draft |
 | L2-OBS-015 | L3-OBS-030 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event` | Implemented |
-| L2-OBS-016 | L3-OBS-031, L3-OBS-032 | _(TBD)_ | Draft |
+| L2-OBS-016 | L3-OBS-031, L3-OBS-032 | `tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
 | L2-OBS-017 | L3-OBS-033, L3-OBS-034, L3-OBS-035, L3-OBS-036 | `tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Partially Implemented |
 
 ### L1-ERR: Error handling and exception taxonomy
@@ -473,16 +473,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 5 | 8 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
-| DASH | 4 | 11 | 21 | 0 | 2 |
+| DASH | 4 | 11 | 21 | 1 | 6 |
 | PERS | 4 | 13 | 23 | 2 | 6 |
-| OBS | 4 | 17 | 36 | 2 | 12 |
+| OBS | 4 | 17 | 36 | 2 | 14 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **347** | **57** | **105** |
+| **Total** | **65** | **182** | **347** | **58** | **111** |
 
-**Requirements verified by at least one test**: 162 of 529 (30.6%).
+**Requirements verified by at least one test**: 169 of 529 (31.9%).
 
 ### Orphan check
 

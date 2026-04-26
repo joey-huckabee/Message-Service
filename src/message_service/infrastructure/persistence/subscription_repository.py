@@ -132,6 +132,17 @@ class SqliteSubscriptionRepository(SubscriptionRepository):
             rows = await cur.fetchall()
         return [_row_to_subscription(r) for r in rows]
 
+    # -- get_by_id ------------------------------------------------------
+
+    async def get_by_id(  # noqa: D102
+        self, subscription_id: SubscriptionId
+    ) -> Subscription | None:
+        async with self._conn.execute(_SQL_SELECT_BY_ID, (subscription_id,)) as cur:
+            row = await cur.fetchone()
+        if row is None:
+            return None
+        return _row_to_subscription(row)
+
     # -- add -------------------------------------------------------------
 
     async def add(

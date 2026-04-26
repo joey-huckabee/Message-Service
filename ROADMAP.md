@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **21 — E2E harness + four happy-path suites** (commit `ef10488`); stands up the e2e tier (`tests/e2e/{happy_path,orphan_path,resend,admin}/`) using a real `grpc.aio` server, an httpx ASGI dashboard client, and an in-process aiosmtpd SMTP capture, all driven through the production `build_service` composition root. Prior to 21: **20c — admin audit-log viewer** (commit `33a4a56`) closed `L1-DASH-005`. **Admin stream (20a/b/c) complete**; 20d (embedded Prometheus metrics dashboard) remains deferred per the 20-split plan. Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface.
+Last full increment merged: **22 — error-mapping + servicer tests, exception-detail coverage** (commit `4c59b4a`); promotes all four L1-ERR statements from Draft to Partially Implemented. Net-new: `DomainError` intermediate class + re-parented NotFound/Forbidden/Precondition; `http_status` + `log_level` ClassVars on every category root; bootstrap import-time self-check (`assert_error_codes_match_proto_enum`) verifying every exception's `error_code` exists in the proto enum; `redact_sensitive_keys` helper applied to `exc.details` before logging in the translator; ruff `BLE` + `S110/S112` rules enabled with documented `# noqa` annotations on legitimate boundary catches; +30 unit tests for the gRPC translator. Two ROADMAP deferred-features captured: **R-ERR-001** (gRPC error envelope upgrade to `google.rpc.Status` + `ErrorInfo`), **R-ERR-002** (error-code stability lockfile + helper scripts). Prior to 22: **21 — E2E harness + four happy-path suites** (commit `ef10488`). **Admin stream (20a/b/c) + E2E (21) + error-mapping (22) all complete**; 20d (embedded Prometheus metrics dashboard) remains deferred per the 20-split plan.
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -29,10 +29,11 @@ Done:
 - **Increment 20b** — Admin user management (CREATE_USER / UPDATE_USER routes; password reset) (`39c99a0`); closes net-new L1-AUTH-003 — L2-AUTH-007/008/009 all promoted to Implemented; clears the L3-OBS-035 deferred-to-Increment-20 tag.
 - **Increment 20c** — Admin audit-log viewer (`GET /admin/audit`) (`33a4a56`); closes net-new L1-DASH-005 — L2-DASH-015 + L2-DASH-016 promoted to Implemented. Admin stream (20a/b/c) complete.
 - **Increment 21** — E2E harness + four test suites (happy_path, orphan_path, resend, admin) (`ef10488`); real grpc.aio + httpx + tmp SQLite + in-process aiosmtpd. New dev dep: `aiosmtpd`. 4 new e2e tests at the L1-tier marker level.
+- **Increment 22** — Error-mapping + servicer tests, exception-detail coverage (`41974a7` + `c82f4a6` + `4c59b4a`); L1-ERR-001..004 all promoted Draft → Partially Implemented. DomainError intermediate; http_status + log_level ClassVars; bootstrap proto-enum self-check; details redaction in translator; ruff BLE/S110/S112 enabled. R-ERR-001 (wire-format upgrade) + R-ERR-002 (error-code lockfile) captured as deferred work.
 
 Still open:
 
-- **Increments 20d, 22–24** — Embedded Prometheus metrics dashboard (the deferred sub-increment of the 20 split), error-mapping coverage, deployment polish, documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 20d, 23–24** — Embedded Prometheus metrics dashboard (the deferred sub-increment of the 20 split), deployment polish, documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -602,7 +603,7 @@ This is **NOT** part of the admin-surfaces stream. It was bundled into the origi
 - Sweeper-fires-and-disposes path.
 - Moves a wave of L2 rows from "Implemented" to "Verified".
 
-### Increment 22 — Error-mapping + servicer tests, exception-detail coverage
+### Increment 22 — Error-mapping + servicer tests, exception-detail coverage  *(✅ done; see commit log)*
 
 Closes **L1-ERR-001..004** (all Draft).
 

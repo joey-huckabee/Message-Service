@@ -663,6 +663,15 @@ The persisted oversized-report path SHALL be identical to a successful report's 
 **L3-MAIL-026** · Parent: L2-MAIL-013 · Verification: T
 If audit insert fails AFTER a successful SMTP send, the run SHALL NOT be rolled back at the SMTP layer (email already delivered); the audit failure logs at CRITICAL and the run remains in `SENDING` for operator investigation.
 
+**L3-MAIL-027** · Parent: L2-MAIL-014 · Verification: T
+A test SHALL render the subject for a known run with a benign `pipeline_type` (matching `[a-zA-Z0-9._-]+`) and assert the produced `Subject:` value equals exactly `[{pipeline_type}] run {run_id}` — no extra whitespace, no rearrangement of components.
+
+**L3-MAIL-028** · Parent: L2-MAIL-014 · Verification: T
+Subject construction SHALL apply the `L3-AGGR-010` sanitization regex to `pipeline_type` before embedding it in the format string. The sanitization function used SHALL be the same helper that builds attachment filenames (`_sanitize_filename_component`), so the two surfaces share a single chokepoint.
+
+**L3-MAIL-029** · Parent: L2-MAIL-014 · Verification: T
+A test SHALL exercise a `pipeline_type` containing CR (`\r`), LF (`\n`), and at least one other control character, and assert that (a) the produced subject contains none of those characters (each replaced with `_`), and (b) `OutboundEmail` instantiation succeeds (the boundary's CR/LF assertion does not need to fire because sanitization neutralized the payload upstream).
+
 ---
 
 ## L3-DASH: Dashboard

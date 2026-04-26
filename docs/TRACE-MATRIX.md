@@ -238,7 +238,7 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003 | Partially Implemented |
+| L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003, L2-MAIL-014 | Partially Implemented |
 | L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Partially Implemented |
 | L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Partially Implemented |
 | L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
@@ -261,6 +261,7 @@ the single source of truth.
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
 | L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Partially Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | _(TBD)_ | Draft |
+| L2-MAIL-014 | L3-MAIL-027, L3-MAIL-028, L3-MAIL-029 | _(TBD)_ | Draft |
 
 ### L1-DASH: Dashboard
 
@@ -476,7 +477,7 @@ the single source of truth.
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 5 | 8 |
-| MAIL | 5 | 13 | 26 | 5 | 6 |
+| MAIL | 5 | 14 | 29 | 5 | 6 |
 | DASH | 4 | 14 | 30 | 1 | 16 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
 | OBS | 4 | 18 | 38 | 2 | 16 |
@@ -484,9 +485,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **186** | **361** | **58** | **128** |
+| **Total** | **65** | **187** | **364** | **58** | **128** |
 
-**Requirements verified by at least one test**: 186 of 547 (34.0%).
+**Requirements verified by at least one test**: 186 of 551 (33.8%).
 
 ### Orphan check
 

@@ -763,6 +763,13 @@ single source of truth for live status.
 **Rationale**: A single, validated sender address prevents malformed `From:` values from reaching the relay.
 **Verification Method**: Test (T)
 
+#### L2-MAIL-014
+
+**Parent**: L1-MAIL-001
+**Statement**: The outbound email `Subject:` header SHALL be the literal format `[{pipeline_type}] run {run_id}`, where `pipeline_type` is sanitized using the same regex as `L3-AGGR-010` (`[^a-zA-Z0-9._-]` replaced with `_`) and `run_id` is the canonical UUID4 string emitted by `domain.ids.new_run_id`. The subject SHALL NOT be operator-configurable in v1; per-pipeline subject templating is deferred (see ROADMAP `R-MAIL-001`).
+**Rationale**: Subjects need a deterministic format so inbox filtering and rule-based mail routing work reliably; the bracketed `pipeline_type` leads so recipients can filter or sort by pipeline at a glance, and the `run_id` trails for support correspondence. Sanitizing `pipeline_type` at construction time provides defense-in-depth against header-injection-style payloads (CR/LF or other control characters reaching the SMTP layer); the existing `OutboundEmail.__post_init__` newline-rejection assertion (raises `ValueError`) remains as a second line of defense at the boundary. Mirrors the same naming discipline `L2-AGGR-006` applies to attachment filenames.
+**Verification Method**: Test (T)
+
 ### Derivations of L1-MAIL-002 (exponential backoff)
 
 #### L2-MAIL-004

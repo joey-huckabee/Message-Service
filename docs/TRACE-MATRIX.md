@@ -284,9 +284,9 @@ the single source of truth.
 | L2-DASH-004 | L3-DASH-007, L3-DASH-008 | `tests/integration/rest/test_subscriptions.py::test_delete_on_other_users_subscription_returns_403`<br>`tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_list_subscriptions_returns_only_session_user_rows`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
 | L2-DASH-005 | L3-DASH-009 | `tests/integration/rest/test_subscriptions.py::test_post_rejects_extra_user_id_field`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_global_with_null_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_pipeline_with_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_unknown_granularity`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_user_id_in_body` | Implemented |
 | L2-DASH-006 | L3-DASH-010 | _(TBD)_ | Draft |
-| L2-DASH-007 | L3-DASH-011, L3-DASH-021 | _(TBD)_ | Draft |
+| L2-DASH-007 | L3-DASH-011, L3-DASH-021 | `tests/integration/rest/test_templates.py::test_admin_gate_rechecks_is_admin_per_request`<br>`tests/integration/rest/test_templates.py::test_get_templates_non_admin_returns_403` | Implemented |
 | L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | `tests/integration/rest/test_runs.py::test_resend_returns_409_for_non_resendable_state`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_emits_audit_with_required_fields`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_permitted_for_sent_or_failed`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_rejects_non_resendable_states`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_uses_current_subscriber_set_not_original` | Partially Implemented |
-| L2-DASH-009 | L3-DASH-014, L3-DASH-015, L3-DASH-031, L3-DASH-032 | _(TBD)_ | Draft |
+| L2-DASH-009 | L3-DASH-014, L3-DASH-015, L3-DASH-031, L3-DASH-032 | `tests/integration/rest/test_templates.py::test_delete_template_detail_returns_405`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_returns_single_object`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_unknown_returns_404`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_unknown_version_returns_404`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_includes_parsed_schema_when_present`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_ordered_by_name_version_ascending`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_returns_all_with_full_projection`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_returns_null_schema_when_absent`<br>`tests/integration/rest/test_templates.py::test_patch_template_detail_returns_405`<br>`tests/integration/rest/test_templates.py::test_post_templates_returns_405` | Implemented |
 | L2-DASH-010 | L3-DASH-016 | _(TBD)_ | Draft |
 | L2-DASH-011 | L3-DASH-017 | _(TBD)_ | Draft |
 | L2-DASH-012 | L3-DASH-022, L3-DASH-023, L3-DASH-024 | `tests/integration/persistence/test_run_repository.py::test_list_paginated_filters_by_state_set`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_orders_most_recent_first`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_respects_limit_and_offset`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_uses_run_id_tiebreaker`<br>`tests/integration/rest/test_runs.py::test_get_runs_default_returns_terminal_runs_most_recent_first`<br>`tests/integration/rest/test_runs.py::test_get_runs_explicit_states_overrides_default`<br>`tests/integration/rest/test_runs.py::test_get_runs_pagination_slices`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_out_of_range_limit`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_unknown_state_value` | Implemented |
@@ -478,16 +478,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 5 | 8 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
-| DASH | 4 | 14 | 32 | 1 | 16 |
+| DASH | 4 | 14 | 32 | 1 | 22 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
 | OBS | 4 | 18 | 38 | 2 | 16 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **187** | **366** | **58** | **131** |
+| **Total** | **65** | **187** | **366** | **58** | **137** |
 
-**Requirements verified by at least one test**: 189 of 553 (34.2%).
+**Requirements verified by at least one test**: 195 of 553 (35.3%).
 
 ### Orphan check
 

@@ -230,6 +230,53 @@ def require_session(request: Request) -> int:
     return user_id
 
 
+def require_admin_factory(service: Service) -> Callable[[Request], Awaitable[int]]:
+    """Build a `require_admin` dependency bound to ``service``.
+
+    The dependency layers on top of :func:`require_session`:
+
+    1. Require an authenticated session (401 if absent).
+    2. Re-check ``is_admin`` per request by re-reading the user row
+       (L3-DASH-021 — no session cache, role changes take effect
+       immediately).
+    3. 403 if the user is not an administrator (L3-DASH-011).
+
+    The closure captures ``service`` so the dependency has access to
+    the UoW factory without going through globals; this matches the
+    factory pattern used elsewhere in the rest layer.
+
+    Args:
+        service: The composed ``Service`` from
+            :func:`message_service.bootstrap.build_service`.
+
+    Returns:
+        An async FastAPI dependency that returns the admin user's
+        ``user_id``. Routes declare it via ``Depends(require_admin)``
+        on the router-builder side (see ``build_templates_router``).
+    """
+
+    async def _require_admin(request: Request) -> int:
+        user_id = require_session(request)
+        async with service.uow_factory() as uow:
+            user = await uow.user_repo.get_by_id(user_id)
+        if user is None:
+            # Session referenced a user that no longer exists. Treat
+            # like an expired session: 401 with the realm header.
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="authentication required",
+                headers={"WWW-Authenticate": _REALM},
+            )
+        if not user.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="administrator privilege required",
+            )
+        return user_id
+
+    return _require_admin
+
+
 # -----------------------------------------------------------------------------
 # Middleware: CSRF double-submit guard
 # -----------------------------------------------------------------------------
@@ -388,16 +435,21 @@ def create_app(service: Service) -> FastAPI:
     # -------------------------------------------------------------------------
 
     # Imported here rather than at module top to avoid a circular import:
-    # the routes modules import ``require_session`` from this module.
+    # the routes modules import ``require_session`` / ``require_admin_factory``
+    # from this module.
     from message_service.interfaces.rest.routes.runs import (
         build_runs_router,
     )
     from message_service.interfaces.rest.routes.subscriptions import (
         build_subscriptions_router,
     )
+    from message_service.interfaces.rest.routes.templates import (
+        build_templates_router,
+    )
 
     app.include_router(build_subscriptions_router(service))
     app.include_router(build_runs_router(service))
+    app.include_router(build_templates_router(service))
 
     return app
 
@@ -407,5 +459,6 @@ __all__ = [
     "CSRF_HEADER_NAME",
     "SESSION_COOKIE_NAME",
     "create_app",
+    "require_admin_factory",
     "require_session",
 ]

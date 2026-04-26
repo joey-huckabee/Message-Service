@@ -507,7 +507,7 @@ The original ROADMAP entry incorrectly stated "Closes **L1-DASH-004** (Draft)" �
 
 Split into three admin sub-increments plus a separately-scoped embedded-metrics increment:
 
-#### Increment 20a — Admin gate + template registry inspection
+#### Increment 20a — Admin gate + template registry inspection  *(✅ done; see commit log)*
 
 **Closes**: the third clause of `L1-DASH-003` ("inspect the template registry contents in a read-only view") plus `L2-DASH-007` (admin gate) and `L2-DASH-009` (template inspection read-only). After 20a lands, `L1-DASH-003` is fully closed.
 

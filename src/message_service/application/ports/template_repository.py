@@ -86,5 +86,19 @@ class TemplateRepository(ABC):
             Sequence of metadata entries matching ``kind``.
         """
 
+    @abstractmethod
+    def list_all(self) -> Sequence[TemplateMetadata]:
+        """List every registered template, ordered by (name, version).
+
+        Used by the dashboard's template-registry inspection endpoint
+        (L3-DASH-031). Order SHALL be deterministic — ascending by
+        ``(name, version)`` — so callers can paginate or diff results
+        without relying on adapter-internal storage order.
+
+        Returns:
+            Sequence of every manifest entry, ordered by
+            ``(name, version)`` ascending.
+        """
+
 
 __all__ = ["TemplateRepository"]

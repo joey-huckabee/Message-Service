@@ -93,6 +93,10 @@ class InMemoryTemplateRepository(TemplateRepository):
     def list_by_kind(self, kind: TemplateKind) -> Sequence[TemplateMetadata]:  # noqa: D102
         return self._by_kind.get(kind, ())
 
+    def list_all(self) -> Sequence[TemplateMetadata]:  # noqa: D102
+        # Sort deterministically by (name, version) per L3-DASH-031.
+        return tuple(sorted(self._entries.values(), key=lambda m: (m.name, m.version)))
+
 
 def load_template_manifest(manifest_path: Path) -> InMemoryTemplateRepository:
     """Load and validate a template manifest TOML file.

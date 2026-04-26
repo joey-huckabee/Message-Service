@@ -24,10 +24,11 @@ Done:
 - **Increment 18** — Subscription CRUD routes (`310ce2d`).
 - **Increment 19a** — Past-runs paginated list + run-detail metadata view (`9b0a87b`).
 - **Increment 19b** — Manual resend (re-renders from saved Stage context) (`f3d7509`).
+- **Increment 19c** — Filesystem report store + report viewer; closes L1-DASH-003 (`b900ce3`).
 
 Still open:
 
-- **Increments 19c, 20–24** — Filesystem report store + report viewer (the final sub-increment of the 19 split) through documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 20–24** — Admin surfaces, E2E happy-path + orphan-path harness, error-mapping coverage, deployment polish, documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 

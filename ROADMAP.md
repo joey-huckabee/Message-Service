@@ -23,6 +23,7 @@ Done:
 - **Increment 17** — FastAPI app factory + bootstrap wiring (`aa3902e`).
 - **Increment 18** — Subscription CRUD routes (`310ce2d`).
 - **Increment 19a** — Past-runs paginated list + run-detail metadata view (`9b0a87b`).
+- **Increment 19b** — Manual resend (re-renders from saved Stage context) (`f3d7509`).
 
 Still open:
 

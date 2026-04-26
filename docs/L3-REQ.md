@@ -898,10 +898,10 @@ A `STAGE_STATE_TRANSITION` audit record SHALL set `actor` to `system:<use_case>`
 A `SWEEP_ORPHAN` audit record SHALL set `actor` to `system:sweeper`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `prior_state`, `new_state` (always `ORPHANED`), `last_transition_at`, and `enqueued_actions` (the list of disposition action ids enqueued for this orphan, in configured order).
 
 **L3-OBS-031** · Parent: L2-OBS-016 · Verification: T
-A `SUBSCRIBE` audit record SHALL set `actor` to `user:<user_id>`, `resource` to `subscription:<subscription_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `granularity` (one of `GLOBAL`/`PIPELINE`/`TAG`) and `target_value` (the pipeline name or tag name; `null` for `GLOBAL`). (Implementation deferred to Increment 18.)
+A `SUBSCRIBE` audit record SHALL set `actor` to `user:<user_id>`, `resource` to `subscription:<subscription_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `granularity` (one of `GLOBAL`/`PIPELINE`/`TAG`) and `target_value` (the pipeline name or tag name; `null` for `GLOBAL`).
 
 **L3-OBS-032** · Parent: L2-OBS-016 · Verification: T
-An `UNSUBSCRIBE` audit record SHALL use the same field shape as `L3-OBS-031`. (Implementation deferred to Increment 18.)
+An `UNSUBSCRIBE` audit record SHALL use the same field shape as `L3-OBS-031`.
 
 **L3-OBS-033** · Parent: L2-OBS-017 · Verification: T
 `LOGIN` and `LOGOUT` audit records SHALL set `actor` to `user:<user_id>` (the authenticated user), `resource` to `user:<user_id>` (self-action), `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `user_id`. The `LOGIN` record additionally carries `session_id` (the SHA-256 of the minted session token, never the token itself).

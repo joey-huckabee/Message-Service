@@ -60,6 +60,7 @@ ruff = "^0.15"
 pre-commit = "^4.0"
 types-jsonschema = "^4.25"
 httpx = "^0.28"           # FastAPI TestClient dependency
+aiosmtpd = "^1.4.6"
 
 [tool.poetry.scripts]
 message-service = "message_service.interfaces.cli.main:main"
@@ -116,6 +117,7 @@ module = [
     "grpc_reflection.*",
     "prometheus_client.*",
     "aiosmtplib.*",
+    "aiosmtpd.*",
     "google.protobuf.*",
     "message_service_proto.*",
 ]

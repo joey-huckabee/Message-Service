@@ -592,7 +592,7 @@ This is **NOT** part of the admin-surfaces stream. It was bundled into the origi
 
 20d may slot anywhere relative to 21-24; **not blocking the admin work in 20a/b/c**. Recommend authoring its L3 children when 21-23 are done so the spec deck is fully decomposed before tagging v1.
 
-### Increment 21 — E2E happy-path + orphan-path harness
+### Increment 21 — E2E happy-path + orphan-path harness  *(✅ done; see commit log)*
 
 `tests/e2e/{happy_path,admin,orphan_path,resend}/` currently contain only `__init__.py`.
 

@@ -26,7 +26,7 @@ Done:
 
 Still open:
 
-- **Increments 19b, 19c, 20–24** — Manual resend / filesystem report store + viewer (the remaining two sub-increments of the 19 split) through documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 19c, 20–24** — Filesystem report store + report viewer (the final sub-increment of the 19 split) through documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -433,7 +433,7 @@ Split into three sub-increments. New L2/L3 statements authored upfront (this com
 - L3-DASH-022..026 promote from Draft → Implemented.
 - L1-DASH-003 partial roll-up; remaining clauses ("view rendered reports", "trigger manual resends") covered by 19c and 19b respectively.
 
-#### Increment 19b — Manual resend (re-renders from saved Stage context)
+#### Increment 19b — Manual resend (re-renders from saved Stage context)  *(✅ done; see commit log)*
 
 **Closes**: the "trigger manual resends to the current active subscriber list" portion of `L1-DASH-003`.
 
@@ -523,7 +523,7 @@ The historical sequencing block has been pruned now that Clusters 14 (excluding 
 
 **Recommended next-up sequencing**
 
-1. **19b → 19c** in order — manual resend; filesystem report store + report viewer. (19a landed; spec deltas for 19a/b/c authored ahead of code per the 2026-04-25 user directive.)
+1. **19c** — filesystem report store + report viewer. (19a + 19b landed; spec deltas for 19a/b/c authored ahead of code per the 2026-04-25 user directive.)
 2. **20** — admin surfaces.
 3. **21** — E2E happy-path + orphan-path harness.
 4. **22** — error-mapping + servicer tests; independent stream.

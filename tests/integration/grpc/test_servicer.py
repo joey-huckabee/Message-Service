@@ -53,6 +53,7 @@ from message_service.application.use_cases.get_run_detail import GetRunDetailUse
 from message_service.application.use_cases.list_past_runs import ListPastRunsUseCase
 from message_service.application.use_cases.login import LoginUseCase
 from message_service.application.use_cases.logout import LogoutUseCase
+from message_service.application.use_cases.resend_run import ResendRunUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
@@ -294,6 +295,13 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
     unsubscribe_uc = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
     list_past_runs_uc = ListPastRunsUseCase(uow_factory=uow_factory)
     get_run_detail_uc = GetRunDetailUseCase(uow_factory=uow_factory)
+    resend_run_uc = ResendRunUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        mailer=mailer,
+        assemble_and_deliver=assemble,
+        from_address=str(service_config.mail.from_address),
+    )
 
     svc = Service(
         config=service_config,
@@ -329,6 +337,7 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         unsubscribe=unsubscribe_uc,
         list_past_runs=list_past_runs_uc,
         get_run_detail=get_run_detail_uc,
+        resend_run=resend_run_uc,
     )
     try:
         yield svc

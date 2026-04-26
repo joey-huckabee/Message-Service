@@ -277,19 +277,19 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/integration/rest/test_subscriptions.py::test_post_without_csrf_token_returns_403`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Partially Implemented |
+| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/integration/rest/test_runs.py::test_resend_blocked_without_csrf_header`<br>`tests/integration/rest/test_subscriptions.py::test_post_without_csrf_token_returns_403`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Partially Implemented |
 | L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | `tests/integration/rest/test_subscriptions.py::test_delete_with_non_integer_path_returns_422`<br>`tests/integration/rest/test_subscriptions.py::test_delete_with_zero_path_returns_422`<br>`tests/unit/config/test_dashboard_port_collision.py::test_collision_raises_validation_error`<br>`tests/unit/config/test_dashboard_port_collision.py::test_distinct_ports_validate` | Partially Implemented |
 | L2-DASH-003 | L3-DASH-005, L3-DASH-006, L3-DASH-020 | _(TBD)_ | Draft |
 | L2-DASH-004 | L3-DASH-007, L3-DASH-008 | `tests/integration/rest/test_subscriptions.py::test_delete_on_other_users_subscription_returns_403`<br>`tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_list_subscriptions_returns_only_session_user_rows`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
 | L2-DASH-005 | L3-DASH-009 | `tests/integration/rest/test_subscriptions.py::test_post_rejects_extra_user_id_field`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_global_with_null_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_pipeline_with_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_unknown_granularity`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_user_id_in_body` | Implemented |
 | L2-DASH-006 | L3-DASH-010 | _(TBD)_ | Draft |
 | L2-DASH-007 | L3-DASH-011, L3-DASH-021 | _(TBD)_ | Draft |
-| L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | _(TBD)_ | Draft |
+| L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | `tests/integration/rest/test_runs.py::test_resend_returns_409_for_non_resendable_state`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_emits_audit_with_required_fields`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_permitted_for_sent_or_failed`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_rejects_non_resendable_states`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_uses_current_subscriber_set_not_original` | Partially Implemented |
 | L2-DASH-009 | L3-DASH-014, L3-DASH-015 | _(TBD)_ | Draft |
 | L2-DASH-010 | L3-DASH-016 | _(TBD)_ | Draft |
 | L2-DASH-011 | L3-DASH-017 | _(TBD)_ | Draft |
 | L2-DASH-012 | L3-DASH-022, L3-DASH-023, L3-DASH-024 | `tests/integration/persistence/test_run_repository.py::test_list_paginated_filters_by_state_set`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_orders_most_recent_first`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_respects_limit_and_offset`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_uses_run_id_tiebreaker`<br>`tests/integration/rest/test_runs.py::test_get_runs_default_returns_terminal_runs_most_recent_first`<br>`tests/integration/rest/test_runs.py::test_get_runs_explicit_states_overrides_default`<br>`tests/integration/rest/test_runs.py::test_get_runs_pagination_slices`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_out_of_range_limit`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_unknown_state_value` | Implemented |
-| L2-DASH-013 | L3-DASH-025, L3-DASH-026 | `tests/integration/rest/test_runs.py::test_get_run_detail_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_404_for_unknown_run`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_run_and_ordered_stages` | Implemented |
+| L2-DASH-013 | L3-DASH-025, L3-DASH-026 | `tests/integration/rest/test_runs.py::test_get_run_detail_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_404_for_unknown_run`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_run_and_ordered_stages`<br>`tests/integration/rest/test_runs.py::test_resend_rejects_non_uuid_path` | Implemented |
 | L2-DASH-014 | L3-DASH-029, L3-DASH-030 | _(TBD)_ | Draft |
 
 ### L1-PERS: Persistence
@@ -476,16 +476,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 5 | 8 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
-| DASH | 4 | 14 | 30 | 1 | 11 |
+| DASH | 4 | 14 | 30 | 1 | 14 |
 | PERS | 4 | 13 | 26 | 2 | 6 |
 | OBS | 4 | 17 | 36 | 2 | 14 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **185** | **359** | **58** | **116** |
+| **Total** | **65** | **185** | **359** | **58** | **119** |
 
-**Requirements verified by at least one test**: 174 of 544 (32.0%).
+**Requirements verified by at least one test**: 177 of 544 (32.5%).
 
 ### Orphan check
 

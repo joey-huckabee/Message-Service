@@ -456,3 +456,142 @@ async def test_get_run_detail_rejects_non_uuid_path(
     await _login(http_client, uow_factory, hasher)
     response = await http_client.get("/runs/not-a-uuid")
     assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# POST /runs/{run_id}/resend  (Increment 19b)
+# -----------------------------------------------------------------------------
+
+
+class _ResendStub:
+    """Stub resend use-case: records calls; configurable to raise."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int]] = []
+        self.raise_run_not_found: bool = False
+        self.raise_invalid_state: str | None = None
+
+    async def execute(self, *, run_id: str, admin_user_id: int) -> None:
+        self.calls.append((run_id, admin_user_id))
+        if self.raise_run_not_found:
+            from message_service.domain.errors import RunNotFoundError
+
+            raise RunNotFoundError(
+                f"run {run_id} does not exist",
+                details={"run_id": run_id},
+            )
+        if self.raise_invalid_state is not None:
+            from message_service.domain.errors import InvalidRunStateError
+
+            raise InvalidRunStateError(
+                f"run {run_id} state precondition failed",
+                details={
+                    "run_id": run_id,
+                    "current_state": self.raise_invalid_state,
+                    "permitted_states": ["FAILED", "SENT"],
+                },
+            )
+
+
+@pytest.fixture
+def resend_stub(service_like: _ServiceLike) -> _ResendStub:
+    """Replace the real ResendRunUseCase with a recording stub for route tests."""
+    stub = _ResendStub()
+    service_like.resend_run = stub  # type: ignore[attr-defined]
+    return stub
+
+
+@pytest.mark.asyncio
+async def test_resend_requires_session(http_client: httpx.AsyncClient) -> None:
+    """Unauthenticated POST /runs/{id}/resend SHALL be blocked.
+
+    The CSRF middleware runs outermost and rejects any POST without
+    the matching cookie+header pair (which only exist after login),
+    so an unauthenticated POST surfaces as 403 (CSRF) rather than
+    401 (auth). Both prevent the action; the 403-from-CSRF is the
+    consistent observable behavior on this code path.
+    """
+    response = await http_client.post("/runs/00000000-0000-4000-8000-000000000001/resend")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-018")
+async def test_resend_blocked_without_csrf_header(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """L3-DASH-018: POST without X-CSRF-Token SHALL return 403."""
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.post("/runs/00000000-0000-4000-8000-000000000001/resend")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_resend_returns_202_on_success(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    resend_stub: _ResendStub,
+) -> None:
+    """A successful resend call SHALL return 202 Accepted."""
+    csrf = await _login(http_client, uow_factory, hasher)
+    response = await http_client.post(
+        "/runs/00000000-0000-4000-8000-000000000aa1/resend",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 202
+    assert resend_stub.calls == [("00000000-0000-4000-8000-000000000aa1", 1)]
+
+
+@pytest.mark.asyncio
+async def test_resend_returns_404_for_unknown_run(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    resend_stub: _ResendStub,
+) -> None:
+    """A RunNotFoundError SHALL surface as 404."""
+    csrf = await _login(http_client, uow_factory, hasher)
+    resend_stub.raise_run_not_found = True
+    response = await http_client.post(
+        "/runs/00000000-0000-4000-8000-deadbeef0001/resend",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-028")
+async def test_resend_returns_409_for_non_resendable_state(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    resend_stub: _ResendStub,
+) -> None:
+    """L3-DASH-028: non-SENT/FAILED state SHALL return 409."""
+    csrf = await _login(http_client, uow_factory, hasher)
+    resend_stub.raise_invalid_state = "ORPHANED"
+    response = await http_client.post(
+        "/runs/00000000-0000-4000-8000-000000000bb1/resend",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 409
+    assert "ORPHANED" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-025")
+async def test_resend_rejects_non_uuid_path(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """L3-DASH-025: non-UUID4 path values SHALL return 422 even on POST."""
+    csrf = await _login(http_client, uow_factory, hasher)
+    response = await http_client.post(
+        "/runs/not-a-uuid/resend",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 422

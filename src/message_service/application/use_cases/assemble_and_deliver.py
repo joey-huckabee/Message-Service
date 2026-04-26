@@ -201,6 +201,23 @@ class _FailureReason:
     details: dict[str, Any]
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedEmail:
+    """Rendered email components for a run, ready for delivery.
+
+    Returned by :meth:`AssembleAndDeliverUseCase.prepare_email`. The
+    body and attachments are produced exactly the same way as the
+    first-send path; the resend path (Increment 19b) reuses these
+    bytes verbatim, so resends are byte-identical to the original
+    delivery as long as the underlying templates and per-stage
+    contexts have not changed.
+    """
+
+    run: Run
+    body_html: str
+    attachments: tuple[EmailAttachment, ...]
+
+
 # Reason codes used when transitioning to FAILED. Strings rather than
 # an enum because L2-MAIL-009 treats these as human-readable audit
 # strings, not enforced constants.
@@ -402,6 +419,40 @@ class AssembleAndDeliverUseCase:
             attachment_count=len(attachments),
         )
         self._metrics.record_email_delivery_outcome("success")
+
+    async def prepare_email(self, run_id: RunId) -> PreparedEmail:
+        """Render the email components for a run without sending or transitioning.
+
+        Used by :class:`ResendRunUseCase` (Increment 19b) to obtain
+        the same body + attachments the first-send path produced,
+        without re-running the state-transition machinery. The
+        re-render replays against the persisted
+        :attr:`Stage.report_context_json`; per L3-DASH-027 the resend
+        path deliberately uses this rather than reading a saved
+        on-disk render snapshot, so resend output is consistent with
+        the first-send rendering even before the filesystem report
+        store (Increment 19c) lands.
+
+        Args:
+            run_id: The run to render.
+
+        Returns:
+            A :class:`PreparedEmail` with the rendered body, the
+            tuple of attachments per the run's attachment mode, and
+            a snapshot of the run aggregate.
+
+        Raises:
+            RunNotFoundError: No run with this id exists.
+            TemplateRenderError: A stage's template failed to render.
+            RenderedSizeExceededError: Rendered output too large.
+            ContextSizeExceededError: Per-stage context too large.
+        """
+        async with self._uow_factory() as uow:
+            run = await uow.run_repo.get(run_id)
+        fragments = await self._load_and_render_stages(run_id)
+        attachments = self._build_attachments(run, fragments)
+        body_html = self._render_email_body(run, fragments)
+        return PreparedEmail(run=run, body_html=body_html, attachments=attachments)
 
     # ------------------------------------------------------------------
     # Workflow steps (extracted for readability + testability)
@@ -708,4 +759,4 @@ class AssembleAndDeliverUseCase:
         self._metrics.record_run_state_transition(to_state)
 
 
-__all__ = ["AssembleAndDeliverUseCase"]
+__all__ = ["AssembleAndDeliverUseCase", "PreparedEmail"]

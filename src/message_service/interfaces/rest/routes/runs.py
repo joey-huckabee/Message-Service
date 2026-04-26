@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel, ConfigDict
 
 from message_service.domain.aggregates.run import AttachmentMode
-from message_service.domain.errors import RunNotFoundError
+from message_service.domain.errors import InvalidRunStateError, RunNotFoundError
 from message_service.domain.ids import RunId
 from message_service.domain.state_machines.run_states import TERMINAL_STATES, RunState
 from message_service.domain.state_machines.stage_states import StageState
@@ -182,6 +182,35 @@ def build_runs_router(service: Service) -> APIRouter:
             run=_project_run_summary(detail.run),
             stages=[_project_stage(s) for s in detail.stages],
         )
+
+    @router.post("/{run_id}/resend", status_code=status.HTTP_202_ACCEPTED)
+    async def resend_run(
+        run_id: Annotated[str, Path(pattern=_UUID4_PATTERN)],
+        user_id: int = Depends(require_session),
+    ) -> dict[str, str]:
+        """L1-DASH-003 / L3-DASH-012/013/027/028: manual resend.
+
+        State preconditions per L3-DASH-028: SENT or FAILED only;
+        any other state returns HTTP 409. Non-existent runs return
+        HTTP 404. CSRF is enforced by the existing middleware.
+        """
+        try:
+            await service.resend_run.execute(
+                run_id=RunId(run_id),
+                admin_user_id=user_id,
+            )
+        except RunNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="run not found",
+            ) from exc
+        except InvalidRunStateError as exc:
+            current = exc.details.get("current_state", "unknown")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"run is in state {current}; resend requires SENT or FAILED",
+            ) from exc
+        return {"status": "ok"}
 
     return router
 

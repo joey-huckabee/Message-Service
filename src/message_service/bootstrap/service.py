@@ -49,6 +49,7 @@ from message_service.application.use_cases.get_run_detail import GetRunDetailUse
 from message_service.application.use_cases.list_past_runs import ListPastRunsUseCase
 from message_service.application.use_cases.login import LoginUseCase
 from message_service.application.use_cases.logout import LogoutUseCase
+from message_service.application.use_cases.resend_run import ResendRunUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
 )
@@ -176,6 +177,7 @@ class Service:
     unsubscribe: UnsubscribeUseCase
     list_past_runs: ListPastRunsUseCase
     get_run_detail: GetRunDetailUseCase
+    resend_run: ResendRunUseCase
 
 
 async def build_service(config: Config) -> Service:
@@ -376,6 +378,13 @@ async def build_service(config: Config) -> Service:
     unsubscribe = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
     list_past_runs = ListPastRunsUseCase(uow_factory=uow_factory)
     get_run_detail = GetRunDetailUseCase(uow_factory=uow_factory)
+    resend_run = ResendRunUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        mailer=mailer,
+        assemble_and_deliver=assemble_and_deliver,
+        from_address=str(config.mail.from_address),
+    )
 
     _log.info("bootstrap_complete")
 
@@ -402,6 +411,7 @@ async def build_service(config: Config) -> Service:
         unsubscribe=unsubscribe,
         list_past_runs=list_past_runs,
         get_run_detail=get_run_detail,
+        resend_run=resend_run,
     )
 
 

@@ -981,6 +981,22 @@ single source of truth for live status.
 **Rationale**: Consistent with L2-DASH-003 — air-gapped deployments require offline-capable visualization.
 **Verification Method**: Inspection (I)
 
+### Derivations of L1-DASH-005 (admin audit-log viewer)
+
+#### L2-DASH-015
+
+**Parent**: L1-DASH-005
+**Statement**: `GET /admin/audit` SHALL be the admin audit-log read endpoint, gated by the same `require_admin` dependency described under L2-DASH-007. Query parameters SHALL include: `limit` (int, inclusive range `[1, 200]`, default 50); `offset` (int, `>= 0`, default 0); `action` (optional, repeated query parameter; each value validated against the `AuditAction` enum and ANY-matched — multiple `action=X&action=Y` values OR together); `actor` (optional exact string match against `audit_log.actor`); `resource` (optional exact string match against `audit_log.resource`); `from` (optional ISO-Z timestamp lower bound, inclusive); `to` (optional ISO-Z timestamp upper bound, inclusive). Substring search on `actor` / `resource` is deliberately deferred from v1 (see ROADMAP `R-DASH-003`). Results SHALL be ordered `audit_id DESC` (most recent first; stable across same-`timestamp` ties — see L3-DASH-034).
+**Rationale**: Offset-plus-limit pagination matches the past-runs endpoint (L2-DASH-012) so dashboard clients reuse the same paging UX. Multi-value `action` filters cover the typical investigative shape ("show me everything that's a state transition: any of `RUN_STATE_TRANSITION` or `STAGE_STATE_TRANSITION`"). Exact-match `actor` / `resource` is fast against the existing `audit_log` indexes and covers the common case ("everything `user:5` did", "everything against `run:<uuid>`"); substring is a future-flex item rather than v1 scope. Inclusive bounds on both `from` and `to` simplify the operator mental model — half-open ranges are an old SQL convention that is no longer worth the cognitive overhead.
+**Verification Method**: Test (T)
+
+#### L2-DASH-016
+
+**Parent**: L1-DASH-005
+**Statement**: Each response item SHALL be a JSON object carrying exactly: `audit_id` (int — the `audit_log` table primary key, exposed so clients can deep-link to a specific record), `timestamp` (ISO-Z string), `action` (`AuditAction` enum value as a string), `actor` (string), `resource` (string), `outcome` (`AuditOutcome` enum value as a string), and `details` (parsed JSON object — clients SHALL NOT receive a stringified-JSON form). Response models SHALL use `extra="forbid"`; future field additions are an explicit response-shape change rather than a silent extension. The route SHALL NOT add new redaction logic — it is a faithful projection of the table. Redaction is single-source-of-truth at write time per `L3-OBS-036`; introducing a viewer-side redaction pass would create a second, divergence-prone surface and would mask write-side regressions.
+**Rationale**: Exposing `audit_id` lets dashboard clients construct stable references to specific audit records (e.g., a "permalink to this entry" link); the integer is opaque and carries no entropy that wasn't already public via offset-pagination. Parsed-JSON `details` (rather than a stringified blob) is what every consumer wants and matches the way the use-case layer constructs the field upstream. The "no double redaction" rationale is the operational lesson from L3-OBS-036: keep the obligation in one place and let any drift surface as a write-side test failure rather than a silent viewer mask.
+**Verification Method**: Test (T)
+
 ---
 
 ## L2-PERS: Persistence

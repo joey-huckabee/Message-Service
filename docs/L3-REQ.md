@@ -793,6 +793,15 @@ Resend SHALL re-render the run by replaying `AssembleAndDeliverUseCase` against 
 **L3-DASH-032** · Parent: L2-DASH-009 · Verification: T
 `GET /templates/{name}/{version}` SHALL be the detail endpoint, gated by `require_admin`. The route SHALL accept `name` and `version` as path parameters and SHALL return the same per-template projection object as a `L3-DASH-031` list element (a single object, not a list). Unknown `(name, version)` pairs SHALL return HTTP 404 with a generic detail string (no information disclosure about whether `name`, `version`, or both were unmatched, mirroring `L3-DASH-025`'s privacy posture).
 
+**L3-DASH-033** · Parent: L2-DASH-015 · Verification: T
+`GET /admin/audit` SHALL declare `Depends(require_admin)`; non-admin authenticated requests SHALL return HTTP 403 (per `L3-DASH-011`) and unauthenticated requests SHALL return HTTP 401. Query-parameter validation SHALL return HTTP 422 for: `limit` outside `[1, 200]`; `offset` less than 0; non-integer values for either; `action` values not present in the `AuditAction` enum; `from` or `to` values that fail to parse as ISO-Z timestamps. The `from` and `to` bounds SHALL be inclusive on both ends; an `action` query parameter that appears multiple times SHALL be ANY-matched (`action_a OR action_b`). Empty result sets SHALL return HTTP 200 with an empty JSON list (NOT a 404).
+
+**L3-DASH-034** · Parent: L2-DASH-015 · Verification: T
+The SQL adapter backing the listing SHALL include `ORDER BY audit_log.audit_id DESC` followed by `LIMIT ? OFFSET ?` bound to the validated query parameters. Ordering by `audit_id DESC` (rather than `timestamp DESC`) is required because two audit events recorded inside the same UoW share an identical `timestamp` (the use case captures `clock.now()` once and reuses it across the audit_event + state-update pair); under `ORDER BY timestamp DESC` the within-UoW order would be SQL-engine-dependent. `audit_id DESC` recovers a stable, insertion-order pagination boundary because `audit_id` is `INTEGER PRIMARY KEY AUTOINCREMENT`.
+
+**L3-DASH-035** · Parent: L2-DASH-016 · Verification: T
+Response items SHALL conform to a pydantic model with `extra="forbid"` exposing exactly the fields enumerated in `L2-DASH-016`. The `details` field SHALL be deserialized from the `audit_log.details_json` column into a JSON object (Python `dict`) before serialization to the response body — the route SHALL NOT pass through the raw stringified form. Tests SHALL exercise both a non-empty-`details` row (e.g., `CREATE_USER`) and an empty-`details` row (legitimately absent in some legacy categories) and assert each round-trips correctly. A test SHALL also verify the route's "no extra redaction" invariant by writing an audit record carrying a marker string in `details` and asserting the same marker appears verbatim in the response — proving the viewer is faithful to the table contents and that any redaction obligation lives upstream.
+
 ---
 
 ## L3-PERS: Persistence

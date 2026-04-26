@@ -277,6 +277,7 @@ the single source of truth.
 | L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Partially Implemented |
 | L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009, L2-DASH-012, L2-DASH-013, L2-DASH-014 | Partially Implemented |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Draft |
+| L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Draft |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -296,6 +297,8 @@ the single source of truth.
 | L2-DASH-012 | L3-DASH-022, L3-DASH-023, L3-DASH-024 | `tests/integration/persistence/test_run_repository.py::test_list_paginated_filters_by_state_set`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_orders_most_recent_first`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_respects_limit_and_offset`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_uses_run_id_tiebreaker`<br>`tests/integration/rest/test_runs.py::test_get_runs_default_returns_terminal_runs_most_recent_first`<br>`tests/integration/rest/test_runs.py::test_get_runs_explicit_states_overrides_default`<br>`tests/integration/rest/test_runs.py::test_get_runs_pagination_slices`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_out_of_range_limit`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_unknown_state_value` | Implemented |
 | L2-DASH-013 | L3-DASH-025, L3-DASH-026 | `tests/integration/rest/test_runs.py::test_get_run_detail_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_404_for_unknown_run`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_run_and_ordered_stages`<br>`tests/integration/rest/test_runs.py::test_resend_rejects_non_uuid_path` | Implemented |
 | L2-DASH-014 | L3-DASH-029, L3-DASH-030 | `tests/integration/rest/test_runs.py::test_get_fragment_rejects_non_uuid_run_id`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_404_when_run_missing`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_404_when_stage_missing`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_saved_fragment`<br>`tests/integration/rest/test_runs.py::test_get_report_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_report_returns_404_when_no_saved_body`<br>`tests/integration/rest/test_runs.py::test_get_report_returns_saved_email_body` | Implemented |
+| L2-DASH-015 | L3-DASH-033, L3-DASH-034 | _(TBD)_ | Draft |
+| L2-DASH-016 | L3-DASH-035 | _(TBD)_ | Draft |
 
 ### L1-PERS: Persistence
 
@@ -482,16 +485,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 3 | 9 | 17 | 5 | 12 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
-| DASH | 4 | 14 | 32 | 1 | 22 |
+| DASH | 5 | 16 | 35 | 1 | 22 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
 | OBS | 4 | 18 | 38 | 2 | 16 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **66** | **190** | **370** | **58** | **141** |
+| **Total** | **67** | **192** | **373** | **58** | **141** |
 
-**Requirements verified by at least one test**: 199 of 560 (35.5%).
+**Requirements verified by at least one test**: 199 of 565 (35.2%).
 
 ### Orphan check
 

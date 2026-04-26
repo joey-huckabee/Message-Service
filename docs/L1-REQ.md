@@ -57,14 +57,14 @@ single source of truth for live status; the source docs in this file,
 | `SUB`     | Subscriptions and tags                 | 4        |
 | `AUTH`    | Authentication                         | 3        |
 | `MAIL`    | Email delivery                         | 5        |
-| `DASH`    | Dashboard                              | 4        |
+| `DASH`    | Dashboard                              | 5        |
 | `PERS`    | Persistence                            | 4        |
 | `OBS`     | Observability                          | 4        |
 | `ERR`     | Error handling and exception taxonomy  | 4        |
 | `CFG`     | Configuration                          | 3        |
 | `DEP`     | Deployment                             | 3        |
 | `CICD`    | Continuous integration and delivery    | 7        |
-| **Total** |                                        | **66**   |
+| **Total** |                                        | **67**   |
 
 ---
 
@@ -433,6 +433,14 @@ single source of truth for live status; the source docs in this file,
 **Rationale**: Embedded visualizations give operators immediate visibility without requiring a separate Grafana deployment, while the scrape endpoint preserves integration with standard monitoring stacks.
 
 **Verification Method**: Test (T), Demonstration (D)
+
+### L1-DASH-005
+
+**Statement**: The dashboard SHALL allow authenticated administrators to read the audit log via a paginated, filtered, read-only API. The viewer SHALL be a faithful projection of `audit_log` table rows; the redaction guarantee pinned by `L3-OBS-036` (no plaintext passwords, password hashes, or session tokens in audit `details`) is enforced at write time and SHALL therefore carry through the viewer with no separate redaction logic. Adding a viewer-side redaction pass would create a second, divergence-prone source of truth and would mask write-side bugs that an unredacted viewer surfaces directly.
+
+**Rationale**: An admin audit-log viewer is a standard operational and compliance need — investigating a recent failure, confirming an action was taken, demonstrating governance to an auditor. A read-only API mirrors the write-side append-only invariant from `L1-OBS-003`: the audit log has neither an UPDATE nor a DELETE verb in any code path other than the retention pruner, and the dashboard surface preserves that. Single-source-of-truth redaction (write-time only, per `L3-OBS-036`) keeps the redaction obligation in one auditable place and ensures any drift surfaces as a write-side test failure rather than a silent viewer-side mask.
+
+**Verification Method**: Test (T)
 
 ---
 

@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **19c — filesystem report store + report viewer** (commit `b900ce3`); closes the "view past rendered reports" clause of `L1-DASH-003` (clauses 1+2 closed by 19a/19b; clause 3 — template registry inspection — remains for **20a**). Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
+Last full increment merged: **20a — admin gate + template registry inspection** (commit `fd27acf`); closes the third clause of `L1-DASH-003` (template registry inspection), bringing 5 of L1-DASH-003's 6 L2 children to Implemented. The lone partial — `L2-DASH-008` — is a pre-existing Increment-19b resend gap, not a 20a concern. Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -24,7 +24,8 @@ Done:
 - **Increment 18** — Subscription CRUD routes (`310ce2d`).
 - **Increment 19a** — Past-runs paginated list + run-detail metadata view (`9b0a87b`).
 - **Increment 19b** — Manual resend (re-renders from saved Stage context) (`f3d7509`).
-- **Increment 19c** — Filesystem report store + report viewer (`b900ce3`); closes clauses 1+2 of L1-DASH-003 (clause 3 — template registry inspection — slated for 20a).
+- **Increment 19c** — Filesystem report store + report viewer (`b900ce3`); closes clauses 1+2 of L1-DASH-003.
+- **Increment 20a** — Admin gate (`require_admin`) + template registry inspection (`fd27acf`); closes clause 3 of L1-DASH-003 — L2-DASH-007 + L2-DASH-009 promoted to Implemented.
 
 Still open:
 

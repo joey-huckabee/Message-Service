@@ -38,6 +38,7 @@ from pathlib import Path
 
 import aiosqlite
 import structlog
+from message_service_proto.v1 import message_service_pb2
 
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.disposition_handler import DispositionHandler
@@ -69,7 +70,10 @@ from message_service.application.use_cases.sweeper_action_dispatcher import (
 from message_service.application.use_cases.unsubscribe import UnsubscribeUseCase
 from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
-from message_service.domain.errors import ConfigurationError
+from message_service.domain.errors import (
+    ConfigurationError,
+    assert_error_codes_match_proto_enum,
+)
 from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
 from message_service.infrastructure.observability.metrics import (
@@ -264,6 +268,20 @@ async def build_service(config: Config) -> Service:
         pipelines=sorted(config.pipelines.registered),
         log_level=config.observability.log_level,
     )
+
+    # 1a. Error-code self-check (L3-ERR-008, L3-ERR-009). Verify
+    # every concrete exception class's `error_code` ClassVar exists
+    # in the proto ErrorCode enum, and warn on proto values that no
+    # Python class exposes (the latter is non-fatal — proto may
+    # legitimately declare codes ahead of their Python counterparts
+    # during phased rollouts).
+    proto_error_codes = set(message_service_pb2.ErrorCode.keys())
+    orphan_proto_codes = assert_error_codes_match_proto_enum(proto_error_codes)
+    if orphan_proto_codes:
+        _log.warning(
+            "proto_error_codes_without_python_class",
+            orphan_codes=orphan_proto_codes,
+        )
 
     # 2. Open the SQLite connection and apply migrations.
     conn: aiosqlite.Connection = await open_connection(config.persistence.sqlite_path)

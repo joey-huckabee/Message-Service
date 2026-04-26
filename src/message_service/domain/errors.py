@@ -28,6 +28,7 @@ Requirement references
 
 from __future__ import annotations
 
+import logging
 from typing import Any, ClassVar
 
 # =============================================================================
@@ -40,12 +41,26 @@ class MessageServiceError(Exception):
 
     Attributes:
         error_code: Machine-readable code matching the proto ``ErrorCode`` enum.
-            Subclasses override this at class level.
-        details: Structured diagnostic details. Safe to include in client-facing
-            error responses.
+            Subclasses override this at class level (per `L3-ERR-001`).
+        http_status: HTTP status code surfaced by the FastAPI dashboard's
+            error-translation layer when this exception class is raised
+            from a route. Each intermediate category sets a sensible
+            default; specific leaf classes override (e.g.,
+            :class:`DuplicateEmailError` returns 409 rather than the
+            422 default of its :class:`ValidationError` parent).
+        log_level: ``logging`` level the gRPC + REST translators emit
+            the boundary log record at. ``ERROR`` is the conservative
+            default for the root; intermediate categories override
+            (e.g., :class:`ValidationError` → INFO, :class:`DomainError`
+            → INFO, :class:`InfrastructureError` → WARNING).
+        details: Structured diagnostic details. Safe to include in
+            client-facing error responses subject to the L3-ERR-016
+            redaction filter.
     """
 
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+    http_status: ClassVar[int] = 500
+    log_level: ClassVar[int] = logging.ERROR
 
     def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
         """Initialize the error with a message and optional structured details.
@@ -72,6 +87,9 @@ class MessageServiceError(Exception):
 
 class ValidationError(MessageServiceError):
     """Base for input validation failures. Maps to gRPC INVALID_ARGUMENT."""
+
+    http_status: ClassVar[int] = 422
+    log_level: ClassVar[int] = logging.INFO
 
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
 
@@ -173,10 +191,34 @@ class MalformedRequestError(ValidationError):
 # =============================================================================
 
 
-class NotFoundError(MessageServiceError):
+class DomainError(MessageServiceError):
+    """Intermediate category for domain-layer rule violations.
+
+    Per `L3-ERR-002`/`L3-ERR-004`, the four direct subclasses of
+    :class:`MessageServiceError` are :class:`DomainError`,
+    :class:`ValidationError`, :class:`InfrastructureError`, and
+    :class:`ConfigurationError`. ``DomainError`` clusters
+    "the request is well-formed but conflicts with current state":
+    not-found, forbidden, and precondition violations all sit under
+    it. The dashboard / gRPC translators dispatch on ``DomainError``
+    subclasses' specific types (NotFound → 404, Forbidden → 403,
+    Precondition → 409) rather than on ``DomainError`` directly,
+    matching the existing isinstance-based dispatch in
+    `interfaces/grpc/error_mapping.py`.
+
+    Domain errors log at INFO because they reflect normal client-
+    visible business outcomes (someone asked for a missing resource,
+    a precondition wasn't met) rather than service malfunctions.
+    """
+
+    log_level: ClassVar[int] = logging.INFO
+
+
+class NotFoundError(DomainError):
     """Base for missing-resource failures. Maps to gRPC NOT_FOUND."""
 
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+    http_status: ClassVar[int] = 404
 
 
 class RunNotFoundError(NotFoundError):
@@ -207,7 +249,7 @@ class UserNotFoundError(NotFoundError):
 # =============================================================================
 
 
-class ForbiddenError(MessageServiceError):
+class ForbiddenError(DomainError):
     """Base for cross-user / unauthorized access failures.
 
     Distinct from :class:`NotFoundError`: the resource exists but the
@@ -217,6 +259,7 @@ class ForbiddenError(MessageServiceError):
     """
 
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+    http_status: ClassVar[int] = 403
 
 
 class SubscriptionForbiddenError(ForbiddenError):
@@ -230,10 +273,11 @@ class SubscriptionForbiddenError(ForbiddenError):
 # =============================================================================
 
 
-class PreconditionError(MessageServiceError):
+class PreconditionError(DomainError):
     """Base for state-based precondition failures. Maps to FAILED_PRECONDITION."""
 
     error_code: ClassVar[str] = "ERROR_CODE_UNSPECIFIED"
+    http_status: ClassVar[int] = 409
 
 
 class InvalidRunStateError(PreconditionError):
@@ -289,6 +333,8 @@ class InfrastructureError(MessageServiceError):
     """Base for infrastructure-layer failures (persistence, SMTP, templating)."""
 
     error_code: ClassVar[str] = "ERROR_CODE_INTERNAL"
+    http_status: ClassVar[int] = 500
+    log_level: ClassVar[int] = logging.WARNING
 
 
 class PersistenceError(InfrastructureError):
@@ -311,10 +357,100 @@ class ConfigurationError(MessageServiceError):
     """Configuration could not be loaded or validated. See L2-CFG-005.
 
     Raised at startup before any service component is instantiated, causing
-    the process to exit with a nonzero status (L2-CFG-006).
+    the process to exit with a nonzero status (L2-CFG-006). Unlike
+    :class:`InfrastructureError`, this is rarely client-visible — by
+    the time the service is serving requests, configuration has been
+    successfully validated.
     """
 
     error_code: ClassVar[str] = "ERROR_CODE_INTERNAL"
+    http_status: ClassVar[int] = 500
+    log_level: ClassVar[int] = logging.ERROR
+
+
+# =============================================================================
+# Self-check helpers (L3-ERR-008, L3-ERR-009)
+# =============================================================================
+
+
+def _iter_leaf_error_classes() -> list[type[MessageServiceError]]:
+    """Walk the :class:`MessageServiceError` subclass tree; return leaves only.
+
+    A "leaf" is a class with no further :class:`MessageServiceError`
+    subclasses — the concrete classes the codebase actually raises.
+    Intermediate classes (``ValidationError``, ``DomainError``,
+    ``NotFoundError``, ``ForbiddenError``, ``PreconditionError``,
+    ``InfrastructureError``) are filtered out.
+
+    Used by :func:`assert_error_codes_match_proto_enum` at bootstrap
+    and by the test suite's hierarchy-shape assertions.
+    """
+    leaves: list[type[MessageServiceError]] = []
+    seen: set[type[MessageServiceError]] = set()
+
+    def _visit(cls: type[MessageServiceError]) -> None:
+        if cls in seen:
+            return
+        seen.add(cls)
+        subs = cls.__subclasses__()
+        if not subs:
+            leaves.append(cls)
+            return
+        for sub in subs:
+            _visit(sub)
+
+    _visit(MessageServiceError)
+    return leaves
+
+
+def assert_error_codes_match_proto_enum(
+    proto_error_code_names: set[str],
+) -> list[str]:
+    """Verify every leaf exception's `error_code` is in the proto enum (L3-ERR-008).
+
+    Per `L3-ERR-008`, the bootstrap self-check imports the proto
+    ``ErrorCode`` enum, collects every declared enum value, and
+    asserts each concrete exception's ``error_code`` is present in
+    that set. Mismatch raises :class:`ConfigurationError` before any
+    RPC is served.
+
+    Per `L3-ERR-009`, proto enum values that no exception class
+    exposes are NOT a fatal error — the bootstrap may legitimately
+    declare codes ahead of their Python counterparts during phased
+    rollouts. The function returns the list of orphan proto values
+    so the caller can emit a WARNING log.
+
+    Args:
+        proto_error_code_names: The set of error-code names declared
+            by the proto enum (typically
+            ``set(message_service_pb2.ErrorCode.keys())``).
+
+    Returns:
+        Sorted list of proto enum values that no leaf exception
+        class declares (`L3-ERR-009`'s WARNING-level orphan list).
+
+    Raises:
+        ConfigurationError: A leaf exception class has an
+            ``error_code`` not present in the proto enum. The
+            details dict carries ``{exception_class, error_code,
+            proto_codes}`` so the operator can spot the drift.
+    """
+    used_codes: dict[str, str] = {}
+    for cls in _iter_leaf_error_classes():
+        code = cls.error_code
+        if code not in proto_error_code_names:
+            raise ConfigurationError(
+                f"exception class {cls.__name__!r} declares error_code "
+                f"{code!r} which is not in the proto ErrorCode enum",
+                details={
+                    "exception_class": cls.__name__,
+                    "error_code": code,
+                    "proto_codes": sorted(proto_error_code_names),
+                },
+            )
+        used_codes[code] = cls.__name__
+    orphans = sorted(proto_error_code_names - used_codes.keys())
+    return orphans
 
 
 __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
@@ -334,6 +470,8 @@ __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     "MalformedRequestError",
     "DuplicateEmailError",
     "InvalidEmailError",
+    # Domain (intermediate; raised only via subcategories below)
+    "DomainError",
     # Not found
     "NotFoundError",
     "RunNotFoundError",
@@ -355,4 +493,6 @@ __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     "EmailDeliveryError",
     # Configuration
     "ConfigurationError",
+    # Self-check helpers (L3-ERR-008, L3-ERR-009)
+    "assert_error_codes_match_proto_enum",
 ]

@@ -177,7 +177,7 @@ class SqliteUnitOfWork(UnitOfWork):
             # propagates.
             try:
                 await self._conn.rollback()
-            except Exception as rb_exc:
+            except Exception as rb_exc:  # noqa: BLE001 — best-effort rollback; original exc propagates
                 _log.error(
                     "sqlite_rollback_failed",
                     reason=str(rb_exc),
@@ -193,7 +193,7 @@ class SqliteUnitOfWork(UnitOfWork):
             # transaction, then raise.
             try:
                 await self._conn.rollback()
-            except Exception as rb_exc:
+            except Exception as rb_exc:  # noqa: BLE001 — best-effort rollback; commit-fail still raises
                 _log.error(
                     "sqlite_rollback_after_commit_failure",
                     reason=str(rb_exc),
@@ -296,7 +296,7 @@ class SqliteUnitOfWorkFactory:
             return
         try:
             await self._conn.close()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — close is idempotent best-effort; warn-and-continue
             _log.warning("sqlite_connection_close_failed", reason=str(exc))
 
 

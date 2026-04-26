@@ -248,7 +248,7 @@ class SweeperActionDispatcherUseCase:
             try:
                 await handler.handle(run)
                 outcomes.append((c, True, None))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — L3-SWEEP-013: per-handler isolation; logged below
                 # L3-SWEEP-013: handlers SHALL NOT raise — failures
                 # logged at ERROR and swallowed so one failure doesn't
                 # block siblings.

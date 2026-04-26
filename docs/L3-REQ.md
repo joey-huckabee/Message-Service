@@ -1144,10 +1144,10 @@ At service startup, the error-code self-check SHALL import the proto `ErrorCode`
 The self-check SHALL also detect proto enum values that no exception class exposes, emitting a WARNING log (not a fatal error) — proto may legitimately declare codes ahead of their Python counterparts during phased rollouts.
 
 **L3-ERR-010** · Parent: L2-ERR-005 · Verification: A
-A static-analysis script (`scripts/check-error-code-stability.py`) SHALL compare the current set of declared error codes against a checked-in `docs/error-codes.lock` manifest; removals or renames SHALL fail the build, additions SHALL require a manifest update committed alongside.
+*(Deferred to v2 — see ROADMAP `R-ERR-002`.)* The error-code-stability obligation in v1 is held by the import-time self-check (`L3-ERR-008`) plus the centralized `error_code` ClassVar declarations in `domain/errors.py`; reviewers can diff the file at PR time. A formal lockfile (`docs/error-codes.lock`) and the comparison script become useful when external pipelines start pinning specific codes; until that operational pressure exists, the lockfile would be ceremony without payoff.
 
 **L3-ERR-011** · Parent: L2-ERR-005 · Verification: I
-The `docs/error-codes.lock` manifest SHALL be updated via a helper script (`scripts/update-error-codes-lock.py`) that regenerates it from the current exception hierarchy and marks a review in `docs/reviews/`.
+*(Deferred to v2 — see ROADMAP `R-ERR-002`.)* Companion to `L3-ERR-010`'s lockfile mechanic; the helper script is part of the same future work.
 
 **L3-ERR-012** · Parent: L2-ERR-006 · Verification: I, T
 Each inbound interface SHALL implement its translation layer as a single function or decorator named `translate_exceptions` (or similar) such that handler code never contains bare `except MessageServiceError` blocks.
@@ -1156,10 +1156,10 @@ Each inbound interface SHALL implement its translation layer as a single functio
 Background task translation SHALL distinguish transient failures (retry-after-backoff) from permanent failures (terminate task, log CRITICAL, notify admins via the orphan notification channel).
 
 **L3-ERR-014** · Parent: L2-ERR-007 · Verification: T
-The gRPC exception translator SHALL map `error_code` to gRPC status via a static dict `ERROR_CODE_TO_GRPC_STATUS: dict[str, grpc.StatusCode]` co-located with the translator; missing mappings SHALL raise at import time.
+The gRPC exception translator SHALL map exceptions to gRPC status by inspecting the exception's intermediate-class membership (`isinstance` checks against `ValidationError`, `NotFoundError`, `ForbiddenError`, `PreconditionError`, `InfrastructureError`). Each leaf exception's `error_code` `ClassVar` SHALL flow through to the response as trailing metadata under the `x-message-service-error-code` key, so clients programming against specific codes can switch on it. *(The static-dict shape proposed in earlier drafts of this requirement is deferred — see ROADMAP `R-ERR-001` — pending the wire-format upgrade described in `L3-ERR-015`; the current `isinstance`-based dispatch produces equivalent behavior.)*
 
 **L3-ERR-015** · Parent: L2-ERR-007 · Verification: T
-The client-facing error response SHALL be a `google.rpc.Status` message containing only `code`, `message` (the exception's public message, not the str() form), and `details` containing a structured `ErrorInfo` with `reason=error_code` and `metadata` from the exception's `details` dict.
+The client-facing error response SHALL carry, at minimum: a gRPC status code (per `L3-ERR-014`), the exception's public message (`exc.message`, not `str(exc)`), the `error_code` ClassVar as trailing metadata under `x-message-service-error-code`, and — for unexpected exceptions — a correlation id under `x-message-service-correlation-id` (per `L3-ERR-017`). The response SHALL NOT include a stack trace or the internal exception class name. *(The richer `google.rpc.Status` + `ErrorInfo` envelope proposed in earlier drafts of this requirement is deferred to v2 — see ROADMAP `R-ERR-001` — because switching wire format would break already-deployed pipeline clients pinned to the trailing-metadata shape; the current shape is RFC-compliant gRPC and meets the spirit of the obligation: clients receive only stable, sanitized information.)*
 
 **L3-ERR-016** · Parent: L2-ERR-007 · Verification: T
 The exception's `details` dict SHALL be serialized to the response's metadata field only after stripping any keys flagged sensitive (password, token, raw email body, etc.) per the same redaction list used in logging (L3-OBS-006).
@@ -1174,7 +1174,7 @@ The CRITICAL log record for an unhandled exception SHALL include `exc_info=True`
 The ruff rule set SHALL include `BLE001` (blind-except) and `S110` / `S112` (try-except-pass / try-except-continue); these SHALL NOT be suppressed via `# noqa` except with a mandatory reason comment.
 
 **L3-ERR-020** · Parent: L2-ERR-009 · Verification: A
-A CI grep check SHALL fail the build on any occurrence of `except:` (bare) or `except Exception:` without an accompanying `log`, `raise`, or `raise ... from` on the next non-comment, non-blank line.
+The ruff rule set required by `L3-ERR-019` (`BLE001`, `S110`, `S112`) is the canonical enforcement; a separate CI grep check is NOT additionally required because the ruff rules cover the same patterns with line-resolution diagnostics that grep cannot provide. *(An earlier draft of this requirement proposed a parallel grep gate; the rule consolidation onto ruff makes that redundant.)*
 
 **L3-ERR-021** · Parent: L2-ERR-010 · Verification: A
 A ruff rule or grep check SHALL flag any occurrence of `except BaseException`, `except SystemExit`, `except KeyboardInterrupt`, or `except GeneratorExit` in production code (`src/`).

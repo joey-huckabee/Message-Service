@@ -166,7 +166,7 @@ class SweeperLoop:
         """
         try:
             sweeper_result = await self._sweeper.tick()
-        except Exception:
+        except Exception:  # noqa: BLE001 — boundary catch: logged + counter + drain continues
             _SWEEPER_ITERATION_COUNTER.labels(outcome="sweeper_error").inc()
             _log.error("sweeper_tick_failed", exc_info=True)
             # Still attempt to drain whatever's already in the outbox
@@ -194,7 +194,7 @@ class SweeperLoop:
         """Drain the outbox; log; never re-raise."""
         try:
             result = await self._dispatcher.dispatch_pending()
-        except Exception:
+        except Exception:  # noqa: BLE001 — boundary catch: logged + return; loop continues next tick
             _log.error("dispatcher_drain_failed", exc_info=True)
             return
 

@@ -274,7 +274,7 @@ async def _async_main(argv: list[str] | None = None) -> int:
     config_path = _resolve_config_path(argv)
     try:
         config = load_config(config_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — top-level catch: logged + nonzero exit
         _log.error(
             "config_load_failed",
             path=str(config_path),
@@ -288,7 +288,7 @@ async def _async_main(argv: list[str] | None = None) -> int:
 
     try:
         await _run(config, shutdown_event=shutdown_event)
-    except Exception:
+    except Exception:  # noqa: BLE001 — top-level catch: logged + nonzero exit
         _log.exception("service_crashed")
         return 1
     return 0

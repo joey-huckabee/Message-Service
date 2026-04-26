@@ -91,6 +91,9 @@ select = [
     "PTH",          # flake8-use-pathlib (L2-DEP-002)
     "SIM",          # flake8-simplify
     "RUF",          # ruff-specific
+    "BLE",          # flake8-blind-except (L3-ERR-019)
+    "S110",         # flake8-bandit: try-except-pass (L3-ERR-019)
+    "S112",         # flake8-bandit: try-except-continue (L3-ERR-019)
 ]
 ignore = [
     "D100",  # allow missing module docstring on test files, handled per-dir

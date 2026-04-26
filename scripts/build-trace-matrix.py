@@ -573,7 +573,7 @@ def _check_main() -> int:
     # Step 1: regenerate in memory. Catches input-doc parse failures.
     try:
         regenerated = build_matrix()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — top-level catch: print + nonzero exit
         print(
             f"error: failed to parse requirement source docs: {exc}",
             file=sys.stderr,

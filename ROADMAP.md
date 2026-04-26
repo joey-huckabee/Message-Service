@@ -21,6 +21,7 @@ Done:
 - **Increment 15** — Prometheus metrics adapter (`fe5c3a4`).
 - **Increment 16** — Local-account auth adapter, Argon2 + sessions (`7ede66c`).
 - **Increment 17** — FastAPI app factory + bootstrap wiring (`aa3902e`).
+- **Increment 18** — Subscription CRUD routes (`310ce2d`).
 
 Still open:
 

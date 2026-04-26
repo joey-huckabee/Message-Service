@@ -722,7 +722,7 @@ Chart.js SHALL be bundled at a pinned version in `static/js/chart.min.js` with i
 CSRF protection SHALL apply to POST/PATCH/DELETE via double-submit cookie or equivalent; a test verifies a POST without the CSRF token returns HTTP 403.
 
 **L3-DASH-019** · Parent: L2-DASH-002 · Verification: T
-Subscription IDs SHALL be UUIDs; route validators reject non-UUIDs with HTTP 422.
+Subscription IDs SHALL be positive integers (minted by the SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` column on the `subscriptions` table); route validators SHALL reject non-integer or non-positive values with HTTP 422. Promotion to UUID4 is a deferred-from-v1 item; see ROADMAP Part 2 ("Subscription identifier promotion to UUID4").
 
 **L3-DASH-020** · Parent: L2-DASH-003 · Verification: I
 Fonts SHALL be system fonts (via `font-family` stack only) or WOFF2 files shipped in the static directory.

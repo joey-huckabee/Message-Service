@@ -26,6 +26,7 @@ import pytest
 from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.mailer import Mailer, OutboundEmail
+from message_service.application.ports.report_store import ReportStore
 from message_service.application.ports.run_repository import RunRepository
 from message_service.application.ports.stage_repository import StageRepository
 from message_service.application.ports.subscription_repository import (
@@ -46,6 +47,7 @@ from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
     ContextSizeExceededError,
     EmailDeliveryError,
+    PersistenceError,
     RenderedSizeExceededError,
     TemplateRenderError,
 )
@@ -795,3 +797,179 @@ async def test_audit_precedes_state_update_on_ready_to_sending(
             assert "audit" in call_names[:i], (
                 f"update_state at index {i} not preceded by audit: {call_names}"
             )
+
+
+# -----------------------------------------------------------------------------
+# ReportStore wiring (Increment 19c)
+# -----------------------------------------------------------------------------
+
+
+def _build_use_case_with_store(
+    *,
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    factory: MagicMock,
+    report_store: MagicMock,
+) -> AssembleAndDeliverUseCase:
+    return AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        report_store=report_store,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-024")
+async def test_sent_path_saves_each_rendered_fragment(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-PERS-024: every non-empty rendered fragment SHALL be persisted."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [
+        _stage("extract"),
+        _stage("transform", report_template_ref=_TPL_XFM),
+    ]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+
+    store = MagicMock(spec=ReportStore)
+    use_case = _build_use_case_with_store(
+        clock=clock,
+        renderer=renderer,
+        mailer=mailer,
+        factory=factory,
+        report_store=store,
+    )
+    await use_case.execute(_RID)
+
+    saved_stages = sorted(call.args[1] for call in store.save_fragment.call_args_list)
+    assert saved_stages == ["extract", "transform"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-024")
+async def test_sent_path_saves_assembled_email_body(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-PERS-024: the assembled email body SHALL be saved on SENT."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+
+    store = MagicMock(spec=ReportStore)
+    use_case = _build_use_case_with_store(
+        clock=clock,
+        renderer=renderer,
+        mailer=mailer,
+        factory=factory,
+        report_store=store,
+    )
+    await use_case.execute(_RID)
+
+    store.save_email_body.assert_called_once()
+    saved_run_id, saved_html = store.save_email_body.call_args.args
+    assert saved_run_id == _RID
+    assert saved_html.startswith("<html>")
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-024")
+async def test_zero_recipient_path_still_saves_email_body(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """The body SHALL be saved even when recipients is empty (run still SENT)."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset()
+
+    store = MagicMock(spec=ReportStore)
+    use_case = _build_use_case_with_store(
+        clock=clock,
+        renderer=renderer,
+        mailer=mailer,
+        factory=factory,
+        report_store=store,
+    )
+    await use_case.execute(_RID)
+
+    mailer.send.assert_not_awaited()
+    store.save_email_body.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-024")
+async def test_failed_delivery_does_not_save_email_body(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """If Mailer.send fails, the assembled body SHALL NOT be saved.
+
+    The viewer route's 404-on-missing semantics is exactly the
+    intended behavior for failed runs (L3-DASH-029).
+    """
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    mailer.send.side_effect = EmailDeliveryError("smtp 5xx", details={"retriable": False})
+
+    store = MagicMock(spec=ReportStore)
+    use_case = _build_use_case_with_store(
+        clock=clock,
+        renderer=renderer,
+        mailer=mailer,
+        factory=factory,
+        report_store=store,
+    )
+    await use_case.execute(_RID)
+
+    store.save_email_body.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-024")
+async def test_persistence_error_during_save_is_swallowed(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """Save errors SHALL NOT abort delivery — the email is the source of truth."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+
+    store = MagicMock(spec=ReportStore)
+    store.save_fragment.side_effect = PersistenceError("disk full", details={"path": "/tmp/x"})
+    store.save_email_body.side_effect = PersistenceError("disk full", details={"path": "/tmp/y"})
+    use_case = _build_use_case_with_store(
+        clock=clock,
+        renderer=renderer,
+        mailer=mailer,
+        factory=factory,
+        report_store=store,
+    )
+
+    # Should NOT raise — saves are best-effort.
+    await use_case.execute(_RID)
+
+    mailer.send.assert_awaited_once()

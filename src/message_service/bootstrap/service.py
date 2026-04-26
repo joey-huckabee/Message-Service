@@ -32,7 +32,9 @@ L2-PERS-002 (DB setup at startup)
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
+from pathlib import Path
 
 import aiosqlite
 import structlog
@@ -40,6 +42,7 @@ import structlog
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.disposition_handler import DispositionHandler
 from message_service.application.ports.mailer import Mailer
+from message_service.application.ports.report_store import ReportStore
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
@@ -61,6 +64,7 @@ from message_service.application.use_cases.sweeper_action_dispatcher import (
 from message_service.application.use_cases.unsubscribe import UnsubscribeUseCase
 from message_service.config.schema import Config, DispositionAction
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.domain.errors import ConfigurationError
 from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
 from message_service.infrastructure.observability.metrics import (
@@ -68,6 +72,9 @@ from message_service.infrastructure.observability.metrics import (
 )
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
+from message_service.infrastructure.persistence.filesystem.report_store import (
+    FilesystemReportStore,
+)
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.run_repository import SqliteRunRepository
 from message_service.infrastructure.persistence.session_repository import (
@@ -110,6 +117,44 @@ from message_service.infrastructure.time.system_clock import SystemClock
 from message_service.observability.logging_setup import configure_logging
 
 _log = structlog.get_logger(__name__)
+
+
+def _ensure_report_directory(report_directory: Path) -> None:
+    """Verify the rendered-report directory exists and is writable.
+
+    Implements L3-PERS-010 (create-on-demand) + L3-PERS-011 (writable
+    probe). Both failure modes raise :class:`ConfigurationError` so the
+    process exits before any I/O-shaped use case runs.
+
+    Args:
+        report_directory: ``persistence.filesystem.report_directory``.
+
+    Raises:
+        ConfigurationError: ``mkdir`` failed (permission denied,
+            invalid path, etc.) or the directory exists but a probe
+            write fails.
+    """
+    try:
+        report_directory.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ConfigurationError(
+            f"failed to create report directory: {report_directory}",
+            details={"path": str(report_directory), "os_error": str(exc)},
+        ) from exc
+
+    probe = report_directory / ".write_probe"
+    try:
+        probe.write_text("", encoding="utf-8")
+    except OSError as exc:
+        raise ConfigurationError(
+            f"report directory is not writable: {report_directory}",
+            details={"path": str(report_directory), "os_error": str(exc)},
+        ) from exc
+    finally:
+        # Best-effort cleanup; if we cannot remove the probe the next
+        # startup will overwrite it anyway.
+        with contextlib.suppress(OSError):
+            probe.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +208,7 @@ class Service:
     mailer: Mailer
     scheduler: AsyncioBackgroundTaskScheduler
     uow_factory: SqliteUnitOfWorkFactory
+    report_store: ReportStore
     begin_run: BeginRunUseCase
     submit_stage_report: SubmitStageReportUseCase
     finalize_run: FinalizeRunUseCase
@@ -237,6 +283,16 @@ async def build_service(config: Config) -> Service:
         max_rendered_bytes=config.templates.max_rendered_bytes,
     )
 
+    # 4b. Filesystem report store (L1-PERS-002 / L3-PERS-010 / L3-PERS-011).
+    # Create the configured root if missing, then probe-write a small
+    # file to verify the directory is writable. Both failures are
+    # surfaced as ``ConfigurationError`` so the process exits with a
+    # nonzero status before any UoW or use case is constructed.
+    _ensure_report_directory(config.persistence.filesystem.report_directory)
+    report_store = FilesystemReportStore(
+        root=config.persistence.filesystem.report_directory,
+    )
+
     # 5. Mailer — pure config, no I/O yet.
     mailer = AiosmtplibMailer(
         host=config.mail.smtp.host,
@@ -286,6 +342,7 @@ async def build_service(config: Config) -> Service:
         from_address=config.mail.from_address,
         email_body_template_ref=email_body_ref,
         metrics_recorder=metrics_recorder,
+        report_store=report_store,
     )
 
     begin_run = BeginRunUseCase(
@@ -397,6 +454,7 @@ async def build_service(config: Config) -> Service:
         mailer=mailer,
         scheduler=scheduler,
         uow_factory=uow_factory,
+        report_store=report_store,
         begin_run=begin_run,
         submit_stage_report=submit_stage_report,
         finalize_run=finalize_run,

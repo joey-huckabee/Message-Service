@@ -454,7 +454,7 @@ Split into three sub-increments. New L2/L3 statements authored upfront (this com
 - L3-DASH-012/013/027/028 promote from Draft → Implemented.
 - L2-DASH-008 promotes from Draft → Implemented.
 
-#### Increment 19c — Filesystem report store + report viewer
+#### Increment 19c — Filesystem report store + report viewer  *(✅ done; see commit log)*
 
 **Closes**: the "view past rendered reports" portion of `L1-DASH-003` and gives `L1-PERS-002` a concrete repository under it.
 
@@ -524,11 +524,10 @@ The historical sequencing block has been pruned now that Clusters 14 (excluding 
 
 **Recommended next-up sequencing**
 
-1. **19c** — filesystem report store + report viewer. (19a + 19b landed; spec deltas for 19a/b/c authored ahead of code per the 2026-04-25 user directive.)
-2. **20** — admin surfaces.
-3. **21** — E2E happy-path + orphan-path harness.
-4. **22** — error-mapping + servicer tests; independent stream.
-5. **23, 24** — deployment polish + documentation deliverables (release-gating).
+1. **20** — admin surfaces. (19a/19b/19c landed; L1-DASH-003 fully closed.)
+2. **21** — E2E happy-path + orphan-path harness.
+3. **22** — error-mapping + servicer tests; independent stream.
+4. **23, 24** — deployment polish + documentation deliverables (release-gating).
 
 ---
 

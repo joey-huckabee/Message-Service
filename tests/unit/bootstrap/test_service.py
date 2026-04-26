@@ -12,12 +12,18 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from message_service.bootstrap import Service, build_service, shutdown_service
+from message_service.bootstrap.service import _ensure_report_directory
 from message_service.config.loader import load_config
+from message_service.domain.errors import ConfigurationError
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
+from message_service.infrastructure.persistence.filesystem.report_store import (
+    FilesystemReportStore,
+)
 from message_service.infrastructure.persistence.unit_of_work import (
     SqliteUnitOfWorkFactory,
 )
@@ -217,6 +223,90 @@ async def test_scheduler_is_asyncio_background_scheduler(service: Service) -> No
 async def test_uow_factory_is_sqlite(service: Service) -> None:
     assert isinstance(service.uow_factory, SqliteUnitOfWorkFactory)
     await shutdown_service(service, timeout=1.0)
+
+
+# -----------------------------------------------------------------------------
+# Filesystem report store (Increment 19c)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-024")
+async def test_report_store_is_filesystem_adapter(service: Service) -> None:
+    """build_service SHALL expose a :class:`FilesystemReportStore` instance."""
+    assert isinstance(service.report_store, FilesystemReportStore)
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-010")
+async def test_build_service_creates_missing_report_directory(
+    service: Service, tmp_path: Path
+) -> None:
+    """L3-PERS-010: a missing report directory SHALL be created at startup."""
+    # The fixture's _write_config points report_directory at
+    # ``tmp_path / "reports"`` which did not exist before build.
+    assert (tmp_path / "reports").is_dir()
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.requirement("L3-PERS-010")
+def test_ensure_report_directory_creates_missing(tmp_path: Path) -> None:
+    """L3-PERS-010: ``mkdir(parents=True, exist_ok=True)`` SHALL be applied."""
+    target = tmp_path / "nested" / "reports"
+    assert not target.exists()
+    _ensure_report_directory(target)
+    assert target.is_dir()
+
+
+@pytest.mark.requirement("L3-PERS-010")
+def test_ensure_report_directory_no_op_when_already_exists(tmp_path: Path) -> None:
+    """An already-existing directory SHALL pass without error."""
+    target = tmp_path / "reports"
+    target.mkdir()
+    _ensure_report_directory(target)
+    assert target.is_dir()
+
+
+@pytest.mark.requirement("L3-PERS-010")
+def test_ensure_report_directory_raises_configuration_error_when_mkdir_fails(
+    tmp_path: Path,
+) -> None:
+    """L3-PERS-010: ``mkdir`` failure SHALL surface as :class:`ConfigurationError`."""
+    target = tmp_path / "reports"
+    with (
+        patch.object(Path, "mkdir", side_effect=OSError("permission denied")),
+        pytest.raises(ConfigurationError) as excinfo,
+    ):
+        _ensure_report_directory(target)
+    assert "report directory" in str(excinfo.value)
+    assert excinfo.value.details.get("path") == str(target)
+
+
+@pytest.mark.requirement("L3-PERS-011")
+def test_ensure_report_directory_raises_configuration_error_when_unwritable(
+    tmp_path: Path,
+) -> None:
+    """L3-PERS-011: unwritable existing directory SHALL surface as :class:`ConfigurationError`."""
+    target = tmp_path / "reports"
+    target.mkdir()
+    # Patch only the probe write (not directory creation).
+    with (
+        patch.object(Path, "write_text", side_effect=OSError("read-only filesystem")),
+        pytest.raises(ConfigurationError) as excinfo,
+    ):
+        _ensure_report_directory(target)
+    assert "not writable" in str(excinfo.value)
+
+
+@pytest.mark.requirement("L3-PERS-011")
+def test_ensure_report_directory_removes_probe_file(tmp_path: Path) -> None:
+    """The write-probe file SHALL NOT remain after a successful check."""
+    target = tmp_path / "reports"
+    target.mkdir()
+    _ensure_report_directory(target)
+    # Probe was named ``.write_probe`` and SHALL have been unlinked.
+    assert not (target / ".write_probe").exists()
 
 
 # -----------------------------------------------------------------------------

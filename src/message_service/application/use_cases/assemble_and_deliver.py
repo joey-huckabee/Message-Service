@@ -85,6 +85,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import structlog
+
 from message_service.application.ports.clock import Clock, iso_z
 from message_service.application.ports.mailer import (
     EmailAttachment,
@@ -95,6 +97,7 @@ from message_service.application.ports.metrics_recorder import (
     MetricsRecorder,
     NoOpMetricsRecorder,
 )
+from message_service.application.ports.report_store import NoOpReportStore, ReportStore
 from message_service.application.ports.template_renderer import TemplateRenderer
 from message_service.application.ports.unit_of_work import UnitOfWork
 from message_service.domain.aggregates.audit_event import (
@@ -108,10 +111,11 @@ from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
     ContextSizeExceededError,
     EmailDeliveryError,
+    PersistenceError,
     RenderedSizeExceededError,
     TemplateRenderError,
 )
-from message_service.domain.ids import RunId
+from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import (
     RunState,
 )
@@ -119,6 +123,9 @@ from message_service.domain.state_machines.run_states import (
     transition as transition_run,
 )
 from message_service.domain.state_machines.stage_states import StageState
+
+_log = structlog.get_logger(__name__)
+
 
 # -----------------------------------------------------------------------------
 # Filename sanitization (L3-AGGR-010, L3-AGGR-011)
@@ -263,6 +270,7 @@ class AssembleAndDeliverUseCase:
         from_address: str,
         email_body_template_ref: TemplateRef,
         metrics_recorder: MetricsRecorder | None = None,
+        report_store: ReportStore | None = None,
     ) -> None:
         """Construct with ports and config values threaded through.
 
@@ -276,6 +284,13 @@ class AssembleAndDeliverUseCase:
             metrics_recorder: L1-OBS-002 metrics port (run state
                 transitions, email delivery outcome, email size,
                 run duration). Defaults to a NoOp instance for tests.
+            report_store: L1-PERS-002 / L3-PERS-024 saved-render port.
+                The first-delivery path writes per-stage fragments and
+                the assembled email body so the dashboard's
+                report-viewer routes can serve the exact bytes that
+                were delivered. Defaults to a NoOp for tests; the resend
+                path (which calls :meth:`prepare_email`) deliberately
+                does NOT write to the store per L3-DASH-027.
         """
         self._uow_factory = uow_factory
         self._clock = clock
@@ -284,6 +299,7 @@ class AssembleAndDeliverUseCase:
         self._from_address = from_address
         self._email_body_template_ref = email_body_template_ref
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
+        self._report_store = report_store or NoOpReportStore()
 
     async def execute(self, run_id: RunId) -> None:
         """Drive the assembly-and-delivery workflow for ``run_id``.
@@ -322,6 +338,7 @@ class AssembleAndDeliverUseCase:
         # SENDING -> FAILED transition in its own UoW.
         try:
             rendered_fragments = await self._load_and_render_stages(run_id)
+            self._save_fragments(run_id, rendered_fragments)
             attachments = self._build_attachments(run, rendered_fragments)
             email_body_html = self._render_email_body(run, rendered_fragments)
         except TemplateRenderError as exc:
@@ -370,6 +387,7 @@ class AssembleAndDeliverUseCase:
         # Zero-recipient short-circuit per design decision: finalize
         # as SENT with recipient_count=0; do not invoke Mailer.
         if not recipients:
+            self._save_email_body(run_id, email_body_html)
             await self._finalize_sent(
                 run_id=run_id,
                 recipients=frozenset(),
@@ -413,6 +431,7 @@ class AssembleAndDeliverUseCase:
             self._metrics.record_email_delivery_outcome(outcome)
             return
 
+        self._save_email_body(run_id, email_body_html)
         await self._finalize_sent(
             run_id=run_id,
             recipients=recipients,
@@ -625,6 +644,50 @@ class AssembleAndDeliverUseCase:
             "attachment_mode": run.attachment_mode.value,
         }
         return self._template_renderer.render(self._email_body_template_ref, body_context)
+
+    def _save_fragments(self, run_id: RunId, fragments: Sequence[_RenderedFragment]) -> None:
+        """Persist each rendered fragment to the report store.
+
+        Best-effort: a :class:`PersistenceError` is logged and swallowed
+        so a saved-snapshot failure does not abort delivery (the email
+        is the source of truth; the snapshot is for the dashboard
+        viewer and can be backfilled manually).
+
+        Skips empty fragments — they would represent zero-byte files
+        with no diagnostic value, and the attachment-build path drops
+        them anyway per L3-AGGR-008.
+        """
+        for fragment in fragments:
+            if fragment.is_empty:
+                continue
+            try:
+                self._report_store.save_fragment(
+                    run_id, StageId(fragment.stage_id), fragment.rendered_html
+                )
+            except PersistenceError as exc:
+                _log.warning(
+                    "report_store_save_fragment_failed",
+                    run_id=run_id,
+                    stage_id=fragment.stage_id,
+                    error=str(exc),
+                    details=exc.details,
+                )
+
+    def _save_email_body(self, run_id: RunId, html: str) -> None:
+        """Persist the assembled email body to the report store.
+
+        Best-effort: failures are logged and swallowed for the same
+        reason as :meth:`_save_fragments`.
+        """
+        try:
+            self._report_store.save_email_body(run_id, html)
+        except PersistenceError as exc:
+            _log.warning(
+                "report_store_save_email_body_failed",
+                run_id=run_id,
+                error=str(exc),
+                details=exc.details,
+            )
 
     async def _finalize_sent(
         self,

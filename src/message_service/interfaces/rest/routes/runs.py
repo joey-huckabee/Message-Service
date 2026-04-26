@@ -1,22 +1,23 @@
-"""Past-runs and run-detail dashboard routes (Increment 19a).
+"""Past-runs, run-detail, resend, and report-viewer dashboard routes.
 
-Two read-only routes under ``/runs``:
+Read + action routes under ``/runs``:
 
-* ``GET /runs?limit=&offset=&states=`` -- paginated list per
-  L3-DASH-022/023/024.
-* ``GET /runs/{run_id}`` -- run detail with ordered stage list per
-  L3-DASH-025/026.
-
-Resend (``POST /runs/{run_id}/resend``) lands in 19b; the report
-viewer (``GET /runs/{run_id}/report`` and the per-fragment route)
-lands in 19c. Both extend this same router via additional methods
-on the same prefix.
+* ``GET /runs?limit=&offset=&states=`` — paginated list per
+  L3-DASH-022/023/024 (Increment 19a).
+* ``GET /runs/{run_id}`` — run detail with ordered stage list per
+  L3-DASH-025/026 (Increment 19a).
+* ``POST /runs/{run_id}/resend`` — manual resend per
+  L3-DASH-012/013/027/028 (Increment 19b).
+* ``GET /runs/{run_id}/report`` — saved email body per L3-DASH-029
+  (Increment 19c).
+* ``GET /runs/{run_id}/stages/{stage_id}/fragment`` — saved per-stage
+  fragment per L3-DASH-030 (Increment 19c).
 
 Requirement references
 ----------------------
-L1-DASH-003 (past-runs view)
-L2-DASH-012, L2-DASH-013
-L3-DASH-022..L3-DASH-026
+L1-DASH-003 (past-runs view, resend, report viewer)
+L2-DASH-012, L2-DASH-013, L2-DASH-014
+L3-DASH-022..L3-DASH-030
 """
 
 from __future__ import annotations
@@ -25,11 +26,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict
 
 from message_service.domain.aggregates.run import AttachmentMode
 from message_service.domain.errors import InvalidRunStateError, RunNotFoundError
-from message_service.domain.ids import RunId
+from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import TERMINAL_STATES, RunState
 from message_service.domain.state_machines.stage_states import StageState
 from message_service.interfaces.rest.app import require_session
@@ -181,6 +183,62 @@ def build_runs_router(service: Service) -> APIRouter:
         return RunDetailResponse(
             run=_project_run_summary(detail.run),
             stages=[_project_stage(s) for s in detail.stages],
+        )
+
+    @router.get(
+        "/{run_id}/report",
+        response_class=HTMLResponse,
+    )
+    async def get_report(
+        run_id: Annotated[str, Path(pattern=_UUID4_PATTERN)],
+        _user_id: int = Depends(require_session),
+    ) -> HTMLResponse:
+        """L3-DASH-029: saved email body for a run.
+
+        Reads via :meth:`ReportStore.read_email_body`; ``None`` is
+        translated to HTTP 404 with a generic detail string. The same
+        404 fires for missing run, run that pre-dates the store, and
+        runs that failed before delivery — so the route never
+        discloses which of those happened (uniform privacy mirroring
+        L3-DASH-025).
+        """
+        del _user_id
+        html = service.report_store.read_email_body(RunId(run_id))
+        if html is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="report not found",
+            )
+        return HTMLResponse(
+            content=html,
+            media_type="text/html; charset=utf-8",
+        )
+
+    @router.get(
+        "/{run_id}/stages/{stage_id}/fragment",
+        response_class=HTMLResponse,
+    )
+    async def get_fragment(
+        run_id: Annotated[str, Path(pattern=_UUID4_PATTERN)],
+        stage_id: Annotated[str, Path(min_length=1, max_length=128)],
+        _user_id: int = Depends(require_session),
+    ) -> HTMLResponse:
+        """L3-DASH-030: saved per-stage rendered fragment.
+
+        Reads via :meth:`ReportStore.read_fragment`; ``None`` is
+        translated to HTTP 404 with the same uniform privacy
+        semantics as :func:`get_report`.
+        """
+        del _user_id
+        html = service.report_store.read_fragment(RunId(run_id), StageId(stage_id))
+        if html is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="fragment not found",
+            )
+        return HTMLResponse(
+            content=html,
+            media_type="text/html; charset=utf-8",
         )
 
     @router.post("/{run_id}/resend", status_code=status.HTTP_202_ACCEPTED)

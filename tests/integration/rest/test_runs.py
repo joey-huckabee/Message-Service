@@ -44,6 +44,9 @@ from message_service.domain.state_machines.stage_states import StageState
 from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
+from message_service.infrastructure.persistence.filesystem.report_store import (
+    FilesystemReportStore,
+)
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.run_repository import SqliteRunRepository
 from message_service.infrastructure.persistence.session_repository import (
@@ -214,16 +217,25 @@ async def _seed_runs(
 
 
 @pytest.fixture
+def report_store(tmp_path: Path) -> FilesystemReportStore:
+    root = tmp_path / "reports"
+    root.mkdir()
+    return FilesystemReportStore(root=root)
+
+
+@pytest.fixture
 def service_like(
     uow_factory: SqliteUnitOfWorkFactory,
     clock: _FixedClock,
     hasher: Argon2PasswordHasher,
     vocabulary: InMemoryTagVocabulary,
+    report_store: FilesystemReportStore,
 ) -> _ServiceLike:
     return _ServiceLike(
         config=_ConfigStub(),
         clock=clock,
         uow_factory=uow_factory,
+        report_store=report_store,
         login=LoginUseCase(uow_factory=uow_factory, clock=clock, password_hasher=hasher),
         logout=LogoutUseCase(uow_factory=uow_factory, clock=clock),
         subscribe=SubscribeUseCase(
@@ -594,4 +606,133 @@ async def test_resend_rejects_non_uuid_path(
         "/runs/not-a-uuid/resend",
         headers={"X-CSRF-Token": csrf},
     )
+    assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# GET /runs/{run_id}/report  (Increment 19c)
+# -----------------------------------------------------------------------------
+
+
+_VIEWER_RUN = "00000000-0000-4000-8000-0000000000c1"
+
+
+@pytest.mark.asyncio
+async def test_get_report_requires_session(http_client: httpx.AsyncClient) -> None:
+    """L1-AUTH-002: unauthenticated GET /runs/{id}/report SHALL return 401."""
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/report")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-029")
+async def test_get_report_returns_saved_email_body(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    report_store: FilesystemReportStore,
+) -> None:
+    """L3-DASH-029: route SHALL return the saved body with text/html;charset=utf-8."""
+    await _login(http_client, uow_factory, hasher)
+    report_store.save_email_body(RunId(_VIEWER_RUN), "<html><body>π</body></html>")
+
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/report")
+    assert response.status_code == 200
+    assert response.text == "<html><body>π</body></html>"
+    assert response.headers["content-type"] == "text/html; charset=utf-8"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-029")
+async def test_get_report_returns_404_when_no_saved_body(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """L3-DASH-029: missing saved body SHALL surface as 404 (no info disclosure)."""
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/report")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-029")
+async def test_get_report_rejects_non_uuid_path(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """L3-DASH-025-style path validator SHALL apply to the report route."""
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.get("/runs/not-a-uuid/report")
+    assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# GET /runs/{run_id}/stages/{stage_id}/fragment  (Increment 19c)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_fragment_requires_session(http_client: httpx.AsyncClient) -> None:
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/extract/fragment")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-030")
+async def test_get_fragment_returns_saved_fragment(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    report_store: FilesystemReportStore,
+) -> None:
+    """L3-DASH-030: route SHALL return saved fragment HTML with text/html;charset=utf-8."""
+    await _login(http_client, uow_factory, hasher)
+    report_store.save_fragment(RunId(_VIEWER_RUN), StageId("extract"), "<p>frag</p>")
+
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/extract/fragment")
+    assert response.status_code == 200
+    assert response.text == "<p>frag</p>"
+    assert response.headers["content-type"] == "text/html; charset=utf-8"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-030")
+async def test_get_fragment_returns_404_when_stage_missing(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    report_store: FilesystemReportStore,
+) -> None:
+    """L3-DASH-030: absent stage fragment SHALL return 404 (uniform privacy)."""
+    await _login(http_client, uow_factory, hasher)
+    # Save one stage; ask for another. Same uniform-404 SHALL apply.
+    report_store.save_fragment(RunId(_VIEWER_RUN), StageId("extract"), "<p>frag</p>")
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/transform/fragment")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-030")
+async def test_get_fragment_returns_404_when_run_missing(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """L3-DASH-030: absent run SHALL also surface as the same 404."""
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/extract/fragment")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-030")
+async def test_get_fragment_rejects_non_uuid_run_id(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.get("/runs/not-a-uuid/stages/extract/fragment")
     assert response.status_code == 422

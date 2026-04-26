@@ -44,6 +44,7 @@ from message_service_proto.v1 import message_service_pb2_grpc as pb_grpc
 
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.mailer import Mailer
+from message_service.application.ports.report_store import NoOpReportStore
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
@@ -338,6 +339,7 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         list_past_runs=list_past_runs_uc,
         get_run_detail=get_run_detail_uc,
         resend_run=resend_run_uc,
+        report_store=NoOpReportStore(),
     )
     try:
         yield svc

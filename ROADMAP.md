@@ -335,6 +335,33 @@ Markers added to existing tests for the implemented cases. Forward-spec L3s (029
 
 L2-OBS-013, L2-OBS-015 and L2-OBS-017 now have direct L3 children covering their core obligations. L2-OBS-014 and L2-OBS-016 are partially covered (the not-yet-implemented record types remain Draft). L3 total: 335 → 347.
 
+### Increment 25g — Email subject format spec + impl
+
+**Problem**
+
+The email Subject header is constructed by a hardcoded f-string at `src/message_service/application/use_cases/assemble_and_deliver.py:404` (`f"Run {run_id} — {run.pipeline_type}"`) with no L1/L2/L3 SHALL anchoring it. Every other piece of email content has spec coverage — body content via `templates.email_body_template_ref` + L2-AGGR-003, attachment naming via L2-AGGR-006 + L3-AGGR-010/011, MIME headers via L3-AGGR-020 — making subject the lone unspecced surface. Surfaced during the 19c L3-PERS-022 wording review (commit `9587852`). Independent of the dashboard stream and small enough for a single increment.
+
+**Work**
+
+Author one new L2 plus three L3 children, all parented at L1-MAIL-001:
+
+- **L2-MAIL-014** — pin the subject format to literal `[{pipeline_type}] run {run_id}`. `pipeline_type` is sanitized using the same regex as L3-AGGR-010 (`[^a-zA-Z0-9._-]` replaced with `_`) so header-injection-style payloads are neutralized at construction time, before the `OutboundEmail` boundary's CR/LF assertion (defense in depth). The subject is NOT operator-configurable in v1; per-pipeline subject templates are deferred (see `R-MAIL-001`).
+- **L3-MAIL-027** · Verification: T — a test SHALL render the subject for a known run and assert it equals the literal format string above.
+- **L3-MAIL-028** · Verification: T — subject construction SHALL apply the L3-AGGR-010 sanitization helper to `pipeline_type` before insertion.
+- **L3-MAIL-029** · Verification: T — a test SHALL exercise a `pipeline_type` containing CR or LF and assert the produced subject contains neither character (sanitization replaced them with `_` rather than `OutboundEmail` raising).
+
+Implementation:
+
+- Edit subject construction in `AssembleAndDeliverUseCase.execute` to call `_sanitize_filename_component(run.pipeline_type)` and emit `f"[{pipeline_safe}] run {run_id}"`.
+- Add three new `@pytest.mark.requirement`-tagged tests in `tests/unit/application/use_cases/test_assemble_and_deliver.py`.
+- Regenerate `docs/TRACE-MATRIX.md`.
+
+**Verification**
+
+- L2-MAIL-014 + L3-MAIL-027/028/029 promote from Draft → Implemented.
+- All existing tests still pass (the OutboundEmail header-injection check is unchanged).
+- Trace matrix --check clean.
+
 ---
 
 ## Cluster 26 — CI/CD requirements + workflows
@@ -563,6 +590,7 @@ The historical sequencing block has been pruned now that Clusters 14 (excluding 
 - **Per-pipeline-type orphan policy override** — v1 applies a single global orphan disposition policy. Future work allows per-pipeline overrides of the policy set, with the global policy as fallback.
 - **Hot-reload of tag vocabulary** — v1 loads the tag configuration at service start. Hot-reload removes the need for restart to add tags.
 - **R-TMPL-002 — Hot-reload of templates** — the template manifest is loaded once at service start (L2-TMPL-001); changes require a restart. Future option: signal-driven reload (`SIGHUP`) that atomically swaps the manifest while in-flight runs continue to render against the old snapshot. Non-trivial: need a template-snapshot token carried through the assembly workflow so `BeginRun` and `FinalizeRun` of the same run see consistent template metadata.
+- **R-MAIL-001 — Per-pipeline email subject template** — v1 pins the email Subject header to a single literal format `[{pipeline_type}] run {run_id}` (per `L2-MAIL-014`) with no operator override. Future option: extend `[pipelines.registered.*]` config entries with an optional `email_subject_template_ref` (parallel to the body-template path described in `R-TMPL-001`) so different pipelines can render different subject formats — useful when one service handles pipelines that go to different subscriber audiences with different inbox-filtering needs. Likely implementation: lift the format string into a small Jinja2 template (subject is a single line, so no fancy renderer features needed); the existing `_sanitize_filename_component` defense remains at the post-render boundary. Strictly additive — pipelines without an explicit override fall back to the L2-MAIL-014 default.
 - **R-TMPL-001 — Per-pipeline email body template** — the email body template is currently a single service-wide config value (`templates.email_body_template_ref`) used for every finalized run regardless of pipeline. Future option A — per-pipeline config: extend `[pipelines.registered.*]` entries with an optional `email_body_template_ref`; when present, overrides the service-wide default. Backwards-compatible: pipelines without an explicit value fall back to the default. Small schema change; no proto change; no new port. Future option B — per-run declaration: add an optional `email_body_template_ref` field to `BeginRunRequest`. More flexible but requires a proto change, a new field on the `Run` aggregate, additional validation at `BeginRun`, and a schema migration. Consider only if per-pipeline proves insufficient. Either path is additive and will not invalidate existing behavior.
 - **R-AGGR-001 — Custom email body contributions from stages** — the email body template currently receives only stage identifiers (`stage_id`, `stage_order`, `had_content`) — not any stage-supplied email body content. `AssembleAndDeliverUseCase` passes a fixed-shape context to `templates.email_body_template_ref`. Specified future behavior: L1-AGGR-001 and L2-AGGR-003 describe a richer model where each `SubmitStageReport` may carry an `email_body_contribution` with a `position` enum (`BEFORE_STAGES_SUMMARY` / `AFTER_STAGES_SUMMARY`), and the assembly process orders contributions accordingly (L3-AGGR-005). The `Stage` aggregate already has an `email_body_context_json` column, so the storage side is ready; the use case just isn't reading it yet. Future work: extend `AssembleAndDeliverUseCase._render_email_body` to read each stage's `email_body_context_json`, group by `position`, and pass the structured payload into the template. Also wire the `position` field through the proto → command → aggregate path. Entirely additive; existing email body templates keep working because the v1 context fields are preserved.
 - **Subscription granularity extensions** — beyond `GLOBAL`, `PIPELINE`, `TAG`: consider per-severity, per-submitter, or boolean combinations of existing granularities if use cases emerge.

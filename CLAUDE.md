@@ -123,7 +123,7 @@ Do **not** add `Co-Authored-By: Claude ...` trailers to commit messages on this 
 ## Further reading
 
 - `CONTRIBUTING.md` — full pre-commit sequence, failure-mode troubleshooting, SLOC-reporting policy.
-- `docs/L1-REQ.md` / `L2-REQ.md` / `L3-REQ.md` — authoritative SHALL statements (65 / 186 / 361 reqs across 16 categories).
+- `docs/L1-REQ.md` / `L2-REQ.md` / `L3-REQ.md` — authoritative SHALL statements (65 / 187 / 364 reqs across 16 categories).
 - `docs/TRACE-MATRIX.md` — which tests verify which requirements.
 - `docs/LOGGING-AND-EXCEPTIONS.md` — exception hierarchy and logging conventions.
 - `tests/README.md` — test-tier layout and fixture-scoping conventions.

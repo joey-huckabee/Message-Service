@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **16 — local-account auth adapter (Argon2 + sessions)** (commit `7ede66c`).
+Last full increment merged: **19c — filesystem report store + report viewer** (commit `b900ce3`); closes `L1-DASH-003` (the dashboard's full read surface — past-runs list, run detail, manual resend, rendered-report viewer). Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
 
 ### Status snapshot (as of 2026-04-26)
 

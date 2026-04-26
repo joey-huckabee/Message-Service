@@ -97,5 +97,58 @@ class AuditLog(ABC):
             PersistenceError: Infrastructure failure.
         """
 
+    @abstractmethod
+    async def list_paginated(
+        self,
+        *,
+        actions: frozenset[AuditAction] | None = None,
+        actor: str | None = None,
+        resource: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int,
+        offset: int,
+    ) -> Sequence[AuditEvent]:
+        """List audit events for the dashboard viewer (`L1-DASH-005`).
+
+        Differs from :meth:`query` along three axes:
+
+        * ``actions`` is a set (multi-value OR'd), not a single enum.
+        * Both ``since`` and ``until`` are **inclusive** bounds (per
+          ``L3-DASH-033``) — the historical ``query`` mismatch
+          between docstring and implementation does not apply here.
+        * Pagination is via explicit ``offset`` + ``limit`` (rather
+          than timestamp-windowing), and ordering is by ``audit_id
+          DESC`` (per ``L3-DASH-034``) for stability across
+          same-timestamp ties — two audit events recorded inside the
+          same UoW share an identical timestamp because the use case
+          captures ``clock.now()`` once and reuses it.
+
+        Returned events SHALL carry their ``audit_id`` populated.
+
+        Args:
+            actions: Optional set of actions; events whose ``action``
+                is in the set are included. ``None`` or empty set
+                means "no action filter".
+            actor: Exact actor string match. ``None`` means no filter.
+            resource: Exact resource string match. ``None`` means no
+                filter.
+            since: Inclusive lower bound on ``timestamp``.
+            until: Inclusive upper bound on ``timestamp``.
+            limit: Page size. Caller is expected to validate the
+                upper bound (route validators cap at 200 per
+                ``L3-DASH-033``); the adapter only enforces ``> 0``.
+            offset: Number of records to skip. ``>= 0``.
+
+        Returns:
+            Sequence of matching events, ``audit_id DESC``. Each
+            event's ``audit_id`` is populated.
+
+        Raises:
+            ValueError: If ``limit`` is not positive or ``offset`` is
+                negative.
+            PersistenceError: Infrastructure failure.
+        """
+
 
 __all__ = ["AuditLog"]

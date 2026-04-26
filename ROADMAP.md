@@ -555,7 +555,7 @@ Split into three admin sub-increments plus a separately-scoped embedded-metrics 
 - `L3-OBS-035` no longer carries the "deferred" tag.
 - New 20b section in the Status snapshot.
 
-#### Increment 20c — Audit-log viewer
+#### Increment 20c — Audit-log viewer  *(✅ done; see commit log)*
 
 **Closes**: net-new L1/L2/L3 covering an admin audit-log read API.
 

@@ -91,6 +91,14 @@ class AuditEvent:
             conventions are pinned by the L3-OBS-025..036 cluster and
             L3-DASH-013 (see module docstring). Stored as a JSON
             column at persistence time.
+        audit_id: The ``audit_log`` table primary key, populated by
+            the persistence adapter on read. ``None`` for records
+            that have not yet been persisted (the ``record`` write
+            path receives an instance with ``audit_id=None`` and
+            never reads back a populated id; the
+            ``L1-DASH-005`` viewer-read path receives instances with
+            ``audit_id`` set so clients can deep-link to a specific
+            record per ``L2-DASH-016``).
     """
 
     timestamp: datetime
@@ -99,6 +107,7 @@ class AuditEvent:
     resource: str
     outcome: AuditOutcome
     details: dict[str, Any] = field(default_factory=dict)
+    audit_id: int | None = None
 
     def __post_init__(self) -> None:
         """Validate timestamp and string fields.

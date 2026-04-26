@@ -277,7 +277,7 @@ the single source of truth.
 | L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Partially Implemented |
 | L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009, L2-DASH-012, L2-DASH-013, L2-DASH-014 | Partially Implemented |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Draft |
-| L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Draft |
+| L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -297,8 +297,8 @@ the single source of truth.
 | L2-DASH-012 | L3-DASH-022, L3-DASH-023, L3-DASH-024 | `tests/integration/persistence/test_run_repository.py::test_list_paginated_filters_by_state_set`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_orders_most_recent_first`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_respects_limit_and_offset`<br>`tests/integration/persistence/test_run_repository.py::test_list_paginated_uses_run_id_tiebreaker`<br>`tests/integration/rest/test_runs.py::test_get_runs_default_returns_terminal_runs_most_recent_first`<br>`tests/integration/rest/test_runs.py::test_get_runs_explicit_states_overrides_default`<br>`tests/integration/rest/test_runs.py::test_get_runs_pagination_slices`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_out_of_range_limit`<br>`tests/integration/rest/test_runs.py::test_get_runs_rejects_unknown_state_value` | Implemented |
 | L2-DASH-013 | L3-DASH-025, L3-DASH-026 | `tests/integration/rest/test_runs.py::test_get_run_detail_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_404_for_unknown_run`<br>`tests/integration/rest/test_runs.py::test_get_run_detail_returns_run_and_ordered_stages`<br>`tests/integration/rest/test_runs.py::test_resend_rejects_non_uuid_path` | Implemented |
 | L2-DASH-014 | L3-DASH-029, L3-DASH-030 | `tests/integration/rest/test_runs.py::test_get_fragment_rejects_non_uuid_run_id`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_404_when_run_missing`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_404_when_stage_missing`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_saved_fragment`<br>`tests/integration/rest/test_runs.py::test_get_report_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_report_returns_404_when_no_saved_body`<br>`tests/integration/rest/test_runs.py::test_get_report_returns_saved_email_body` | Implemented |
-| L2-DASH-015 | L3-DASH-033, L3-DASH-034 | _(TBD)_ | Draft |
-| L2-DASH-016 | L3-DASH-035 | _(TBD)_ | Draft |
+| L2-DASH-015 | L3-DASH-033, L3-DASH-034 | `tests/integration/rest/test_admin_audit.py::test_actor_exact_match_filter`<br>`tests/integration/rest/test_admin_audit.py::test_default_no_filter_returns_recent_first`<br>`tests/integration/rest/test_admin_audit.py::test_empty_result_returns_200_with_empty_list`<br>`tests/integration/rest/test_admin_audit.py::test_from_to_inclusive_timestamp_bounds`<br>`tests/integration/rest/test_admin_audit.py::test_invalid_timestamp_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_limit_above_max_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_limit_and_offset_slice_results`<br>`tests/integration/rest/test_admin_audit.py::test_multiple_action_values_or_together`<br>`tests/integration/rest/test_admin_audit.py::test_negative_offset_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_non_admin_returns_403`<br>`tests/integration/rest/test_admin_audit.py::test_resource_exact_match_filter`<br>`tests/integration/rest/test_admin_audit.py::test_unknown_action_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_within_uow_ties_ordered_by_audit_id_desc` | Implemented |
+| L2-DASH-016 | L3-DASH-035 | `tests/integration/rest/test_admin_audit.py::test_details_empty_dict_is_accepted`<br>`tests/integration/rest/test_admin_audit.py::test_details_returned_as_parsed_json_object_not_string`<br>`tests/integration/rest/test_admin_audit.py::test_response_shape_includes_full_projection`<br>`tests/integration/rest/test_admin_audit.py::test_route_does_not_redact_marker_string_in_details` | Implemented |
 
 ### L1-PERS: Persistence
 
@@ -485,16 +485,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 3 | 9 | 17 | 5 | 12 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
-| DASH | 5 | 16 | 35 | 1 | 22 |
+| DASH | 5 | 16 | 35 | 1 | 25 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
 | OBS | 4 | 18 | 38 | 2 | 16 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **67** | **192** | **373** | **58** | **141** |
+| **Total** | **67** | **192** | **373** | **58** | **144** |
 
-**Requirements verified by at least one test**: 199 of 565 (35.2%).
+**Requirements verified by at least one test**: 202 of 565 (35.8%).
 
 ### Orphan check
 

@@ -122,6 +122,54 @@ class SqliteAuditLog(AuditLog):
             rows = await cur.fetchall()
         return [_row_to_event(r) for r in rows]
 
+    async def list_paginated(  # noqa: D102
+        self,
+        *,
+        actions: frozenset[AuditAction] | None = None,
+        actor: str | None = None,
+        resource: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int,
+        offset: int,
+    ) -> Sequence[AuditEvent]:
+        if limit < 1:
+            raise ValueError(f"limit must be positive; got {limit}")
+        if offset < 0:
+            raise ValueError(f"offset must be non-negative; got {offset}")
+
+        where_clauses: list[str] = []
+        params: list[str | int] = []
+        if actions:
+            placeholders = ", ".join("?" for _ in actions)
+            where_clauses.append(f"action IN ({placeholders})")
+            params.extend(a.value for a in actions)
+        if actor is not None:
+            where_clauses.append("actor = ?")
+            params.append(actor)
+        if resource is not None:
+            where_clauses.append("resource = ?")
+            params.append(resource)
+        if since is not None:
+            where_clauses.append("timestamp >= ?")
+            params.append(iso_z(since))
+        if until is not None:
+            where_clauses.append("timestamp <= ?")
+            params.append(iso_z(until))
+
+        sql = _SQL_SELECT_BASE
+        if where_clauses:
+            sql += "WHERE " + " AND ".join(where_clauses) + " "
+        # L3-DASH-034: order by audit_id DESC for stability across
+        # same-timestamp ties (two events from the same UoW share a
+        # timestamp because the use case captures clock.now() once).
+        sql += "ORDER BY audit_id DESC LIMIT ? OFFSET ?"
+        params.extend((limit, offset))
+
+        async with self._conn.execute(sql, tuple(params)) as cur:
+            rows = await cur.fetchall()
+        return [_row_to_event(r) for r in rows]
+
 
 # -----------------------------------------------------------------------------
 # Row -> aggregate
@@ -155,6 +203,7 @@ def _row_to_event(row: aiosqlite.Row) -> AuditEvent:
         resource=row["resource"],
         outcome=outcome,
         details=details,
+        audit_id=int(row["audit_id"]),
     )
 
 

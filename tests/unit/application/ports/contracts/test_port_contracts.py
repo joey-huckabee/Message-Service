@@ -127,7 +127,7 @@ def test_mailer_exposes_expected_methods() -> None:
 
 @pytest.mark.requirement("L2-PERS-008")
 def test_audit_log_exposes_expected_methods() -> None:
-    expected = {"record", "query"}
+    expected = {"record", "query", "list_paginated"}
     assert expected == AuditLog.__abstractmethods__
 
 

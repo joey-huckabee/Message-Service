@@ -437,6 +437,9 @@ def create_app(service: Service) -> FastAPI:
     # Imported here rather than at module top to avoid a circular import:
     # the routes modules import ``require_session`` / ``require_admin_factory``
     # from this module.
+    from message_service.interfaces.rest.routes.admin_audit import (
+        build_admin_audit_router,
+    )
     from message_service.interfaces.rest.routes.admin_users import (
         build_admin_users_router,
     )
@@ -454,6 +457,7 @@ def create_app(service: Service) -> FastAPI:
     app.include_router(build_runs_router(service))
     app.include_router(build_templates_router(service))
     app.include_router(build_admin_users_router(service))
+    app.include_router(build_admin_audit_router(service))
 
     return app
 

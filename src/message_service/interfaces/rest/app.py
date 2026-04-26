@@ -386,6 +386,39 @@ def create_app(service: Service) -> FastAPI:
         return {"status": "ok"}
 
     # -------------------------------------------------------------------------
+    # Prometheus scrape endpoint (L2-OBS-004, L3-OBS-007)
+    # -------------------------------------------------------------------------
+
+    @app.get("/metrics")
+    async def metrics() -> Response:
+        """Unauthenticated Prometheus scrape endpoint.
+
+        Per L3-OBS-007, returns ``prometheus_client.generate_latest()``
+        with content type ``text/plain; version=0.0.4; charset=utf-8``
+        — the standard Prometheus exposition format the
+        ``prometheus_client`` library emits and the format every
+        Prometheus server understands.
+
+        The endpoint is deliberately unauthenticated. Per the v1
+        ISOLAN deployment model, the dashboard's network is trusted;
+        Prometheus scrapers run on the same network and need
+        unauthenticated access to scrape on a configured interval.
+        Future deployment models (mTLS, internet-exposed) will gate
+        this route via the same `require_admin` dependency the
+        dashboard's admin routes use — see ROADMAP `R-DASH-004` for
+        the path forward.
+        """
+        from prometheus_client import (
+            CONTENT_TYPE_LATEST,
+            generate_latest,
+        )
+
+        return Response(
+            content=generate_latest(),
+            media_type=CONTENT_TYPE_LATEST,
+        )
+
+    # -------------------------------------------------------------------------
     # Login / Logout
     # -------------------------------------------------------------------------
 

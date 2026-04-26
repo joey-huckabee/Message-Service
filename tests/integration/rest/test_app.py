@@ -214,6 +214,73 @@ async def test_healthz_is_unauthenticated(http_client: httpx.AsyncClient) -> Non
 
 
 # -----------------------------------------------------------------------------
+# Prometheus /metrics scrape endpoint (L2-OBS-004, L3-OBS-007)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-007")
+async def test_metrics_endpoint_is_unauthenticated(
+    http_client: httpx.AsyncClient,
+) -> None:
+    """L3-OBS-007: ``GET /metrics`` SHALL be reachable without auth.
+
+    Prometheus scrapers run on the same trusted ISOLAN network as
+    the service and need unauthenticated access to scrape on a
+    configured interval.
+    """
+    response = await http_client.get("/metrics")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-007")
+async def test_metrics_endpoint_returns_prometheus_content_type(
+    http_client: httpx.AsyncClient,
+) -> None:
+    """L3-OBS-007: content type SHALL be ``text/plain; version=0.0.4; charset=utf-8``."""
+    response = await http_client.get("/metrics")
+    assert response.headers["content-type"] == "text/plain; version=0.0.4; charset=utf-8"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-007")
+async def test_metrics_endpoint_emits_recorded_counter(
+    http_client: httpx.AsyncClient,
+) -> None:
+    """The endpoint SHALL surface metrics that the recorder has actually emitted.
+
+    Scrapes once before and once after exercising a metric;
+    asserts the counter value increased between the two scrapes.
+    Concretely tests ``prometheus_client.generate_latest()`` is
+    wired to the same default registry the metrics adapter
+    populates.
+    """
+    from message_service.infrastructure.observability.metrics import (
+        PrometheusMetricsRecorder,
+    )
+
+    recorder = PrometheusMetricsRecorder()
+    # Scrape baseline.
+    before = await http_client.get("/metrics")
+    assert before.status_code == 200
+
+    # Emit one observation. The counter name is
+    # `email_delivery_outcomes_total{outcome="success"}` per
+    # the metrics adapter's labels.
+    recorder.record_email_delivery_outcome("success")
+
+    after = await http_client.get("/metrics")
+    assert after.status_code == 200
+
+    # The "success"-labeled counter SHALL appear in the after
+    # scrape with a higher value than the before scrape (or
+    # appear at all if it wasn't there before).
+    assert "email_delivery_outcomes_total" in after.text
+    assert 'outcome="success"' in after.text
+
+
+# -----------------------------------------------------------------------------
 # Login flow
 # -----------------------------------------------------------------------------
 

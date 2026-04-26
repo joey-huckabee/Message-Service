@@ -766,6 +766,12 @@ Resend SHALL re-render the run by replaying `AssembleAndDeliverUseCase` against 
 **L3-DASH-030** · Parent: L2-DASH-014 · Verification: T
 `GET /runs/{run_id}/stages/{stage_id}/fragment` SHALL return the saved per-stage rendered fragment HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_fragment(run_id, stage_id)`. The same uniform-404 semantics from L3-DASH-029 apply when the run, stage, or saved fragment is absent.
 
+**L3-DASH-031** · Parent: L2-DASH-009 · Verification: T
+`GET /templates` SHALL be the list endpoint, gated by `require_admin` (per `L3-DASH-011`/`L3-DASH-021`). The response SHALL be a JSON list of per-template projection objects, each carrying the fields pinned in `L3-DASH-015` (`name`, `version`, repo-relative `source_path` and `context_schema_path`, and parsed schema contents) plus `kind` (one of the `TemplateKind` enum values: `REPORT_FRAGMENT`, `AGGREGATION`, `EMAIL_BODY`) and `description` (string or `null`). The Jinja2 source body itself SHALL NOT appear in the response — only the metadata projection. Ordering SHALL be deterministic: by `(name, version)` ascending.
+
+**L3-DASH-032** · Parent: L2-DASH-009 · Verification: T
+`GET /templates/{name}/{version}` SHALL be the detail endpoint, gated by `require_admin`. The route SHALL accept `name` and `version` as path parameters and SHALL return the same per-template projection object as a `L3-DASH-031` list element (a single object, not a list). Unknown `(name, version)` pairs SHALL return HTTP 404 with a generic detail string (no information disclosure about whether `name`, `version`, or both were unmatched, mirroring `L3-DASH-025`'s privacy posture).
+
 ---
 
 ## L3-PERS: Persistence

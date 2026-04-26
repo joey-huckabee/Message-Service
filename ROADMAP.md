@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **22 — error-mapping + servicer tests, exception-detail coverage** (commit `4c59b4a`); promotes all four L1-ERR statements from Draft to Partially Implemented. Net-new: `DomainError` intermediate class + re-parented NotFound/Forbidden/Precondition; `http_status` + `log_level` ClassVars on every category root; bootstrap import-time self-check (`assert_error_codes_match_proto_enum`) verifying every exception's `error_code` exists in the proto enum; `redact_sensitive_keys` helper applied to `exc.details` before logging in the translator; ruff `BLE` + `S110/S112` rules enabled with documented `# noqa` annotations on legitimate boundary catches; +30 unit tests for the gRPC translator. Two ROADMAP deferred-features captured: **R-ERR-001** (gRPC error envelope upgrade to `google.rpc.Status` + `ErrorInfo`), **R-ERR-002** (error-code stability lockfile + helper scripts). Prior to 22: **21 — E2E harness + four happy-path suites** (commit `ef10488`). **Admin stream (20a/b/c) + E2E (21) + error-mapping (22) all complete**; 20d (embedded Prometheus metrics dashboard) remains deferred per the 20-split plan.
+Last full increment merged: **20d (partial) — `/metrics` scrape endpoint** (commit `4517ba8`); lands the operationally-important half of `L1-DASH-004` (Prometheus scrape endpoint per `L2-OBS-004` / `L3-OBS-007`) and defers the embedded Chart.js dashboard half to **`R-DASH-004`** with the test-harness-blocker rationale. **L2-OBS-004** + **L3-OBS-007** Draft → Implemented; **L1-OBS-002** rolls up to Implemented. **L1-DASH-004** remains Draft pending R-DASH-004. Prior: **22 — error-mapping + servicer tests** (`4c59b4a`) promoted all four L1-ERR statements; **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -30,10 +30,11 @@ Done:
 - **Increment 20c** — Admin audit-log viewer (`GET /admin/audit`) (`33a4a56`); closes net-new L1-DASH-005 — L2-DASH-015 + L2-DASH-016 promoted to Implemented. Admin stream (20a/b/c) complete.
 - **Increment 21** — E2E harness + four test suites (happy_path, orphan_path, resend, admin) (`ef10488`); real grpc.aio + httpx + tmp SQLite + in-process aiosmtpd. New dev dep: `aiosmtpd`. 4 new e2e tests at the L1-tier marker level.
 - **Increment 22** — Error-mapping + servicer tests, exception-detail coverage (`41974a7` + `c82f4a6` + `4c59b4a`); L1-ERR-001..004 all promoted Draft → Partially Implemented. DomainError intermediate; http_status + log_level ClassVars; bootstrap proto-enum self-check; details redaction in translator; ruff BLE/S110/S112 enabled. R-ERR-001 (wire-format upgrade) + R-ERR-002 (error-code lockfile) captured as deferred work.
+- **Increment 20d (partial)** — Prometheus `/metrics` scrape endpoint (`4517ba8`); promotes L2-OBS-004 + L3-OBS-007 Draft → Implemented; L1-OBS-002 rolls up to Implemented. The embedded Chart.js dashboard half of L1-DASH-004 is deferred to R-DASH-004 (test-harness blocker — needs Playwright or similar before the frontend code can be built reliably).
 
 Still open:
 
-- **Increments 20d, 23–24** — Embedded Prometheus metrics dashboard (the deferred sub-increment of the 20 split), deployment polish, documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 23–24** — Deployment polish, documentation deliverables (release-gating). Increment 20d's remainder lives as deferred work in `R-DASH-004`.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 

@@ -392,7 +392,7 @@ Closes **L1-AUTH-001, L1-AUTH-002** (Draft). `rest/auth/` is currently empty.
   `LOGIN`/`LOGIN_FAILED` with operator-only `reason` per L3-AUTH-013) and
   `LogoutUseCase` (idempotent delete by token-hash, audits `LOGOUT`).
 - Session-cookie + CSRF middleware deferred to Increment 17 with the FastAPI
-  chassis. Admin user creation deferred to Increment 19.
+  chassis. Admin user creation deferred to Increment 20 (admin surfaces).
 
 ### Increment 17 — FastAPI app factory + bootstrap wiring  *(✅ done; see commit log)*
 

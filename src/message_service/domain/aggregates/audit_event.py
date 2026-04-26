@@ -9,11 +9,20 @@ Recording is transactional with state change (L3-RUN-026): audit insert
 precedes the business-state update within the same DB transaction, so a
 persistence failure leaves no orphaned state mutation.
 
+Per-action format conventions (actor / resource / required ``details``
+fields) are pinned by the L3-OBS-025..036 cluster (run-lifecycle,
+state-transition, sweeper, subscription, and auth audit categories
+authored in 25f) and L3-DASH-013 (manual resend, reworded in the
+2026-04-25 spec commit ``5d94a29`` to use ``action=RESEND_REPORT``).
+
 Requirement references
 ----------------------
-L1-OBS-003 (retention)
+L1-OBS-003 (retention + audit scope)
 L2-OBS-002, L2-OBS-005
-L3-RUN-026, L3-RUN-027
+L2-OBS-013..017 (audit-record categories)
+L3-RUN-026, L3-RUN-027 (audit-precedes-state-mutation invariant)
+L3-OBS-025..036 (per-action format pins)
+L3-DASH-013 (RESEND_REPORT format pin)
 """
 
 from __future__ import annotations
@@ -78,10 +87,10 @@ class AuditEvent:
             ``"stage:<run>:<stage>"``, ``"user:42"``, etc. Same
             rationale as ``actor``.
         outcome: Success or failure.
-        details: Structured contextual data. Conventions for specific
-            ``action`` values are documented in
-            ``docs/LOGGING-AND-EXCEPTIONS.md``. Stored as a JSON column
-            at persistence time.
+        details: Structured contextual data. Per-action format
+            conventions are pinned by the L3-OBS-025..036 cluster and
+            L3-DASH-013 (see module docstring). Stored as a JSON
+            column at persistence time.
     """
 
     timestamp: datetime

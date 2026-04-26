@@ -825,7 +825,7 @@ Migrations SHALL be applied one per transaction; a migration failure rolls back 
 Connection acquisition SHALL log DEBUG with the current pool depth; a test SHALL verify the debug line fires when the pool is near exhaustion.
 
 **L3-PERS-022** · Parent: L2-PERS-005 · Verification: T
-Report filenames SHALL include the run_id as the only variable component; no timestamp or sequence number SHALL be appended.
+Report filenames SHALL be derived from deterministic identifiers — `run_id` for the email body, `run_id` + `stage_id` for per-stage fragments (see L3-PERS-025 for the on-disk layout). No timestamp, sequence number, or other non-identity-derived variable component SHALL appear in the filename.
 
 **L3-PERS-023** · Parent: L2-PERS-007 · Verification: I
 Any new filesystem access point SHALL be added to the approved list in `docs/reviews/filesystem-access-points.md` with a pathlib-based implementation reference.

@@ -329,7 +329,7 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Partially Implemented |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Partially Implemented |
-| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017 | Partially Implemented |
+| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017, L2-OBS-018 | Partially Implemented |
 | L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -353,6 +353,7 @@ the single source of truth.
 | L2-OBS-015 | L3-OBS-030 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event` | Implemented |
 | L2-OBS-016 | L3-OBS-031, L3-OBS-032 | `tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
 | L2-OBS-017 | L3-OBS-033, L3-OBS-034, L3-OBS-035, L3-OBS-036 | `tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Partially Implemented |
+| L2-OBS-018 | L3-OBS-037, L3-OBS-038 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_email_delivery_error_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_zero_recipients_finalizes_sent_without_mailer_call`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_abandoned_rows_are_not_re_abandoned`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatcher_abandons_rows_past_max_attempts` | Implemented |
 
 ### L1-ERR: Error handling and exception taxonomy
 
@@ -478,14 +479,14 @@ the single source of truth.
 | MAIL | 5 | 13 | 26 | 5 | 6 |
 | DASH | 4 | 14 | 30 | 1 | 14 |
 | PERS | 4 | 13 | 26 | 2 | 6 |
-| OBS | 4 | 17 | 36 | 2 | 14 |
+| OBS | 4 | 18 | 38 | 2 | 16 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **185** | **359** | **58** | **119** |
+| **Total** | **65** | **186** | **361** | **58** | **121** |
 
-**Requirements verified by at least one test**: 177 of 544 (32.5%).
+**Requirements verified by at least one test**: 179 of 547 (32.7%).
 
 ### Orphan check
 

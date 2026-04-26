@@ -571,6 +571,7 @@ async def test_dispatcher_does_not_reclaim_recently_claimed_rows(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-SWEEP-021")
+@pytest.mark.requirement("L3-OBS-038")
 async def test_dispatcher_abandons_rows_past_max_attempts(
     uow_factory: SqliteUnitOfWorkFactory,
     sqlite_conn: aiosqlite.Connection,
@@ -639,6 +640,7 @@ async def test_dispatcher_abandons_rows_past_max_attempts(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-SWEEP-021")
+@pytest.mark.requirement("L3-OBS-038")
 async def test_abandoned_rows_are_not_re_abandoned(
     uow_factory: SqliteUnitOfWorkFactory,
     clock: _FixedClock,

@@ -33,12 +33,12 @@ single source of truth for live status.
 | `MAIL`    | Email delivery                         | 13       |
 | `DASH`    | Dashboard                              | 14       |
 | `PERS`    | Persistence                            | 13       |
-| `OBS`     | Observability                          | 17       |
+| `OBS`     | Observability                          | 18       |
 | `ERR`     | Error handling and exception taxonomy  | 10       |
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
 | `CICD`    | Continuous integration and delivery    | 15       |
-| **Total** |                                        | **185**  |
+| **Total** |                                        | **186**  |
 
 ---
 
@@ -1161,6 +1161,13 @@ single source of truth for live status.
 **Statement**: Authentication and user-management audit records (`LOGIN`, `LOGIN_FAILED`, `LOGOUT`, `CREATE_USER`, `UPDATE_USER`) SHALL distinguish actor identity by event type: `LOGIN` / `LOGOUT` set `actor` to `user:<user_id>`; `LOGIN_FAILED` sets `actor` to `username:<attempted_email>` (no user_id, since authentication was rejected); `CREATE_USER` and `UPDATE_USER` set `actor` to the administrator's `user:<admin_id>`. `outcome` SHALL be `SUCCESS` for `LOGIN`/`LOGOUT`/`CREATE_USER`/`UPDATE_USER` and `FAILURE` for `LOGIN_FAILED`. Passwords and password hashes SHALL NOT appear in `details`.
 **Rationale**: Auth events are central to security incident investigation. Distinguishing successful and failed authentication actor formats lets analysts query both ("who tried to log in as `alice@example.com`?" vs. "what did `user:42` do?"). The redaction obligation prevents the audit log from becoming a credential exfiltration vector.
 **Verification Method**: Test (T), Inspection (I)
+
+#### L2-OBS-018
+
+**Parent**: L1-OBS-003
+**Statement**: System-initiated delivery and orphan-handling outcome audit records (`SEND_REPORT`, `DISPATCHER_ACTION_ABANDONED`) SHALL set `actor` to the emitting use case (`system:assemble_and_deliver`, `system:sweeper_action_dispatcher` respectively), and SHALL pin per-action format obligations (recipient enumeration for delivery; failure reason + attempt count for abandonment) at the L3 level (see `L3-OBS-037`, `L3-OBS-038`). The manual-resend audit (`RESEND_REPORT`) is outside this L2 because its format is pinned alongside the resend behavior contract at `L2-DASH-008` / `L3-DASH-013`; cross-reference is informational only.
+**Rationale**: The `L2-OBS-013..017` cluster (authored in 25f) covered pipeline-initiated lifecycle, service-driven state transitions, sweeper orphan classification, subscription mutations, and auth + user-management. Two `AuditAction` values predated that audit (`SEND_REPORT` and `DISPATCHER_ACTION_ABANDONED`) and were not anchored under any L2 — their formats were implementation-decided rather than spec-pinned. This L2 closes that gap so every emitted `AuditAction` has at least one L2-OBS or L2-DASH parent governing its format.
+**Verification Method**: Test (T)
 
 ### Derivations of L1-OBS-004 (log severity levels)
 

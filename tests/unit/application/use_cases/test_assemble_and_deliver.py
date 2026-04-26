@@ -514,6 +514,7 @@ async def test_stages_rendered_in_stage_order_not_submission_order(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-SUB-004")
+@pytest.mark.requirement("L3-OBS-037")
 async def test_zero_recipients_finalizes_sent_without_mailer_call(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
@@ -658,6 +659,7 @@ async def test_context_size_exceeded_transitions_to_failed(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-MAIL-001")
+@pytest.mark.requirement("L3-OBS-037")
 async def test_email_delivery_error_transitions_to_failed(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
@@ -734,6 +736,7 @@ async def test_happy_path_transitions_through_ready_sending_sent(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-MAIL-012")
+@pytest.mark.requirement("L3-OBS-037")
 async def test_delivery_success_audit_carries_required_fields(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],

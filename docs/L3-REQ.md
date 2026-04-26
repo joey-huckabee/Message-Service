@@ -36,12 +36,12 @@ of truth for live status; this file holds only the spec content above.
 | `MAIL`    | 13       | 26       |
 | `DASH`    | 14       | 30       |
 | `PERS`    | 13       | 26       |
-| `OBS`     | 17       | 36       |
+| `OBS`     | 18       | 38       |
 | `ERR`     | 10       | 22       |
 | `CFG`     | 8        | 16       |
 | `DEP`     | 9        | 18       |
 | `CICD`    | 15       | 17       |
-| **Total** | **185**  | **359**  |
+| **Total** | **186**  | **361**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -950,6 +950,12 @@ A `LOGIN_FAILED` audit record SHALL set `actor` to `username:<attempted_email>`,
 
 **L3-OBS-036** · Parent: L2-OBS-017 · Verification: T, I
 No audit record produced by any auth or user-management use case SHALL contain a plaintext password, password hash, or session token in any `details` field; a unit test SHALL serialize a representative sample of each record type and assert no field key matches `password`, `password_hash`, or `session_token`, and that no field value matches the structural pattern of an Argon2 hash (`$argon2`-prefixed) or a base64url session token of length >=32.
+
+**L3-OBS-037** · Parent: L2-OBS-018 · Verification: T
+A `SEND_REPORT` audit record SHALL set `actor` to `system:assemble_and_deliver`, `resource` to `run:<run_id>`, and `outcome` to `SUCCESS` on successful delivery (including the zero-recipient short-circuit) or `FAILURE` on `EmailDeliveryError`. `details` SHALL contain at minimum `run_id`, `recipient_count`, `recipient_addresses` (sorted list of strings), `attachment_count`, `prior_state`, `new_state`, and `timestamp` (ISO-8601 with `Z` suffix from `iso_z()`). The `FAILURE` variant SHALL additionally include `failure_reason` (the failure-classification code emitted by `AssembleAndDeliverUseCase`).
+
+**L3-OBS-038** · Parent: L2-OBS-018 · Verification: T
+A `DISPATCHER_ACTION_ABANDONED` audit record (emitted when a stuck-claim dispatcher row exhausts `max_dispatch_attempts` per L3-SWEEP-021) SHALL set `actor` to `system:sweeper_action_dispatcher`, `resource` to `dispatcher_action:<action_id>`, and `outcome` to `FAILURE`. `details` SHALL contain at minimum `action_id`, `run_id`, `action_name`, `attempts` (the count when abandonment occurred), and `last_error` (the most recent error string captured during the dispatch attempts).
 
 ---
 

@@ -34,14 +34,14 @@ of truth for live status; this file holds only the spec content above.
 | `SUB`     | 10       | 20       |
 | `AUTH`    | 6        | 13       |
 | `MAIL`    | 13       | 26       |
-| `DASH`    | 11       | 21       |
-| `PERS`    | 13       | 23       |
+| `DASH`    | 14       | 30       |
+| `PERS`    | 13       | 26       |
 | `OBS`     | 17       | 36       |
 | `ERR`     | 10       | 22       |
 | `CFG`     | 8        | 16       |
 | `DEP`     | 9        | 18       |
 | `CICD`    | 15       | 17       |
-| **Total** | **182**  | **347**  |
+| **Total** | **185**  | **359**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -704,7 +704,7 @@ The `require_admin` FastAPI dependency SHALL verify `is_admin` on every request;
 Resend SHALL call the same `RecipientResolver` used originally; a test verifies a new subscription added between send and resend receives the resent email.
 
 **L3-DASH-013** · Parent: L2-DASH-008 · Verification: T
-Resend SHALL create a new audit record (not overwrite original) with `outcome=RESEND`.
+A successful manual resend SHALL emit a new audit record (not overwriting the original) with `action=AuditAction.RESEND_REPORT`, `actor=user:<admin_id>`, `resource=run:<run_id>`, `outcome=SUCCESS` (or `FAILURE` on delivery failure), and `details` containing at minimum `run_id`, `recipient_count`, and `recipient_addresses`.
 
 **L3-DASH-014** · Parent: L2-DASH-009 · Verification: T
 Template inspection routes accept only GET; POST/PATCH/DELETE against `/templates/*` return HTTP 405.
@@ -729,6 +729,33 @@ Fonts SHALL be system fonts (via `font-family` stack only) or WOFF2 files shippe
 
 **L3-DASH-021** · Parent: L2-DASH-007 · Verification: T
 The admin gate SHALL re-check `is_admin` on every request (not cache in the session) so role changes take effect immediately.
+
+**L3-DASH-022** · Parent: L2-DASH-012 · Verification: T
+`GET /runs` SHALL accept query parameters `limit: int` and `offset: int` and `states: list[RunState]` (repeated query parameter); FastAPI path/query validation SHALL return HTTP 422 for non-integer or out-of-range values and for unknown enum members in the `states` list.
+
+**L3-DASH-023** · Parent: L2-DASH-012 · Verification: T
+`limit` SHALL default to 50 and SHALL be constrained to the inclusive range `[1, 200]`; `offset` SHALL default to 0 and SHALL be constrained to `>= 0`. When `states` is omitted the route SHALL default to the terminal-state set `{SENT, FAILED, ORPHANED}` per L2-DASH-012.
+
+**L3-DASH-024** · Parent: L2-DASH-012 · Verification: T
+The SQL adapter backing the listing SHALL include `ORDER BY runs.created_at DESC, runs.run_id DESC` (the latter as the deterministic tiebreaker) followed by `LIMIT ? OFFSET ?` bound to the validated query parameters.
+
+**L3-DASH-025** · Parent: L2-DASH-013 · Verification: T
+`GET /runs/{run_id}` SHALL validate `run_id` as a UUID4 string (path parameter constraint); non-UUID values SHALL return HTTP 422 and runs that do not exist SHALL return HTTP 404 with a generic detail string (no information disclosure about whether the id was malformed vs. unmatched).
+
+**L3-DASH-026** · Parent: L2-DASH-013 · Verification: T
+The run-detail response payload SHALL be a JSON object with two keys: `run` (containing `run_id`, `pipeline_type`, `state`, `created_at`, `updated_at`, `attachment_mode`, `tags`) and `stages` (a list of `{stage_id, state, submitted_at, was_retry}` objects ordered by the run's `declared_stages` sequence). The large `report_context_json` and `email_body_context_json` payloads SHALL NOT appear in this response (clients fetch them via the report-viewer routes).
+
+**L3-DASH-027** · Parent: L2-DASH-008 · Verification: T
+Resend SHALL re-render the run by replaying `AssembleAndDeliverUseCase` against the persisted `Stage.report_context_json` and `email_body_context_json`, rather than reading the saved-on-disk render snapshot. Saved-snapshot reads are reserved for the report-viewer routes (L2-DASH-014); the resend path is its own render so that resend output remains consistent even if the saved-snapshot file is missing or stale.
+
+**L3-DASH-028** · Parent: L2-DASH-008 · Verification: T
+`POST /runs/{run_id}/resend` SHALL accept resend only on runs in `RunState.SENT` or `RunState.FAILED`. Runs in any other state (including `RunState.ORPHANED`, which has no rendered body to resend, and any non-terminal state) SHALL return HTTP 409 with a detail string identifying the run's current state.
+
+**L3-DASH-029** · Parent: L2-DASH-014 · Verification: T
+`GET /runs/{run_id}/report` SHALL return the saved email body HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_email_body(run_id)`. If the run exists but no saved body is present (e.g., for runs that pre-date the report-store implementation), the route SHALL return HTTP 404. If the run does not exist, the route SHALL also return HTTP 404 (uniform privacy, mirroring L3-DASH-025).
+
+**L3-DASH-030** · Parent: L2-DASH-014 · Verification: T
+`GET /runs/{run_id}/stages/{stage_id}/fragment` SHALL return the saved per-stage rendered fragment HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_fragment(run_id, stage_id)`. The same uniform-404 semantics from L3-DASH-029 apply when the run, stage, or saved fragment is absent.
 
 ---
 
@@ -802,6 +829,15 @@ Report filenames SHALL include the run_id as the only variable component; no tim
 
 **L3-PERS-023** · Parent: L2-PERS-007 · Verification: I
 Any new filesystem access point SHALL be added to the approved list in `docs/reviews/filesystem-access-points.md` with a pathlib-based implementation reference.
+
+**L3-PERS-024** · Parent: L2-PERS-008 · Verification: T
+The `ReportStore` port SHALL be defined in `application/ports/report_store.py` as an `abc.ABC` exposing four abstract methods: `save_email_body(run_id, html: str) -> None`, `read_email_body(run_id) -> str | None`, `save_fragment(run_id, stage_id, html: str) -> None`, `read_fragment(run_id, stage_id) -> str | None`. Read methods SHALL return `None` for absent runs / stages rather than raise.
+
+**L3-PERS-025** · Parent: L2-PERS-005 · Verification: T
+The filesystem `ReportStore` adapter SHALL place files under `<persistence.filesystem.report_directory>/<run_id>/email.html` for the assembled body and `<persistence.filesystem.report_directory>/<run_id>/fragments/<stage_id>.html` for each per-stage rendered fragment. Directories SHALL be created on demand using `Path.mkdir(parents=True, exist_ok=True)`.
+
+**L3-PERS-026** · Parent: L2-PERS-005 · Verification: T
+All writes performed by the filesystem `ReportStore` adapter SHALL use the atomic-rename mechanic pinned in L2-PERS-005: write the rendered bytes to a sibling file with suffix `.tmp` in the same directory, then call `Path.replace()` to atomically promote it to the final filename. A test SHALL kill the process between the write and the rename and verify that the final filename does not exist (no partially-written report is observable).
 
 ---
 

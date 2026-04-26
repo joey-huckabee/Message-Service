@@ -31,14 +31,14 @@ single source of truth for live status.
 | `SUB`     | Subscriptions and tags                 | 10       |
 | `AUTH`    | Authentication                         | 6        |
 | `MAIL`    | Email delivery                         | 13       |
-| `DASH`    | Dashboard                              | 11       |
+| `DASH`    | Dashboard                              | 14       |
 | `PERS`    | Persistence                            | 13       |
 | `OBS`     | Observability                          | 17       |
 | `ERR`     | Error handling and exception taxonomy  | 10       |
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
 | `CICD`    | Continuous integration and delivery    | 15       |
-| **Total** |                                        | **182**  |
+| **Total** |                                        | **185**  |
 
 ---
 
@@ -913,6 +913,27 @@ single source of truth for live status.
 **Statement**: The template registry inspection interface SHALL expose only read operations (list, view); no write, update, or delete endpoints for template metadata SHALL exist in the dashboard.
 **Rationale**: Templates are git-managed; write operations through the dashboard would bypass the source-of-truth.
 **Verification Method**: Inspection (I)
+
+#### L2-DASH-012
+
+**Parent**: L1-DASH-003
+**Statement**: The dashboard's past-runs listing endpoint SHALL support offset+limit pagination, default to terminal-state runs (`SENT`, `FAILED`, `ORPHANED`), and SHALL order results by run-creation time most-recent-first.
+**Rationale**: Operators need a paginated view of completed runs for incident review and resend operations; defaulting to terminal states keeps the "history" view distinct from in-flight runs, which have different operational semantics. Most-recent-first ordering matches the typical investigative pattern (start from the latest, scroll back).
+**Verification Method**: Test (T)
+
+#### L2-DASH-013
+
+**Parent**: L1-DASH-003
+**Statement**: The run-detail view SHALL expose the run's metadata (`run_id`, `pipeline_type`, `state`, `created_at`, `updated_at`, attachment mode, tags) and an ordered list of declared stages with each stage's submission state and timestamps; the large per-stage `report_context_json` and `email_body_context_json` payloads SHALL NOT appear inline in this response.
+**Rationale**: A single run-detail page is the natural place for operators to investigate a specific run; exposing both the run-level state and the per-stage state lets them diagnose stalls without separate queries. Excluding the large JSON payloads from the inline response keeps the page lightweight; viewers fetch them on demand via the report-viewer routes (L2-DASH-014).
+**Verification Method**: Test (T)
+
+#### L2-DASH-014
+
+**Parent**: L1-DASH-003
+**Statement**: The report viewer SHALL expose two read-only HTML routes — one returning the assembled email body of a finalized run, and one returning each per-stage rendered fragment — backed by the filesystem report store (see `L3-PERS-024`..`L3-PERS-026`).
+**Rationale**: Splitting body and fragments matches the assembly model (per-stage fragments composed into a body) and lets operators view individual stage outputs even when a run failed before full assembly. Reading from the filesystem store rather than re-rendering ensures the viewer shows the bytes that were actually delivered.
+**Verification Method**: Test (T)
 
 ### Derivations of L1-DASH-004 (embedded metrics)
 

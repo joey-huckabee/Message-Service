@@ -25,7 +25,7 @@ Done:
 
 Still open:
 
-- **Increments 19–24** — Past-runs/resend through documentation deliverables. See sections below; sequencing refreshed at the bottom.
+- **Increments 19a, 19b, 19c, 20–24** — Past-runs list / resend / report viewer (split into three sub-increments per the 2026-04-25 spec-first directive) through documentation deliverables. See sections below; sequencing refreshed at the bottom.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -407,14 +407,69 @@ Closes **L1-DASH-001, L1-SUB-002** (Draft).
 - CRUD over `SqliteSubscriptionRepository` for the existing GLOBAL/PIPELINE/TAG granularity.
 - Jinja screens under `rest/html/templates/`.
 
-### Increment 19 — Past-runs list, report viewer, resend
+### Increment 19 — Past-runs / resend / report viewer
 
-Closes **L1-DASH-002, L1-DASH-003** (Draft).
+The original ROADMAP entry combined paginated runs list, resend, and rendered-report viewer into one increment. Survey before kickoff revealed the filesystem report store is **completely unimplemented** (no port, no adapter, no write path in `AssembleAndDeliverUseCase`); spec only goes as far as L2-PERS-005/006 on atomic-rename + directory creation. Bundling the store implementation alongside two REST features inflates 19 into ~1000 LOC of mixed concerns.
 
-- Paginated runs page.
-- Stage-by-stage report viewer reading from the filesystem report store.
-- Resend action that re-queues rendered reports through the `Mailer` port.
-- Fills in `tests/e2e/resend/`.
+Split into three sub-increments. New L2/L3 statements authored upfront (this commit): L2-DASH-012/013/014, L3-DASH-022..030 (with L3-DASH-013 reworded), L3-PERS-024..026.
+
+#### Increment 19a — Past-runs paginated list + run-detail metadata view
+
+**Closes**: the "list / view metadata" portion of `L1-DASH-003`.
+
+**Work**
+
+- Add `RunRepository.list_paginated(*, limit, offset, states)` to the run-repo port and SQLite adapter (per `L3-DASH-024`'s ORDER BY + LIMIT/OFFSET shape).
+- Add `ListPastRunsUseCase` and `GetRunDetailUseCase` (thin wrappers — most logic lives at the route + repo level).
+- Routes under `interfaces/rest/routes/runs.py`:
+  - `GET /runs` — paginated list with `limit`/`offset`/`states` query params per `L3-DASH-022/023/024`.
+  - `GET /runs/{run_id}` — run detail per `L3-DASH-025/026`.
+- Wire into `create_app` via `include_router` (mirrors the 18 subscription router pattern).
+- Tests: integration tests for pagination semantics, default-states filter, ordering, run-not-found 404, malformed UUID 422.
+
+**Verification**
+
+- L3-DASH-022..026 promote from Draft → Implemented.
+- L1-DASH-003 partial roll-up; remaining clauses ("view rendered reports", "trigger manual resends") covered by 19c and 19b respectively.
+
+#### Increment 19b — Manual resend (re-renders from saved Stage context)
+
+**Closes**: the "trigger manual resends to the current active subscriber list" portion of `L1-DASH-003`.
+
+**Work**
+
+- Add `AuditAction.RESEND_REPORT` to the `domain/aggregates/audit_event.py` enum. The audit-format L3 (L3-DASH-013) was reworded from `outcome=RESEND` to `action=RESEND_REPORT, outcome=SUCCESS/FAILURE` — the new enum value is the implementation hook.
+- Add `ResendRunUseCase` that:
+  - Looks up the run; reject with 409 if state ∉ `{SENT, FAILED}` per `L3-DASH-028`.
+  - Re-resolves recipients via `SubscriptionRepository.list_recipients_for_run` (per `L3-DASH-012`).
+  - Re-renders by replaying `AssembleAndDeliverUseCase` against the persisted `Stage.report_context_json` (per `L3-DASH-027`) — explicitly NOT reading the filesystem report store snapshot, so resend works even before 19c lands.
+  - Re-delivers via `Mailer.send`; emits `AuditAction.RESEND_REPORT` audit per `L3-DASH-013`.
+- Route: `POST /runs/{run_id}/resend` (CSRF-guarded by the existing middleware; the run-state-precondition check returns 409).
+- Tests: integration tests covering happy path, 409-on-non-terminal, 409-on-orphaned, recipient-resolution-at-resend-time (the `L3-DASH-012` "new subscription added between send and resend gets the resent email" case), audit format matches `L3-DASH-013`.
+
+**Verification**
+
+- L3-DASH-012/013/027/028 promote from Draft → Implemented.
+- L2-DASH-008 promotes from Draft → Implemented.
+
+#### Increment 19c — Filesystem report store + report viewer
+
+**Closes**: the "view past rendered reports" portion of `L1-DASH-003` and gives `L1-PERS-002` a concrete repository under it.
+
+**Work**
+
+- New port `application/ports/report_store.py` per `L3-PERS-024`.
+- New adapter `infrastructure/persistence/filesystem/report_store.py` per `L3-PERS-025/026`. Atomic-write via `<final>.tmp` + `Path.replace()` per the existing `L2-PERS-005`.
+- Wire `AssembleAndDeliverUseCase` to call `ReportStore.save_email_body(...)` after successful delivery and `ReportStore.save_fragment(...)` for each rendered fragment during render.
+- Bootstrap: construct the report-store directory at startup per `L2-PERS-006`; expose the report-store on the `Service` dataclass.
+- Routes: `GET /runs/{run_id}/report` and `GET /runs/{run_id}/stages/{stage_id}/fragment` per `L3-DASH-029/030`.
+- Tests: integration tests for atomic-write semantics, directory layout, the 404-when-pre-existing case, and the route-level happy paths.
+
+**Verification**
+
+- L3-PERS-024/025/026 promote from Draft → Implemented.
+- L2-DASH-014 + L3-DASH-029/030 promote from Draft → Implemented.
+- L1-DASH-003 fully closed (all three clauses now have implementation + tests).
 
 ### Increment 20 — Admin surfaces
 
@@ -459,18 +514,19 @@ Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be
 
 The historical sequencing block has been pruned now that Clusters 14 (excluding 14h), 25, and 26, plus Increments 15 and 16, are merged. What remains:
 
-**Feature stream (Increments 19–22)**
+**Feature stream (Increments 19a–22)**
 
-- **19 → 20** complete the dashboard, building on the chassis 17 delivered and the subscription CRUD 18 added. Increment 18 wired `GET/POST/DELETE /subscriptions` with per-user scoping, CSRF on state-changing requests, audit-then-mutation semantics, and tag/pipeline target validation; 19 onwards adds runs / report viewer / resend / admin surfaces on top.
+- **19a → 19b → 19c → 20** complete the dashboard, building on the chassis 17 delivered and the subscription CRUD 18 added. 19a delivers the past-runs paginated list + run-detail view (read-only metadata); 19b adds manual resend (re-renders from saved Stage context, no filesystem-store dependency); 19c lands the filesystem report store + the rendered-report viewer routes. The split was driven by the survey before kickoff — the filesystem store is its own substantive subsystem and benefits from a focused increment.
 - **21** (E2E harness) can shift earlier — slotting it in after one or two more domain-router increments forces the FastAPI chassis to stay testable as routes accrete.
 - **22** (error-mapping + servicer tests) is independent of the dashboard stream and can interleave whenever convenient.
 
 **Recommended next-up sequencing**
 
-1. **19 → 20** in order — past-runs/resend, admin.
-2. **21** — E2E happy-path + orphan-path harness.
-3. **22** — error-mapping + servicer tests; independent stream.
-4. **23, 24** — deployment polish + documentation deliverables (release-gating).
+1. **19a → 19b → 19c** in order — past-runs list + detail; manual resend; filesystem report store + report viewer. The split is documented in the Increment 19 sections; spec deltas (3 new L2, 9 new L3, 1 reword) authored ahead of code per the 2026-04-25 user directive.
+2. **20** — admin surfaces.
+3. **21** — E2E happy-path + orphan-path harness.
+4. **22** — error-mapping + servicer tests; independent stream.
+5. **23, 24** — deployment polish + documentation deliverables (release-gating).
 
 ---
 

@@ -270,7 +270,7 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-DASH-001 | L2-DASH-001, L2-DASH-002, L2-DASH-003 | Partially Implemented |
 | L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Partially Implemented |
-| L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009 | Draft |
+| L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009, L2-DASH-012, L2-DASH-013, L2-DASH-014 | Draft |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Draft |
 
 **L2 → L3 → Verification Artifacts**
@@ -284,10 +284,13 @@ the single source of truth.
 | L2-DASH-005 | L3-DASH-009 | `tests/integration/rest/test_subscriptions.py::test_post_rejects_extra_user_id_field`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_global_with_null_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_pipeline_with_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_unknown_granularity`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_user_id_in_body` | Implemented |
 | L2-DASH-006 | L3-DASH-010 | _(TBD)_ | Draft |
 | L2-DASH-007 | L3-DASH-011, L3-DASH-021 | _(TBD)_ | Draft |
-| L2-DASH-008 | L3-DASH-012, L3-DASH-013 | _(TBD)_ | Draft |
+| L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | _(TBD)_ | Draft |
 | L2-DASH-009 | L3-DASH-014, L3-DASH-015 | _(TBD)_ | Draft |
 | L2-DASH-010 | L3-DASH-016 | _(TBD)_ | Draft |
 | L2-DASH-011 | L3-DASH-017 | _(TBD)_ | Draft |
+| L2-DASH-012 | L3-DASH-022, L3-DASH-023, L3-DASH-024 | _(TBD)_ | Draft |
+| L2-DASH-013 | L3-DASH-025, L3-DASH-026 | _(TBD)_ | Draft |
+| L2-DASH-014 | L3-DASH-029, L3-DASH-030 | _(TBD)_ | Draft |
 
 ### L1-PERS: Persistence
 
@@ -308,10 +311,10 @@ the single source of truth.
 | L2-PERS-002 | L3-PERS-002, L3-PERS-003, L3-PERS-019 | `tests/integration/persistence/test_connection.py::test_busy_timeout_is_5000_ms`<br>`tests/integration/persistence/test_connection.py::test_foreign_keys_enabled`<br>`tests/integration/persistence/test_connection.py::test_synchronous_is_normal`<br>`tests/integration/persistence/test_connection.py::test_wal_journal_mode_set_on_disk_db`<br>`tests/integration/persistence/test_unit_of_work.py::test_foreign_key_violation_triggers_rollback` | Partially Implemented |
 | L2-PERS-003 | L3-PERS-004, L3-PERS-005, L3-PERS-020 | `tests/integration/persistence/test_migration_runner.py::test_gap_in_version_sequence_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_migrations_table_records_version_name_timestamp`<br>`tests/integration/persistence/test_migration_runner.py::test_missing_three_digit_prefix_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_non_conforming_filename_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_non_sequential_starting_version_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_packaged_migrations_create_expected_tables`<br>`tests/integration/persistence/test_migration_runner.py::test_reapply_is_noop` | Partially Implemented |
 | L2-PERS-004 | L3-PERS-006, L3-PERS-007, L3-PERS-021 | _(TBD)_ | Draft |
-| L2-PERS-005 | L3-PERS-008, L3-PERS-009, L3-PERS-022 | _(TBD)_ | Draft |
+| L2-PERS-005 | L3-PERS-008, L3-PERS-009, L3-PERS-022, L3-PERS-025, L3-PERS-026 | _(TBD)_ | Draft |
 | L2-PERS-006 | L3-PERS-010, L3-PERS-011 | _(TBD)_ | Draft |
 | L2-PERS-007 | L3-PERS-012, L3-PERS-023 | _(TBD)_ | Draft |
-| L2-PERS-008 | L3-PERS-013, L3-PERS-014 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_audit_log_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_io_bound_ports_use_async_def`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_mailer_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_abstract_and_specable`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_mockable_with_spec`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_methods_are_fully_annotated`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_run_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_stage_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_subscription_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_tag_vocabulary_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_template_repository_exposes_expected_methods` | Implemented |
+| L2-PERS-008 | L3-PERS-013, L3-PERS-014, L3-PERS-024 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_audit_log_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_io_bound_ports_use_async_def`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_mailer_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_abstract_and_specable`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_mockable_with_spec`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_methods_are_fully_annotated`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_run_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_stage_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_subscription_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_tag_vocabulary_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_template_repository_exposes_expected_methods` | Partially Implemented |
 | L2-PERS-009 | L3-PERS-015 | _(TBD)_ | Draft |
 | L2-PERS-010 | L3-PERS-016, L3-PERS-017 | _(TBD)_ | Draft |
 | L2-PERS-011 | _(none)_ | _(TBD)_ | Draft |
@@ -473,16 +476,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 5 | 8 |
 | MAIL | 5 | 13 | 26 | 5 | 6 |
-| DASH | 4 | 11 | 21 | 1 | 6 |
-| PERS | 4 | 13 | 23 | 2 | 6 |
+| DASH | 4 | 14 | 30 | 1 | 6 |
+| PERS | 4 | 13 | 26 | 2 | 6 |
 | OBS | 4 | 17 | 36 | 2 | 14 |
 | ERR | 4 | 10 | 22 | 0 | 0 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **182** | **347** | **58** | **111** |
+| **Total** | **65** | **185** | **359** | **58** | **111** |
 
-**Requirements verified by at least one test**: 169 of 529 (31.9%).
+**Requirements verified by at least one test**: 169 of 544 (31.1%).
 
 ### Orphan check
 

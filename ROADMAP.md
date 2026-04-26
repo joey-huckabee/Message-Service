@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **20a — admin gate + template registry inspection** (commit `fd27acf`); closes the third clause of `L1-DASH-003` (template registry inspection), bringing 5 of L1-DASH-003's 6 L2 children to Implemented. The lone partial — `L2-DASH-008` — is a pre-existing Increment-19b resend gap, not a 20a concern. Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
+Last full increment merged: **20b — admin user management** (commit `39c99a0`); closes the new `L1-AUTH-003` (CREATE_USER / UPDATE_USER routes via `POST /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/password`) — `L2-AUTH-007/008/009` all promoted from Draft → Implemented, with the L3-OBS-035 audit-format gap (the "(deferred to Increment 20)" tag) closed in the same stream. Prior to 20b: **20a — admin gate + template registry inspection** (commit `fd27acf`) closed the third clause of `L1-DASH-003`. Spec-side: **25g — email subject format** (commit `2406dd1`) closed the last unspecced email-content surface (`L2-MAIL-014` + `L3-MAIL-027/028/029`).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -26,6 +26,7 @@ Done:
 - **Increment 19b** — Manual resend (re-renders from saved Stage context) (`f3d7509`).
 - **Increment 19c** — Filesystem report store + report viewer (`b900ce3`); closes clauses 1+2 of L1-DASH-003.
 - **Increment 20a** — Admin gate (`require_admin`) + template registry inspection (`fd27acf`); closes clause 3 of L1-DASH-003 — L2-DASH-007 + L2-DASH-009 promoted to Implemented.
+- **Increment 20b** — Admin user management (CREATE_USER / UPDATE_USER routes; password reset) (`39c99a0`); closes net-new L1-AUTH-003 — L2-AUTH-007/008/009 all promoted to Implemented; clears the L3-OBS-035 deferred-to-Increment-20 tag.
 
 Still open:
 

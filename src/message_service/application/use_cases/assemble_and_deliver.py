@@ -182,6 +182,31 @@ def _build_attachment_filename(
 
 
 # -----------------------------------------------------------------------------
+# Subject formatting (L2-MAIL-014, L3-MAIL-027/028/029)
+# -----------------------------------------------------------------------------
+
+
+def _build_subject(pipeline_type: str, run_id: RunId) -> str:
+    """Compose the email Subject header per L2-MAIL-014.
+
+    Sanitizes ``pipeline_type`` via the same regex as L3-AGGR-010 so
+    CR/LF and other control characters are replaced with ``_`` before
+    reaching the SMTP layer (L3-MAIL-028 / L3-MAIL-029). The
+    ``OutboundEmail`` boundary's CR/LF assertion remains as a second
+    line of defense.
+
+    Args:
+        pipeline_type: Run's ``pipeline_type`` from config.
+        run_id: Canonical UUID4 string.
+
+    Returns:
+        Subject string of the form ``[{pipeline_safe}] run {run_id}``.
+    """
+    pipeline_safe = _sanitize_filename_component(pipeline_type)
+    return f"[{pipeline_safe}] run {run_id}"
+
+
+# -----------------------------------------------------------------------------
 # Internal carrier types
 # -----------------------------------------------------------------------------
 
@@ -398,10 +423,13 @@ class AssembleAndDeliverUseCase:
             self._metrics.record_email_delivery_outcome("success")
             return
 
-        # Non-empty recipients: deliver or fail.
+        # Non-empty recipients: deliver or fail. Subject format pinned
+        # by L2-MAIL-014; pipeline_type sanitization (L3-MAIL-028)
+        # reuses the same helper that builds attachment filenames so
+        # both surfaces share one chokepoint.
         outbound = OutboundEmail(
             recipients=recipients,
-            subject=f"Run {run_id} — {run.pipeline_type}",
+            subject=_build_subject(run.pipeline_type, run_id),
             body_html=email_body_html,
             from_address=self._from_address,
             attachments=attachments,

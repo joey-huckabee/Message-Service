@@ -37,6 +37,7 @@ from message_service.application.ports.unit_of_work import UnitOfWork
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
     _build_attachment_filename,
+    _build_subject,
     _sanitize_filename_component,
 )
 from message_service.domain.aggregates.audit_event import AuditAction, AuditOutcome
@@ -275,6 +276,61 @@ def test_build_attachment_filename_sanitizes_both_components() -> None:
     assert "stage_1" in fn
     assert "!" not in fn
     assert "/" not in fn
+
+
+# -----------------------------------------------------------------------------
+# Subject formatting (Increment 25g, L2-MAIL-014, L3-MAIL-027/028/029)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-MAIL-027")
+def test_build_subject_literal_format_for_benign_pipeline_type() -> None:
+    """L3-MAIL-027: subject SHALL equal exactly `[{pipeline_type}] run {run_id}`."""
+    subject = _build_subject("etl-nightly", _RID)
+    assert subject == f"[etl-nightly] run {_RID}"
+
+
+@pytest.mark.requirement("L3-MAIL-028")
+def test_build_subject_applies_l3_aggr_010_sanitization_to_pipeline_type() -> None:
+    """L3-MAIL-028: pipeline_type SHALL pass through `_sanitize_filename_component`.
+
+    Asserted by structural equivalence: the bracketed segment of the
+    produced subject equals the sanitizer's output for the same input,
+    so the two surfaces share one chokepoint.
+    """
+    raw = "etl nightly/v2!"
+    subject = _build_subject(raw, _RID)
+    sanitized = _sanitize_filename_component(raw)
+    assert subject == f"[{sanitized}] run {_RID}"
+    # Sanity: the sanitizer SHALL replace the disallowed chars.
+    assert " " not in sanitized
+    assert "/" not in sanitized
+    assert "!" not in sanitized
+
+
+@pytest.mark.requirement("L3-MAIL-029")
+def test_build_subject_neutralizes_cr_lf_and_control_chars() -> None:
+    """L3-MAIL-029: CR/LF/control chars in pipeline_type SHALL be neutralized.
+
+    Subject SHALL contain none of those characters (each replaced with
+    `_`); the resulting subject SHALL be accepted by ``OutboundEmail``
+    without the boundary's CR/LF assertion firing.
+    """
+    malicious = "etl\r\nBcc: attacker@example.com\x07"
+    subject = _build_subject(malicious, _RID)
+    assert "\r" not in subject
+    assert "\n" not in subject
+    assert "\x07" not in subject
+
+    # OutboundEmail SHALL accept the sanitized subject -- the upstream
+    # neutralization means the boundary's CR/LF assertion never fires.
+    email = OutboundEmail(
+        recipients=frozenset({"alice@example.com"}),
+        subject=subject,
+        body_html="<html></html>",
+        from_address=_FROM,
+    )
+    assert email.subject == subject
 
 
 # -----------------------------------------------------------------------------

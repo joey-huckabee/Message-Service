@@ -261,7 +261,7 @@ the single source of truth.
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
 | L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Partially Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | _(TBD)_ | Draft |
-| L2-MAIL-014 | L3-MAIL-027, L3-MAIL-028, L3-MAIL-029 | _(TBD)_ | Draft |
+| L2-MAIL-014 | L3-MAIL-027, L3-MAIL-028, L3-MAIL-029 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_applies_l3_aggr_010_sanitization_to_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_literal_format_for_benign_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_neutralizes_cr_lf_and_control_chars` | Implemented |
 
 ### L1-DASH: Dashboard
 
@@ -477,7 +477,7 @@ the single source of truth.
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 2 | 6 | 13 | 5 | 8 |
-| MAIL | 5 | 14 | 29 | 5 | 6 |
+| MAIL | 5 | 14 | 29 | 5 | 9 |
 | DASH | 4 | 14 | 30 | 1 | 16 |
 | PERS | 4 | 13 | 26 | 2 | 11 |
 | OBS | 4 | 18 | 38 | 2 | 16 |
@@ -485,9 +485,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 0 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **65** | **187** | **364** | **58** | **128** |
+| **Total** | **65** | **187** | **364** | **58** | **131** |
 
-**Requirements verified by at least one test**: 186 of 551 (33.8%).
+**Requirements verified by at least one test**: 189 of 551 (34.3%).
 
 ### Orphan check
 

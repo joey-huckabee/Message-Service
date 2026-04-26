@@ -55,7 +55,7 @@ single source of truth for live status; the source docs in this file,
 | `AGGR`    | Aggregation and composition            | 4        |
 | `SWEEP`   | Orphan detection and disposition       | 3        |
 | `SUB`     | Subscriptions and tags                 | 4        |
-| `AUTH`    | Authentication                         | 2        |
+| `AUTH`    | Authentication                         | 3        |
 | `MAIL`    | Email delivery                         | 5        |
 | `DASH`    | Dashboard                              | 4        |
 | `PERS`    | Persistence                            | 4        |
@@ -64,7 +64,7 @@ single source of truth for live status; the source docs in this file,
 | `CFG`     | Configuration                          | 3        |
 | `DEP`     | Deployment                             | 3        |
 | `CICD`    | Continuous integration and delivery    | 7        |
-| **Total** |                                        | **65**   |
+| **Total** |                                        | **66**   |
 
 ---
 
@@ -343,6 +343,14 @@ single source of truth for live status; the source docs in this file,
 **Statement**: The service SHALL issue and validate session credentials for authenticated dashboard users with a configurable idle-timeout, after which re-authentication SHALL be required.
 
 **Rationale**: An idle-timeout limits the window of exposure for unattended sessions on shared workstations.
+
+**Verification Method**: Test (T)
+
+### L1-AUTH-003
+
+**Statement**: The dashboard SHALL allow authenticated administrators to create user accounts (with optional administrator privilege), update existing accounts (`display_name`, `is_admin`, `disabled`), and reset account passwords; admin-set passwords SHALL be hashed via the same Argon2id chokepoint as self-set passwords (per L1-AUTH-001) and SHALL NOT be stored, logged, or echoed in plaintext at any boundary.
+
+**Rationale**: Administrators need a self-service mechanism for onboarding new users, granting/revoking admin privilege, disabling departed users, and helping users who have lost their passwords — without operators having to issue raw SQL against the SQLite database. Routing every admin-set password through the same hashing chokepoint as user-set passwords ensures the storage discipline of L1-AUTH-001 is preserved regardless of who set the password. Soft-disable (rather than hard delete) is the intended deletion path: hard delete would orphan audit-log references and complicate session cleanup, neither of which v1 needs.
 
 **Verification Method**: Test (T)
 

@@ -581,6 +581,27 @@ The HTTP 401 response SHALL include `WWW-Authenticate: Session realm="Message-Se
 **L3-AUTH-013** · Parent: L2-AUTH-001 · Verification: T
 Password verification SHALL use `PasswordHasher.verify(hash, plaintext)`; `VerifyMismatchError` SHALL be caught and translated to a generic "invalid credentials" response without distinguishing unknown-user from wrong-password.
 
+**L3-AUTH-014** · Parent: L2-AUTH-007 · Verification: T
+Each of `POST /admin/users`, `PATCH /admin/users/{user_id}`, and `POST /admin/users/{user_id}/password` SHALL declare `Depends(require_admin)`; non-admin authenticated requests SHALL return HTTP 403 (per `L3-DASH-011`) and unauthenticated requests SHALL return HTTP 401 (or HTTP 403 from the CSRF middleware on POST/PATCH without a CSRF token, mirroring the resend-route behavior in `L3-DASH-018`). The `user_id` path parameter SHALL be a positive integer; non-integer or non-positive values SHALL return HTTP 422 (FastAPI path-validation default).
+
+**L3-AUTH-015** · Parent: L2-AUTH-007 · Verification: T
+Request-body shapes:
+* `POST /admin/users` SHALL accept `{email: str, display_name: str, password: str, is_admin: bool, disabled: bool}` with all five fields required.
+* `PATCH /admin/users/{user_id}` SHALL accept `{display_name?: str, is_admin?: bool, disabled?: bool}` — every field optional; an empty body SHALL be a no-op success rather than 422.
+* `POST /admin/users/{user_id}/password` SHALL accept `{password: str}` with the single field required.
+
+Email format SHALL be validated against the same syntactic check used by `mail.from_address`; format failures SHALL return HTTP 422. Email uniqueness SHALL be enforced at the persistence layer (the existing UNIQUE constraint on `users.email`); duplicates SHALL surface as HTTP 409 (rather than masking as 500). Missing required fields, length-limit violations, or extra fields (`extra="forbid"`) SHALL return HTTP 422.
+
+**L3-AUTH-016** · Parent: L2-AUTH-008 · Verification: T
+Both the create-user route and the reset-password route SHALL invoke `PasswordHasher.hash` (the shared Argon2 singleton injected at bootstrap per `L3-AUTH-001`); the resulting hash string SHALL be the value persisted in `users.password_hash`. A test SHALL inspect a freshly-created or reset hash and assert it carries the Argon2id PHC prefix `$argon2id$v=19$m=...,t=...,p=...$<salt>$<hash>`. The plaintext password SHALL NOT appear in any of: the HTTP response body (success or error), the audit-log `details` dict, the structured log record for the action, or response error messages — verified by ensuring the JSON-rendered response and the persisted audit row each contain neither the literal plaintext nor any substring of it.
+
+**L3-AUTH-017** · Parent: L2-AUTH-009 · Verification: T
+Audit-record details:
+* `CREATE_USER` records SHALL set `actor=user:<admin_id>`, `resource=user:<target_user_id>`, `outcome=SUCCESS`, and `details` containing at minimum `{target_user_id, target_email}`. The `target_email` field is admitted in addition to the `L3-OBS-035` minimum so audit logs are human-scannable without a join against `users`.
+* `UPDATE_USER` records (PATCH path) SHALL set the same actor/resource/outcome and `details` containing `{target_user_id, mutated_fields}` where `mutated_fields` is the sorted list of column names actually present in the request body (e.g., `["display_name", "is_admin"]`). Fields not in the request body SHALL NOT appear in `mutated_fields` even if they happen to equal the existing value.
+* `UPDATE_USER` records (password-reset path) SHALL set the same actor/resource/outcome and `details={target_user_id, mutated_fields=['password_hash']}`. The hash value itself SHALL NOT appear in `details`.
+* Self-protection rejections (per `L2-AUTH-009`) SHALL NOT emit an audit record; instead, a structured log line SHALL fire at `WARNING` with event name `admin_self_protection_rejected` and fields `{admin_id, target_user_id, attempted_field}` (`is_admin` or `disabled`).
+
 ---
 
 ## L3-MAIL: Email delivery
@@ -961,7 +982,7 @@ An `UNSUBSCRIBE` audit record SHALL use the same field shape as `L3-OBS-031`.
 A `LOGIN_FAILED` audit record SHALL set `actor` to `username:<attempted_email>`, `resource` to `user:<attempted_email>`, `outcome` to `FAILURE`, and `details` to a dict containing at minimum `attempted_email` and `reason` (an operator-only string drawn from a closed enumeration; never echoed in user-facing responses, per L3-AUTH-013).
 
 **L3-OBS-035** · Parent: L2-OBS-017 · Verification: T
-`CREATE_USER` and `UPDATE_USER` audit records SHALL set `actor` to `user:<admin_id>` (the administrator performing the action), `resource` to `user:<target_user_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `target_user_id` and (for `UPDATE_USER`) the list of mutated field names. (Implementation deferred to Increment 20.)
+`CREATE_USER` and `UPDATE_USER` audit records SHALL set `actor` to `user:<admin_id>` (the administrator performing the action), `resource` to `user:<target_user_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `target_user_id` and (for `UPDATE_USER`) the list of mutated field names. The exact details-shape obligations (including `target_email` on `CREATE_USER` and the `mutated_fields=['password_hash']` convention for password resets) are pinned by `L3-AUTH-017`.
 
 **L3-OBS-036** · Parent: L2-OBS-017 · Verification: T, I
 No audit record produced by any auth or user-management use case SHALL contain a plaintext password, password hash, or session token in any `details` field; a unit test SHALL serialize a representative sample of each record type and assert no field key matches `password`, `password_hash`, or `session_token`, and that no field value matches the structural pattern of an Argon2 hash (`$argon2`-prefixed) or a base64url session token of length >=32.

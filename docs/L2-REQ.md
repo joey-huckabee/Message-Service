@@ -736,6 +736,29 @@ single source of truth for live status.
 **Rationale**: Per-request checking ensures timeout is enforced consistently regardless of client behavior.
 **Verification Method**: Test (T)
 
+### Derivations of L1-AUTH-003 (admin user management)
+
+#### L2-AUTH-007
+
+**Parent**: L1-AUTH-003
+**Statement**: Administrator user-management routes SHALL be exposed under the `/admin/users` prefix: `POST /admin/users` to create a new account, `PATCH /admin/users/{user_id}` to update an existing account's `display_name`, `is_admin`, or `disabled` fields (every field optional in the request body — only supplied fields SHALL be mutated), and `POST /admin/users/{user_id}/password` to set a new password. The account `email` SHALL NOT be mutable through these routes — email changes would conflate user-identity continuity with audit-log references; v1 treats email as immutable. All three routes SHALL be gated by the same `require_admin` dependency described under L2-DASH-007.
+**Rationale**: Three narrowly scoped endpoints are easier to validate, audit, and grant separate operational guardrails than a single `POST /admin/users/{id}` that overloads multiple concerns. Treating email as immutable avoids a v1-out-of-scope question (does an email change count as a delete + re-create for audit purposes?) while leaving the door open for a later `POST /admin/users/{id}/email` route if operational need emerges.
+**Verification Method**: Test (T)
+
+#### L2-AUTH-008
+
+**Parent**: L1-AUTH-003
+**Statement**: Every admin-set password value SHALL flow through the shared `PasswordHasher` singleton (the `Argon2PasswordHasher` constructed at bootstrap, per L1-AUTH-001 / L2-AUTH-001 / L2-AUTH-002); only the resulting hash SHALL be persisted in the `users.password_hash` column. The plaintext password SHALL NOT appear in any HTTP response body, audit-log `details` field, structured log record, or response error message — neither on the success path nor on validation/error paths.
+**Rationale**: A single hashing chokepoint guarantees admin-set and self-set passwords obey identical Argon2id discipline; tunable parameters (memory_cost / time_cost / parallelism) take effect uniformly. The plaintext-suppression obligation extends L2-AUTH-003's defense-in-depth to the admin surface.
+**Verification Method**: Test (T)
+
+#### L2-AUTH-009
+
+**Parent**: L1-AUTH-003
+**Statement**: Every successful admin user-management action SHALL emit an audit record per the existing L3-OBS-035 format: `CREATE_USER` on a successful create, `UPDATE_USER` on a successful PATCH or password reset (with the password reset's `mutated_fields` carrying `'password_hash'`; the hash value itself SHALL NOT appear in `details` per L3-OBS-036). To prevent accidental loss of administrative access, an administrator SHALL NOT (a) remove their own `is_admin` flag via PATCH or (b) set `disabled=True` on their own account; both attempts SHALL return HTTP 409 with a generic detail string and SHALL NOT emit an audit record (no successful action occurred). The rejected attempt SHALL be logged at `WARNING` severity with the attempting `admin_id` and the targeted `target_user_id` (which equal each other in the self-deadmin/self-disable case).
+**Rationale**: Self-protection is an operational safety belt: a single admin who accidentally PATCHes themselves to non-admin or disabled would lock the system out of administrative recovery without operators having to issue raw SQL. The 409-without-audit rule matches the project's existing convention that audit records reflect successful actions, while still leaving an operator-visible WARNING log for forensics.
+**Verification Method**: Test (T)
+
 ---
 
 ## L2-MAIL: Email delivery

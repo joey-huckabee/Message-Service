@@ -678,3 +678,92 @@ def test_servicer_registers_exactly_three_rpc_methods() -> None:
         if callable(obj) and not name.startswith("_")
     }
     assert declared == {"BeginRun", "SubmitStageReport", "FinalizeRun"}
+
+
+# -----------------------------------------------------------------------------
+# Shutdown — new-RPC rejection (L3-DEP-011)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DEP-011")
+async def test_new_rpcs_after_server_stop_initiated_are_unavailable(
+    service: Service,
+) -> None:
+    """L3-DEP-011: once shutdown is initiated, new RPCs SHALL receive UNAVAILABLE.
+
+    Spins up an in-process gRPC server, verifies a baseline RPC works,
+    initiates ``server.stop(grace=...)`` as a background task, then
+    issues a fresh RPC during the grace window. The fresh RPC must
+    fail with ``grpc.StatusCode.UNAVAILABLE`` — that's the wire-level
+    contract that ``__main__._run`` relies on after it observes the
+    shutdown ``asyncio.Event``.
+    """
+    server = grpc.aio.server()
+    register(server, service)
+    port = server.add_insecure_port("127.0.0.1:0")
+    await server.start()
+    channel = grpc.aio.insecure_channel(f"127.0.0.1:{port}")
+    stub = pb_grpc.MessageServiceStub(channel)
+
+    try:
+        # Baseline: a normal RPC succeeds before shutdown begins.
+        baseline = await stub.BeginRun(_begin_run_request())
+        assert baseline.run_id
+
+        # Kick off graceful stop in the background; with no in-flight
+        # RPCs the server transitions to shutting-down immediately, but
+        # the coroutine does not return until the stop completes.
+        stop_task = asyncio.create_task(server.stop(grace=2.0))
+
+        # Yield to the event loop so server.stop() registers the
+        # shutdown intent before we attempt the next RPC.
+        await asyncio.sleep(0)
+
+        # New RPC during the grace window — SHALL be rejected.
+        with pytest.raises(grpc.aio.AioRpcError) as exc_info:
+            await stub.BeginRun(_begin_run_request())
+        assert exc_info.value.code() == grpc.StatusCode.UNAVAILABLE, (
+            f"expected UNAVAILABLE after server.stop initiated, got {exc_info.value.code()!r}"
+        )
+
+        await stop_task
+    finally:
+        await channel.close()
+        # Server is already stopped above; idempotent extra-stop is fine.
+        await server.stop(grace=0)
+        await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DEP-011")
+async def test_long_running_sweeper_loop_observes_shutdown_via_stop_event(
+    service: Service,
+) -> None:
+    """L3-DEP-011: long-running tasks SHALL observe the shutdown event.
+
+    The shutdown ``asyncio.Event`` in ``__main__._run`` propagates
+    into the sweeper loop's stop event via ``shutdown_service``
+    (which calls ``service.sweeper_loop.stop()``). This test starts
+    the sweeper loop, calls ``stop()`` directly, and asserts the
+    loop's scheduled task exits — the spec's "observation" property.
+    """
+    # Start the loop. Internally schedules a long-running coroutine on
+    # the service scheduler that polls the loop's stop event.
+    service.sweeper_loop.start()
+    # Yield so the scheduler actually picks up the task.
+    await asyncio.sleep(0)
+    initial_active = service.scheduler.active_task_count
+    assert initial_active >= 1, "sweeper loop did not register an active task"
+
+    # Trigger the same stop signal that shutdown_service uses. This is
+    # what an observer of the shutdown asyncio.Event would do.
+    service.sweeper_loop.stop()
+
+    # Drain — the loop's `await self._stop_event.wait()` should resolve
+    # promptly, the coroutine returns, and the active count drops.
+    await service.scheduler.await_all(timeout=2.0)
+    assert service.scheduler.active_task_count == 0, (
+        "sweeper loop did not exit after stop() was called — long-running "
+        "tasks are not observing the shutdown signal"
+    )

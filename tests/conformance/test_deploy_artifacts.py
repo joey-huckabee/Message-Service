@@ -2,9 +2,10 @@
 
 These are inspection-style tests: they read the on-disk
 deployment artifacts (`deploy/linux/message-service.service`,
-`deploy/windows/README.md`, `pyproject.toml`, `poetry.lock`)
-and assert that the directives, commands, and metadata each
-spec statement requires are actually present.
+`deploy/windows/README.md`, `pyproject.toml`, `poetry.lock`,
+`.github/workflows/ci.yaml`) and assert that the directives,
+commands, and metadata each spec statement requires are actually
+present.
 
 The tests are conformance-tier rather than unit-tier because
 they verify that the **codebase itself** (not its runtime
@@ -14,14 +15,16 @@ existing `test_pathlib_enforcement.py` and
 
 Requirement references
 ----------------------
+L1-DEP-001 (cross-platform portability)
 L1-DEP-002 (systemd + NSSM), L1-DEP-003 (Poetry packaging)
-L2-DEP-004, L2-DEP-005, L2-DEP-007, L2-DEP-008, L2-DEP-009
-L3-DEP-006, L3-DEP-007, L3-DEP-008, L3-DEP-013, L3-DEP-014,
-L3-DEP-015
+L2-DEP-001, L2-DEP-004, L2-DEP-005, L2-DEP-007, L2-DEP-008, L2-DEP-009
+L3-DEP-001, L3-DEP-002, L3-DEP-006, L3-DEP-007, L3-DEP-008,
+L3-DEP-013, L3-DEP-014, L3-DEP-015
 """
 
 from __future__ import annotations
 
+import ast
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -220,4 +223,125 @@ def test_windows_install_demo_has_required_sections(
     """
     assert section_marker in windows_install_demo_text, (
         f"L3-DEP-009 demonstration artifact missing required section: {section_marker!r}"
+    )
+
+
+# -----------------------------------------------------------------------------
+# CI workflow matrix (L3-DEP-001)
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def ci_workflow_text() -> str:
+    """The contents of `.github/workflows/ci.yaml`."""
+    path = _REPO_ROOT / ".github" / "workflows" / "ci.yaml"
+    assert path.is_file(), f"L3-DEP-001 CI workflow missing at {path}"
+    return path.read_text(encoding="utf-8")
+
+
+@pytest.mark.requirement("L3-DEP-001")
+@pytest.mark.parametrize("runner", ["ubuntu-latest", "windows-latest"])
+def test_ci_workflow_matrix_includes_runner(ci_workflow_text: str, runner: str) -> None:
+    """L3-DEP-001: the GitHub Actions matrix SHALL include both runners.
+
+    Inspection-only: scans for the literal runner name appearing in
+    the workflow YAML. The pytest job's matrix.os list is the
+    authoritative source; this test fails if either runner is removed.
+    """
+    assert runner in ci_workflow_text, (
+        f"CI workflow missing required matrix runner {runner!r}; "
+        "L3-DEP-001 mandates ubuntu-latest + windows-latest as a minimum"
+    )
+
+
+@pytest.mark.requirement("L3-DEP-001")
+def test_ci_workflow_matrix_runs_full_pytest_suite(ci_workflow_text: str) -> None:
+    """L3-DEP-001: the matrix runners SHALL execute the full pytest suite.
+
+    A `poetry run pytest` invocation with no `-k`/`-m` filter and no
+    path argument is sufficient — the suite-wide config in
+    `pyproject.toml` carries the coverage gate and the layer markers.
+    """
+    # Match the existing CI structure: the bare `poetry run pytest`
+    # invocation lives on its own line in the pytest job.
+    assert "poetry run pytest" in ci_workflow_text, (
+        "CI workflow does not invoke `poetry run pytest` — full-suite "
+        "execution is what L3-DEP-001 requires"
+    )
+
+
+# -----------------------------------------------------------------------------
+# skipif convention (L3-DEP-002)
+# -----------------------------------------------------------------------------
+
+
+def _iter_test_files() -> list[Path]:
+    """Every ``.py`` file under ``tests/`` (excluding ``__pycache__``)."""
+    tests_root = _REPO_ROOT / "tests"
+    return sorted(p for p in tests_root.rglob("*.py") if "__pycache__" not in p.parts)
+
+
+def _skipif_calls(tree: ast.AST) -> list[tuple[int, ast.Call]]:
+    """Yield ``(lineno, call)`` for every ``@pytest.mark.skipif(...)`` decorator.
+
+    Matches both ``@pytest.mark.skipif(...)`` and the ``@skipif(...)``
+    form (`from pytest import mark; mark.skipif(...)` is rare but
+    permitted). The check is structural: a Call whose attribute chain
+    ends in ``skipif``.
+    """
+    out: list[tuple[int, ast.Call]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            target = decorator.func
+            # Walk attribute chain: gather the trailing identifier.
+            while isinstance(target, ast.Attribute):
+                if target.attr == "skipif":
+                    out.append((decorator.lineno, decorator))
+                    break
+                target = target.value
+            else:
+                # Plain Name: e.g. `skipif(...)`.
+                if isinstance(target, ast.Name) and target.id == "skipif":
+                    out.append((decorator.lineno, decorator))
+    return out
+
+
+def _skipif_has_reason(call: ast.Call) -> bool:
+    """Whether a ``skipif(...)`` call carries a non-empty ``reason=`` kwarg."""
+    for kw in call.keywords:
+        if kw.arg != "reason":
+            continue
+        # Accept any non-empty string literal. Other expression forms
+        # (f-string, name reference) are accepted as "documented" too —
+        # the spec wants a reason, not specifically a literal.
+        if isinstance(kw.value, ast.Constant):
+            return isinstance(kw.value.value, str) and bool(kw.value.value.strip())
+        return True
+    return False
+
+
+@pytest.mark.requirement("L3-DEP-002")
+def test_skipif_decorators_carry_documented_reason() -> None:
+    """L3-DEP-002: every ``@pytest.mark.skipif(...)`` SHALL declare ``reason=``.
+
+    Walks every test file, finds every skipif decorator, and asserts
+    the call has a non-empty ``reason=`` keyword argument. Reports the
+    file + line + decorator source for any violation so a fix is a
+    one-line edit.
+    """
+    violations: list[str] = []
+    for path in _iter_test_files():
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError:  # pragma: no cover — defensive
+            continue
+        for lineno, call in _skipif_calls(tree):
+            if not _skipif_has_reason(call):
+                violations.append(f"{path}:{lineno}: skipif() missing non-empty reason= kwarg")
+    assert not violations, "L3-DEP-002 violations — every skipif must document why:\n" + "\n".join(
+        violations
     )

@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **23 — deployment polish** (commits `2e5cdbb` + `7bae9da`); closes **all three L1-DEP-***: `L1-DEP-001` (cross-platform portability), `L1-DEP-002` (systemd + NSSM), `L1-DEP-003` (Poetry packaging). The two-commit shape: the first commit landed the seven planned steps (Draft → Partially/Implemented for L1-DEP-002 + L1-DEP-003); the audit follow-up commit closed the four L3 gaps that L1-DEP-001 still needed (`L3-DEP-001` CI matrix, `L3-DEP-002` skipif convention, `L3-DEP-004` path-separator scanner, `L3-DEP-011` shutdown event + UNAVAILABLE). Highlights: systemd-unit + NSSM-README + Windows install-demo conformance, graceful-shutdown integration tests, CLI smoke + LF/CRLF tests, pyproject + poetry.lock conformance, `EnvironmentFile=-` operator passthrough, architecture-boundary + pathlib stubs replaced with real AST scanners, an L3-DEP-011 integration test that exercises real `grpc.aio.Server.stop` + asserts new RPCs receive UNAVAILABLE during the grace window, and a real bug fix (pyproject's `[tool.poetry.scripts]` entry pointed at a non-existent module). Prior: **20d (partial) — `/metrics` scrape endpoint** (`4517ba8`); **22 — error-mapping + servicer tests** (`4c59b4a`); **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
+Last full increment merged: **26e — L1-CICD trace-matrix closure** (commit `af59b43`); closes Cluster 26 by promoting all seven L1-CICD requirements from Draft / Partially Implemented to Implemented. Discovered during the readiness audit that ran after Increment 23: the cluster-26 implementation (workflow YAML, `--check` mode, hygiene audit) had landed but the L3-CICD inspection tests + `@pytest.mark.requirement` markers were missing. Pure marker plumbing + 13 small inspection tests covering canonical workflow filename, matrix shape, bare pytest invocation, triggers, pre-commit invocation + pinned revs, artifact upload shape, provenance log, retention-days, coverage-gate addopts, lockfile reproducibility, and the lockfile-not-exempt-from-large-files check. Prior: **23 — deployment polish** (commits `2e5cdbb` + `7bae9da`); closed all three L1-DEP-* via systemd / NSSM / Windows install-demo conformance, graceful-shutdown integration tests, CLI smoke + LF/CRLF tests, pyproject + poetry.lock conformance, architecture-boundary + pathlib AST scanners, an L3-DEP-011 integration test asserting new RPCs receive UNAVAILABLE during the gRPC stop grace window, plus a real bug fix (pyproject's `[tool.poetry.scripts]` pointed at a non-existent module). Earlier: **20d (partial) — `/metrics` scrape endpoint** (`4517ba8`); **22 — error-mapping + servicer tests** (`4c59b4a`); **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -17,7 +17,7 @@ Done:
 
 - **Cluster 14 (sweeper hardening + test isolation)** — 14a `04a88dc`, 14b.1 `460d127`, 14b.2 `7c33c87`, 14b.3 `3b48d38`, 14b.4 `5456f2e`, 14c.1 `9b28e2b`, 14c.2 `3fd0673`, 14d `4b24818`, 14e `fb54f98`, 14f `1cdfc3d`, 14h `1b14b92`. 14g superseded by 25a; 14c.3 obviated by 14b's post-transition fetch.
 - **Cluster 25 (requirements spec cleanup)** — 25a `1f26f2f`, 25b `eb5f537`, 25c `c5b9854`, 25d `3f45426`, 25e `d67539a`, 25f `5614aa8`, 25g `2406dd1`.
-- **Cluster 26 (CI/CD requirements + workflows)** — 26a `220c1d5`, 26b `c22ebc9`, 26c `f99f795`, 26d `aa6550c`.
+- **Cluster 26 (CI/CD requirements + workflows)** — 26a `220c1d5`, 26b `c22ebc9`, 26c `f99f795`, 26d `aa6550c`, 26e `af59b43`. Cluster fully closed: all seven L1-CICD now Implemented.
 - **Increment 15** — Prometheus metrics adapter (`fe5c3a4`).
 - **Increment 16** — Local-account auth adapter, Argon2 + sessions (`7ede66c`).
 - **Increment 17** — FastAPI app factory + bootstrap wiring (`aa3902e`).
@@ -35,7 +35,6 @@ Done:
 
 Still open:
 
-- **Increment 26e** — L1-CICD trace-matrix closure. Cluster 26's implementation work (26a-d) is done, but the L1-CICD-002/003/004/006/007 entries still show Draft / Partially Implemented in the trace matrix because most L3-CICD children lack `@pytest.mark.requirement(...)` markers / inspection tests. Same shape as the L1-DEP-001 audit follow-up that landed inside Increment 23 (`7bae9da`). Marker plumbing + a small set of inspection tests.
 - **Increment 27** — UoW serialization fix. Real bug discovered during the 23 audit: `SqliteUnitOfWorkFactory` shares one aiosqlite connection across all UoWs but has no mutex, despite the docstring's false claim of one. Concurrent UoW openings produce `cannot start a transaction within a transaction`. Surfaces intermittently as a flake in `tests/e2e/orphan_path/`; the underlying production risk is concurrent gRPC + sweeper traffic causing sporadic `PersistenceError` 500s. Add an `asyncio.Lock` around BEGIN/COMMIT.
 - **Increment 24** — Documentation deliverables (release-gating). Two ADRs (SQLite-for-in-flight-state, hexagonal-boundary), operator runbook, pipeline integration guide, promote `tests/README.md` to formal test strategy. Increment 20d's remainder lives as deferred work in `R-DASH-004`.
 
@@ -405,7 +404,7 @@ Implements **L1-CICD-004** specifically. `scripts/build-trace-matrix.py` gains a
 
 Implements **L1-CICD-001 / L1-CICD-005** specifically. Audit `pyproject.toml`'s `filterwarnings` (currently has `"error"` plus a Google-deprecation ignore) for completeness. Verify `.gitignore` includes `.pytest_tmp/` (likely already does — confirm). Run the suite on Windows with `-W error::ResourceWarning -W error::DeprecationWarning` and fix anything that surfaces. The recent Windows-event-loop work (`tests/conftest.py::_NoImplicitEventLoopPolicy`) suggests this surface is already partly clean, but a deliberate pass is worthwhile.
 
-### Increment 26e — L1-CICD trace-matrix closure
+### Increment 26e — L1-CICD trace-matrix closure  *(✅ done — commit `af59b43`)*
 
 **Problem (traceability, not feature work)**
 

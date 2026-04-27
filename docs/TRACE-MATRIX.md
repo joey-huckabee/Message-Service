@@ -442,33 +442,33 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-CICD-001 | L2-CICD-001, L2-CICD-002, L2-CICD-003 | Partially Implemented |
-| L1-CICD-002 | L2-CICD-004, L2-CICD-005 | Draft |
-| L1-CICD-003 | L2-CICD-006, L2-CICD-007 | Draft |
-| L1-CICD-004 | L2-CICD-008, L2-CICD-009 | Draft |
-| L1-CICD-005 | L2-CICD-010, L2-CICD-011 | Partially Implemented |
-| L1-CICD-006 | L2-CICD-012, L2-CICD-013 | Draft |
-| L1-CICD-007 | L2-CICD-014, L2-CICD-015 | Draft |
+| L1-CICD-001 | L2-CICD-001, L2-CICD-002, L2-CICD-003 | Implemented |
+| L1-CICD-002 | L2-CICD-004, L2-CICD-005 | Implemented |
+| L1-CICD-003 | L2-CICD-006, L2-CICD-007 | Implemented |
+| L1-CICD-004 | L2-CICD-008, L2-CICD-009 | Implemented |
+| L1-CICD-005 | L2-CICD-010, L2-CICD-011 | Implemented |
+| L1-CICD-006 | L2-CICD-012, L2-CICD-013 | Implemented |
+| L1-CICD-007 | L2-CICD-014, L2-CICD-015 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-CICD-001 | L3-CICD-001, L3-CICD-002, L3-CICD-003 | _(TBD)_ | Draft |
+| L2-CICD-001 | L3-CICD-001, L3-CICD-002, L3-CICD-003 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_lives_at_canonical_path`<br>`tests/conformance/test_deploy_artifacts.py::test_ci_workflow_matrix_shape`<br>`tests/conformance/test_deploy_artifacts.py::test_ci_workflow_pytest_invocation_is_bare` | Implemented |
 | L2-CICD-002 | L3-CICD-004 | `tests/conformance/test_filterwarnings_policy.py::test_filterwarnings_allow_list_is_small`<br>`tests/conformance/test_filterwarnings_policy.py::test_filterwarnings_starts_with_error` | Implemented |
-| L2-CICD-003 | L3-CICD-005 | _(TBD)_ | Draft |
-| L2-CICD-004 | L3-CICD-006 | _(TBD)_ | Draft |
-| L2-CICD-005 | L3-CICD-007 | _(TBD)_ | Draft |
-| L2-CICD-006 | L3-CICD-008 | _(TBD)_ | Draft |
-| L2-CICD-007 | L3-CICD-009 | _(TBD)_ | Draft |
-| L2-CICD-008 | L3-CICD-010, L3-CICD-011 | _(TBD)_ | Draft |
-| L2-CICD-009 | L3-CICD-012 | _(TBD)_ | Draft |
-| L2-CICD-010 | L3-CICD-013 | _(TBD)_ | Draft |
+| L2-CICD-003 | L3-CICD-005 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_triggers` | Implemented |
+| L2-CICD-004 | L3-CICD-006 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_runs_precommit_with_show_diff` | Implemented |
+| L2-CICD-005 | L3-CICD-007 | `tests/conformance/test_deploy_artifacts.py::test_precommit_hooks_pinned_to_tagged_releases` | Implemented |
+| L2-CICD-006 | L3-CICD-008 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_pytest_addopts_pins_coverage_floor` | Implemented |
+| L2-CICD-007 | L3-CICD-009 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_artifact_upload_shape` | Implemented |
+| L2-CICD-008 | L3-CICD-010, L3-CICD-011 | `tests/conformance/test_trace_matrix_check_mode.py::test_check_clean_exits_zero`<br>`tests/conformance/test_trace_matrix_check_mode.py::test_no_args_regenerates` | Implemented |
+| L2-CICD-009 | L3-CICD-012 | `tests/conformance/test_trace_matrix_check_mode.py::test_consistent_matrix_has_no_violations`<br>`tests/conformance/test_trace_matrix_check_mode.py::test_falsely_drafted_parent_is_violation`<br>`tests/conformance/test_trace_matrix_check_mode.py::test_falsely_promoted_parent_is_violation`<br>`tests/conformance/test_trace_matrix_check_mode.py::test_l1_with_direct_artifacts_promotes_all_draft_to_partial`<br>`tests/conformance/test_trace_matrix_check_mode.py::test_partial_consistent_matrix_has_no_violations`<br>`tests/conformance/test_trace_matrix_rollup.py::test_leaf_with_artifacts_is_implemented`<br>`tests/conformance/test_trace_matrix_rollup.py::test_leaf_without_artifacts_is_draft`<br>`tests/conformance/test_trace_matrix_rollup.py::test_parent_with_all_children_draft_and_no_direct_is_draft`<br>`tests/conformance/test_trace_matrix_rollup.py::test_parent_with_all_children_implemented_is_implemented`<br>`tests/conformance/test_trace_matrix_rollup.py::test_parent_with_all_draft_but_direct_artifacts_is_partial`<br>`tests/conformance/test_trace_matrix_rollup.py::test_parent_with_mix_of_impl_and_draft_is_partial`<br>`tests/conformance/test_trace_matrix_rollup.py::test_parent_with_one_child_implemented_does_not_falsely_promote`<br>`tests/conformance/test_trace_matrix_rollup.py::test_parent_with_partial_child_is_partial` | Implemented |
+| L2-CICD-010 | L3-CICD-013 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_pytest_addopts_contains_basetemp` | Implemented |
 | L2-CICD-011 | L3-CICD-014 | `tests/conformance/test_gitignore_hygiene.py::test_pytest_tmp_is_explicitly_ignored` | Implemented |
-| L2-CICD-012 | _(none)_ | _(TBD)_ | Draft |
-| L2-CICD-013 | L3-CICD-015 | _(TBD)_ | Draft |
-| L2-CICD-014 | L3-CICD-016 | _(TBD)_ | Draft |
-| L2-CICD-015 | L3-CICD-017 | _(TBD)_ | Draft |
+| L2-CICD-012 | _(none)_ | `tests/conformance/test_deploy_artifacts.py::test_check_added_large_files_does_not_exempt_lockfile` | Implemented |
+| L2-CICD-013 | L3-CICD-015 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_runs_poetry_check_lock` | Implemented |
+| L2-CICD-014 | L3-CICD-016 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_provenance_log_present` | Implemented |
+| L2-CICD-015 | L3-CICD-017 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_artifact_retention_days_explicit` | Implemented |
 
 ---
 
@@ -491,10 +491,10 @@ the single source of truth.
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
-| CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **67** | **192** | **373** | **58** | **177** |
+| CICD | 7 | 15 | 17 | 1 | 17 |
+| **Total** | **67** | **192** | **373** | **59** | **192** |
 
-**Requirements verified by at least one test**: 235 of 565 (41.6%).
+**Requirements verified by at least one test**: 251 of 565 (44.4%).
 
 ### Orphan check
 

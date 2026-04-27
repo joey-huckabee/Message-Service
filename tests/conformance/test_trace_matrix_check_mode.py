@@ -1,6 +1,6 @@
 """Conformance: ``build-trace-matrix.py --check`` exit-code contract.
 
-Pins the four exit codes per L3-CICD-011 / L3-CICD-012:
+Pins the four exit codes per L3-CICD-010 / L3-CICD-011 / L3-CICD-012:
 
 * **0** — clean (committed matrix matches regenerated; rollups consistent)
 * **1** — byte-diff against the committed file
@@ -10,11 +10,12 @@ Pins the four exit codes per L3-CICD-011 / L3-CICD-012:
 The script is loaded via importlib spec because its filename uses
 hyphens (CLI convention), making normal imports impossible.
 
-These tests verify the CI traceability gate (L1-CICD-004); they will
-be tagged with the appropriate ``@pytest.mark.requirement`` markers
-once L1-CICD-004's verification artifacts are wired up — for now they
-remain unmarked, mirroring the pattern from
-``test_trace_matrix_rollup.py``.
+Requirement references
+----------------------
+L1-CICD-004 (traceability gate)
+L3-CICD-010 (--check accepted; no required positional args)
+L3-CICD-011 (--check exit codes 0/1/2)
+L3-CICD-012 (--check exit code 3 for rollup inconsistency; offending ids listed)
 """
 
 from __future__ import annotations
@@ -77,6 +78,7 @@ def _markers_justifying(l2_statuses: list[tuple[str, str]]) -> dict[str, list[st
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-CICD-012")
 def test_consistent_matrix_has_no_violations() -> None:
     """All-Implemented children + Implemented parent → zero violations."""
     l2s = [("L2-API-001", "Implemented"), ("L2-API-002", "Implemented")]
@@ -87,6 +89,7 @@ def test_consistent_matrix_has_no_violations() -> None:
     assert violations == []
 
 
+@pytest.mark.requirement("L3-CICD-012")
 def test_partial_consistent_matrix_has_no_violations() -> None:
     """Mix of Implemented + Draft → parent must be Partially Implemented."""
     l2s = [("L2-API-001", "Implemented"), ("L2-API-002", "Draft")]
@@ -97,6 +100,7 @@ def test_partial_consistent_matrix_has_no_violations() -> None:
     assert violations == []
 
 
+@pytest.mark.requirement("L3-CICD-012")
 def test_falsely_promoted_parent_is_violation() -> None:
     """A parent claiming Implemented while a child is Draft is the
     pre-25a bug class — verify_rollup_consistency must catch it."""
@@ -113,6 +117,7 @@ def test_falsely_promoted_parent_is_violation() -> None:
     assert "Partially Implemented" in violations[0]
 
 
+@pytest.mark.requirement("L3-CICD-012")
 def test_falsely_drafted_parent_is_violation() -> None:
     """A parent claiming Draft while a child is Implemented is also a
     rollup violation — the rule cuts both directions."""
@@ -125,6 +130,7 @@ def test_falsely_drafted_parent_is_violation() -> None:
     assert "L1-API-001" in violations[0]
 
 
+@pytest.mark.requirement("L3-CICD-012")
 def test_l1_with_direct_artifacts_promotes_all_draft_to_partial() -> None:
     """When test_markers shows direct evidence on the L1 id, all-Draft
     children should yield Partially Implemented — not Draft. Verify that
@@ -154,6 +160,7 @@ def script_path() -> Path:
     return _SCRIPT
 
 
+@pytest.mark.requirement("L3-CICD-011")
 def test_check_clean_exits_zero(script_path: Path) -> None:
     """Against the live committed matrix, --check exits 0.
 
@@ -174,6 +181,7 @@ def test_check_clean_exits_zero(script_path: Path) -> None:
     )
 
 
+@pytest.mark.requirement("L3-CICD-010")
 def test_no_args_regenerates(script_path: Path, tmp_path: Path) -> None:
     """No args → write mode (regeneration). Verified by patching
     TRACE_DOC to a tmp path and checking the file gets created."""

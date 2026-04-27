@@ -324,7 +324,7 @@ the single source of truth.
 | L2-PERS-007 | L3-PERS-012, L3-PERS-023 | _(TBD)_ | Draft |
 | L2-PERS-008 | L3-PERS-013, L3-PERS-014, L3-PERS-024 | `tests/integration/persistence/filesystem/test_report_store.py::test_read_email_body_returns_none_for_absent_run`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_email_body_round_trips_saved_bytes`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_fragment_returns_none_for_absent_stage`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_fragment_returns_none_for_unrelated_run`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_fragment_round_trips_saved_bytes`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_wraps_oserror_in_persistence_error`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_audit_log_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_io_bound_ports_use_async_def`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_mailer_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_abstract_and_specable`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_mockable_with_spec`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_methods_are_fully_annotated`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_run_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_stage_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_subscription_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_tag_vocabulary_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_template_repository_exposes_expected_methods`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_read_email_body_returns_none`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_read_fragment_returns_none`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_save_email_body_is_silent`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_save_fragment_is_silent`<br>`tests/unit/application/ports/test_report_store.py::test_report_store_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_report_store.py::test_report_store_is_specifiable_via_magicmock`<br>`tests/unit/application/ports/test_report_store.py::test_report_store_method_is_abstract`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_failed_delivery_does_not_save_email_body`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_persistence_error_during_save_is_swallowed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sent_path_saves_assembled_email_body`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sent_path_saves_each_rendered_fragment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_zero_recipient_path_still_saves_email_body`<br>`tests/unit/bootstrap/test_service.py::test_report_store_is_filesystem_adapter` | Implemented |
 | L2-PERS-009 | L3-PERS-015 | _(TBD)_ | Draft |
-| L2-PERS-010 | L3-PERS-016, L3-PERS-017 | _(TBD)_ | Draft |
+| L2-PERS-010 | L3-PERS-016, L3-PERS-017 | `tests/conformance/test_architecture_boundaries.py::test_application_does_not_import_infrastructure_or_interfaces`<br>`tests/conformance/test_architecture_boundaries.py::test_domain_does_not_import_infrastructure_or_interfaces` | Partially Implemented |
 | L2-PERS-011 | _(none)_ | _(TBD)_ | Draft |
 | L2-PERS-012 | _(none)_ | _(TBD)_ | Draft |
 | L2-PERS-013 | _(none)_ | _(TBD)_ | Draft |
@@ -419,22 +419,22 @@ the single source of truth.
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-DEP-001 | L2-DEP-001, L2-DEP-002, L2-DEP-003 | Partially Implemented |
-| L1-DEP-002 | L2-DEP-004, L2-DEP-005, L2-DEP-006 | Partially Implemented |
-| L1-DEP-003 | L2-DEP-007, L2-DEP-008, L2-DEP-009 | Draft |
+| L1-DEP-002 | L2-DEP-004, L2-DEP-005, L2-DEP-006 | Implemented |
+| L1-DEP-003 | L2-DEP-007, L2-DEP-008, L2-DEP-009 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-DEP-001 | L3-DEP-001, L3-DEP-002, L3-DEP-017 | _(TBD)_ | Draft |
-| L2-DEP-002 | L3-DEP-003, L3-DEP-004 | _(TBD)_ | Draft |
-| L2-DEP-003 | L3-DEP-005, L3-DEP-018 | _(TBD)_ | Draft |
-| L2-DEP-004 | L3-DEP-006, L3-DEP-007 | _(TBD)_ | Draft |
-| L2-DEP-005 | L3-DEP-008, L3-DEP-009 | _(TBD)_ | Draft |
-| L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012 | `tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg` | Partially Implemented |
-| L2-DEP-007 | L3-DEP-013 | _(TBD)_ | Draft |
-| L2-DEP-008 | L3-DEP-014 | _(TBD)_ | Draft |
-| L2-DEP-009 | L3-DEP-015, L3-DEP-016 | _(TBD)_ | Draft |
+| L2-DEP-001 | L3-DEP-001, L3-DEP-002, L3-DEP-017 | `tests/integration/test_cli_smoke.py::test_config_lf_and_crlf_produce_equivalent_objects`<br>`tests/integration/test_cli_smoke.py::test_config_loads_identically_with_crlf_line_endings`<br>`tests/integration/test_cli_smoke.py::test_config_loads_identically_with_lf_line_endings` | Partially Implemented |
+| L2-DEP-002 | L3-DEP-003, L3-DEP-004 | `tests/conformance/test_pathlib_enforcement.py::test_ruff_pth_not_globally_ignored`<br>`tests/conformance/test_pathlib_enforcement.py::test_ruff_pth_ruleset_enabled` | Partially Implemented |
+| L2-DEP-003 | L3-DEP-005, L3-DEP-018 | `tests/conformance/test_architecture_boundaries.py::test_domain_and_application_do_not_import_platform_modules` | Implemented |
+| L2-DEP-004 | L3-DEP-006, L3-DEP-007 | `tests/conformance/test_deploy_artifacts.py::test_systemd_unit_environmentfile_passthrough`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_includes_runtime_directive`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_includes_sandboxing_directive`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_readwritepaths_not_empty` | Implemented |
+| L2-DEP-005 | L3-DEP-008, L3-DEP-009 | `tests/conformance/test_deploy_artifacts.py::test_nssm_readme_documents_required_command`<br>`tests/conformance/test_deploy_artifacts.py::test_windows_install_demo_has_required_sections` | Implemented |
+| L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012 | `tests/unit/test_main.py::test_install_signal_handlers_falls_back_when_add_signal_handler_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_registers_sigterm_and_sigint`<br>`tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg`<br>`tests/unit/test_main.py::test_run_propagates_shutdown_grace_period_to_grpc_stop`<br>`tests/unit/test_main.py::test_run_starts_server_and_shuts_down_on_event` | Implemented |
+| L2-DEP-007 | L3-DEP-013 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_python_version_constraint` | Implemented |
+| L2-DEP-008 | L3-DEP-014 | `tests/conformance/test_deploy_artifacts.py::test_poetry_lock_is_committed` | Implemented |
+| L2-DEP-009 | L3-DEP-015, L3-DEP-016 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_console_script_entry`<br>`tests/integration/test_cli_smoke.py::test_message_service_cli_help_exits_zero_with_config_in_output` | Implemented |
 
 ### L1-CICD: Continuous integration and delivery
 
@@ -486,15 +486,15 @@ the single source of truth.
 | AUTH | 3 | 9 | 17 | 5 | 12 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
-| PERS | 4 | 13 | 26 | 2 | 11 |
+| PERS | 4 | 13 | 26 | 2 | 12 |
 | OBS | 4 | 18 | 38 | 2 | 17 |
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
-| DEP | 3 | 9 | 18 | 1 | 0 |
+| DEP | 3 | 9 | 18 | 1 | 15 |
 | CICD | 7 | 15 | 17 | 0 | 2 |
-| **Total** | **67** | **192** | **373** | **58** | **158** |
+| **Total** | **67** | **192** | **373** | **58** | **174** |
 
-**Requirements verified by at least one test**: 216 of 565 (38.2%).
+**Requirements verified by at least one test**: 232 of 565 (41.1%).
 
 ### Orphan check
 

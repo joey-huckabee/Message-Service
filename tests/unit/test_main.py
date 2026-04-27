@@ -168,10 +168,13 @@ def test_resolve_config_path_errors_when_both_missing() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-DEP-001")
+@pytest.mark.requirement("L3-DEP-011")
 @pytest.mark.allow_io
 async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None:
-    """``_run`` SHALL start a gRPC server, await the shutdown event, and
-    tear everything down cleanly."""
+    """L3-DEP-011: shutdown SHALL be driven by an `asyncio.Event` that
+    `_run` blocks on; setting it returns control cleanly to the caller.
+    Also exercises the L1-DEP-001 dual-platform startup invariant.
+    """
     # Choose a port unlikely to collide with other tests.
     cfg_path = _write_config(tmp_path, grpc_port=55090, dashboard_port=58090)
     config = load_config(cfg_path)
@@ -268,3 +271,122 @@ def test_main_with_missing_config_arg_exits_via_argparse() -> None:
         os.environ.pop("MESSAGE_SERVICE_CONFIG", None)
         with pytest.raises(SystemExit):
             main([])
+
+
+# -----------------------------------------------------------------------------
+# Signal handler installation (L3-DEP-010)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DEP-010")
+async def test_install_signal_handlers_registers_sigterm_and_sigint() -> None:
+    """L3-DEP-010: SIGTERM and SIGINT SHALL be installed, dispatching by
+    platform between `loop.add_signal_handler` (POSIX) and
+    `signal.signal` (Windows).
+
+    On POSIX this SHALL succeed via `add_signal_handler`. On Windows
+    `add_signal_handler` raises NotImplementedError; the fallback
+    `signal.signal(...)` path is exercised. Either way, the call
+    SHALL NOT raise.
+    """
+    from message_service.__main__ import _install_signal_handlers
+
+    event = asyncio.Event()
+    # Should not raise on either platform.
+    _install_signal_handlers(event)
+    # The event SHALL still be unset (handlers don't fire just from
+    # registration).
+    assert not event.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DEP-010")
+async def test_install_signal_handlers_falls_back_when_add_signal_handler_unavailable() -> None:
+    """L3-DEP-010: when `add_signal_handler` raises NotImplementedError
+    (the Windows path), `signal.signal` SHALL be used instead.
+
+    Mocks `loop.add_signal_handler` to always raise so the fallback
+    fires regardless of host platform; verifies `signal.signal` was
+    called for both SIGTERM and SIGINT.
+    """
+    import signal as _signal
+
+    from message_service.__main__ import _install_signal_handlers
+
+    event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    captured_signals: list[int] = []
+
+    def _fake_signal(signum: int, _handler: object) -> object:
+        captured_signals.append(signum)
+        return None
+
+    with (
+        patch.object(loop, "add_signal_handler", side_effect=NotImplementedError),
+        patch.object(_signal, "signal", side_effect=_fake_signal),
+    ):
+        _install_signal_handlers(event)
+
+    # Both SIGTERM and SIGINT SHALL have been registered via the fallback.
+    assert _signal.SIGTERM in captured_signals
+    assert _signal.SIGINT in captured_signals
+
+
+# -----------------------------------------------------------------------------
+# Grace-period bounded shutdown (L3-DEP-012)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DEP-012")
+@pytest.mark.allow_io
+async def test_run_propagates_shutdown_grace_period_to_grpc_stop(
+    tmp_path: Path,
+) -> None:
+    """L3-DEP-012: in-flight gRPC calls SHALL have
+    `service.shutdown_grace_period_seconds` to complete before being
+    force-cancelled.
+
+    The grace value flows through to `grpc_server.stop(grace=...)`.
+    We patch the actual ``grpc.aio._server.Server.stop`` (the
+    runtime class, not the ``grpc.aio.Server`` re-export) to capture
+    the argument and assert the propagation. The actual force-cancel
+    timing on long-running RPCs is exercised by a separate
+    Demonstration per the Verification Method on L2-DEP-006.
+    """
+    from grpc.aio import _server as _grpc_aio_server
+
+    cfg_path = _write_config(tmp_path, grpc_port=55092, dashboard_port=58092)
+    config = load_config(cfg_path)
+    expected_grace = float(config.service.shutdown_grace_period_seconds)
+    assert expected_grace > 0  # sanity
+
+    captured_graces: list[float] = []
+    real_stop = _grpc_aio_server.Server.stop
+
+    async def _capturing_stop(self: _grpc_aio_server.Server, grace: float | None) -> None:
+        captured_graces.append(grace if grace is not None else -1.0)
+        # Pass through to the real stop so the server actually shuts down.
+        await real_stop(self, grace=0)
+
+    shutdown = asyncio.Event()
+
+    async def trigger() -> None:
+        await asyncio.sleep(0.2)
+        shutdown.set()
+
+    trigger_task = asyncio.create_task(trigger())
+    try:
+        with patch.object(_grpc_aio_server.Server, "stop", new=_capturing_stop):
+            await _run(config, shutdown_event=shutdown)
+    finally:
+        if not trigger_task.done():
+            trigger_task.cancel()
+        await asyncio.sleep(0)
+
+    # `grpc_server.stop` SHALL have been called with the configured grace.
+    assert captured_graces, "grpc_server.stop was never invoked during shutdown"
+    assert captured_graces[0] == expected_grace, (
+        f"expected grace={expected_grace}, got {captured_graces[0]}"
+    )

@@ -9,7 +9,22 @@ Type=exec
 User=message-service
 Group=message-service
 WorkingDirectory=/opt/message-service
+
+# Environment variables.
+#
+# - The inline `Environment=` below pins the path argparse falls
+#   back to when `--config` is absent. The value mirrors the
+#   ExecStart= argument so both code paths agree.
+# - The optional `EnvironmentFile=-` (the leading hyphen makes the
+#   file optional; systemd will not fail-to-start if the path is
+#   absent) lets operators drop credentials and per-host overrides
+#   into a sibling file without editing this unit. Operators
+#   typically place SMTP credentials, OAuth tokens, and any
+#   secret-bearing values in the env-file rather than in the TOML
+#   config, which is committed to the deployment image.
 Environment="MSG_SERVICE_CONFIG=/etc/message-service/config.toml"
+EnvironmentFile=-/etc/message-service/message-service.env
+
 ExecStart=/opt/message-service/.venv/bin/message-service --config /etc/message-service/config.toml
 Restart=on-failure
 RestartSec=5s

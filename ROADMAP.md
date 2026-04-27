@@ -37,6 +37,7 @@ Still open:
 
 - **Increment 27** — UoW serialization fix. Real bug discovered during the 23 audit: `SqliteUnitOfWorkFactory` shares one aiosqlite connection across all UoWs but has no mutex, despite the docstring's false claim of one. Concurrent UoW openings produce `cannot start a transaction within a transaction`. Surfaces intermittently as a flake in `tests/e2e/orphan_path/`; the underlying production risk is concurrent gRPC + sweeper traffic causing sporadic `PersistenceError` 500s. Add an `asyncio.Lock` around BEGIN/COMMIT.
 - **Increment 24** — Documentation deliverables (release-gating). Two ADRs (SQLite-for-in-flight-state, hexagonal-boundary), operator runbook, pipeline integration guide, promote `tests/README.md` to formal test strategy. Increment 20d's remainder lives as deferred work in `R-DASH-004`.
+- **Increment 28** — Runnable demonstration examples. New top-level `examples/` directory containing eight self-contained, fully-documented scenario scripts (hello-world, multi-stage aggregated, per-stage attachments, retry flow, tag routing, orphan detection, manual resend, error recovery) plus shared helpers (`smtp_capture.py`, `service_runner.py`, `expectations.py`). Each scenario has a complete README with verbatim expected output so an unfamiliar user can run it without making assumptions. Recommended slot: with or after 24 — they cross-reference each other.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -702,6 +703,74 @@ Increment 24 is the final v1 release-gating increment. It produces operator/inte
 **Trace impact**: no requirement promotions — Increment 24 is documentation-only. With 23 + 26e + 27 ahead of it, every L1 should already be Implemented.
 
 **Sequencing**: each deliverable can land in a separate commit. Recommended order: (1) Test strategy promotion (smallest, benchmarks the docs/ structure conventions); (2) ADRs (independent, can parallelize); (3) Operator runbook + Integration guide (related but independent). Final commit: tag v1.
+
+### Increment 28 — Runnable demonstration examples
+
+**Problem**
+
+Operators, evaluators, and new contributors lack a hands-on way to see the Message Service end-to-end. After Increment 24 the repo contains the spec docs, the trace matrix, deployment artifacts, ADRs, the operator runbook, and the pipeline-integration guide — but no executable demonstration. A reader who clones the repo cannot answer "what does this thing actually do?" without writing their own gRPC client. Pre-v1 evaluation, training new pipeline integrators, and post-incident "what is the expected behaviour again?" investigations all benefit from a small set of self-contained, fully-documented example scripts that:
+
+- Run on a developer laptop with only the project's existing dependencies (no Docker, no MailHog, no external SMTP server, no internet).
+- Each isolates one capability so cause-and-effect is unambiguous.
+- Include exact expected output (log lines, captured emails, dashboard responses) verbatim, so an unfamiliar user knows when the example "worked" — no judgement calls, no assumptions.
+
+**Work**
+
+1. **`examples/` directory layout.** New top-level `examples/` directory, organized one subdirectory per scenario. Each subdirectory contains:
+   - **`README.md`** — *Prerequisites* (versions, ports), *What this demonstrates* (1-paragraph plain-English answer), *How to run* (exact command, expected duration), *Expected output* (verbatim sample with timestamps and emails redacted only where they would be unique-per-run, e.g. UUIDs replaced with `<run_id>`), *What to look for* (the 3-5 lines that prove it worked), *Cleanup* (whether anything persists, how to reset), *Troubleshooting* (3-5 common failure modes with their fix).
+   - **`config.toml`** — Service config for this scenario. Ports chosen to not collide between scenarios; comments at the top of the file explain what differs from the project default.
+   - **`run.py`** — Orchestrator. Starts the service in a subprocess (`python -m message_service --config ./config.toml`), waits for it to bind, fires the demo's gRPC + HTTP calls, captures SMTP-delivered emails, prints what's happening, then shuts the service down cleanly. Single entry point, no flags needed for the basic run.
+   - **`templates/`** — Jinja2 templates this scenario uses (where applicable; some scenarios reuse defaults).
+   - **`seed/`** — initial seed data: tag vocabulary, user accounts, etc. (where applicable).
+
+2. **Shared helpers under `examples/_lib/`** (single underscore prefix marks "internal to examples", not a Python package boundary):
+   - **`smtp_capture.py`** — wraps `aiosmtpd` to run a local SMTP server on a chosen port, capture every delivered message in memory, and pretty-print messages as the demo runs. Same shape as the e2e test harness uses (`tests/fixtures/email.py`), exposed as a reusable script.
+   - **`service_runner.py`** — context manager that starts `python -m message_service --config <path>` in a subprocess, polls until the gRPC + dashboard ports are bound (TCP-connect probe with timeout), and tears down on context exit. Surfaces stdout/stderr to the parent process so the user sees the service's structured logs interleaved with the demo's own output.
+   - **`pretty.py`** — colorized, timestamped output formatter. Stdlib-only (no `rich`, no `colorama` dependency added). Lines emitted in the form `[12:34:56] Step 3: …`. Optional `--no-color` flag respected via `NO_COLOR` env var.
+   - **`expectations.py`** — small DSL for "wait for log line matching X" / "expect email captured with subject Y" / "expect HTTP response shape Z". Prints a clear ✓/✗ for each expectation. The script exits non-zero if any expectation fails, making the examples runnable as smoke tests too.
+
+3. **Scenario set.** Eight scenario subdirectories, in the order a new user should walk them:
+
+   - **`01-hello-world/`** — single-stage pipeline. BeginRun → one SubmitStageReport → FinalizeRun. One subscriber. One delivered email. The "smoke test" of the service. Expected duration: ~5 seconds.
+   - **`02-multi-stage-aggregated/`** — 4-stage ETL run with `ATTACHMENT_MODE_SINGLE_AGGREGATED`. Each stage submits a different report; the aggregation template combines them into one email body. Demonstrates the L2-AGGR-* combination flow.
+   - **`03-per-stage-attachments/`** — same shape as 02 but `ATTACHMENT_MODE_PER_STAGE`, showing how each stage's report becomes its own attachment on the same email.
+   - **`04-retry-flow/`** — first SubmitStageReport call, then a retry of the same stage with `was_retry=true`. Demonstrates that audit log records both submissions and only the latest counts toward aggregation.
+   - **`05-tag-routing/`** — two subscribers with different tag preferences (one wants `production`, one wants `nightly`). Demonstrates how the run's tags route the email to the right subset of subscribers.
+   - **`06-orphan-detection/`** — start a run, never submit any stages, never finalize. Sweeper config has `run_timeout_seconds=5`. Watch the sweeper transition the run to ORPHANED, emit the audit row, fire the configured `DISCARD_SILENTLY` / `NOTIFY_ADMINS` handlers. Expected duration: ~10 seconds (timeout + poll interval).
+   - **`07-manual-resend/`** — complete a run normally, then trigger a manual resend via `POST /runs/{run_id}/resend` on the dashboard. Demonstrates that the email is re-rendered from the saved Stage context (no re-submission needed).
+   - **`08-error-recovery/`** — call BeginRun with an unknown pipeline, then with an unknown tag, then with malformed `declared_stages`. Demonstrates each error code (`INVALID_ARGUMENT` × 2, `FAILED_PRECONDITION`) coming back through the gRPC channel with the structured `details` payload.
+
+4. **Top-level `examples/README.md`.** Index page that:
+   - Lists each scenario in walk order with its 1-line goal.
+   - Documents the global prerequisites: `poetry install`, port-availability table (`1025` for SMTP capture, `8080` for dashboard, `50051` for gRPC), Python 3.12+, no internet access required.
+   - Documents the shared layout convention (so a reader can predict where to look in any scenario).
+   - States explicitly: "These examples are for understanding, not for production deployment. The configs use simple defaults and the in-process SMTP capture is not a real mail server."
+   - Names the recommended order for an unfamiliar user: 01 → 02 → 06 → 05 → others as desired.
+
+5. **CLI invariants per `run.py`.** Each scenario's runner SHALL:
+   - Use only stdin/stdout/stderr — no GUI, no browser auto-open.
+   - Tolerate Ctrl-C cleanly (cleanup handler closes the subprocess + SMTP capture).
+   - Print a numbered "Step N: doing X" line before each significant action.
+   - Print the captured email body / dashboard response inline after each action so the reader sees cause + effect on the same screen.
+   - Exit code 0 on success, 1 on demo-script failure (any unmet expectation from `expectations.py`).
+   - Be idempotent: running it twice produces the same result. Use a fresh tmp SQLite per run (delete on start).
+   - Complete within 30 seconds for scenarios 01-05 / 07-08, 30 seconds for 06 (orphan timeout dominates).
+
+6. **Verification artifact.** New conformance test `tests/conformance/test_examples_present.py` asserts:
+   - `examples/` directory exists.
+   - Each scenario subdirectory listed in `examples/README.md`'s index actually exists.
+   - Each scenario contains the required files (`README.md`, `run.py`, `config.toml`).
+   - Each `README.md` contains the required headings (`## Prerequisites`, `## What this demonstrates`, `## How to run`, `## Expected output`, `## What to look for`, `## Cleanup`, `## Troubleshooting`).
+   - The shared helpers under `examples/_lib/` exist.
+   - This is inspection-only — does not actually execute the demos in CI (would require SMTP capture + service subprocess + 30+ seconds; not worth the CI spend). The smoke-quality assertion is left to humans running the examples plus the fact that 24's pipeline-integration guide cross-references them.
+
+7. **Optional but recommended:** asciinema-style terminal recordings (`*.cast` files) per scenario, embedded in each scenario README. Defer if `asciinema` isn't already a dev-tooling assumption — animated GIFs or static "expected output" blocks are an acceptable fallback.
+
+**Trace impact**: no requirement re-classification. Examples are documentation-tier deliverables. Sits alongside Increment 24's pipeline-integration guide as user-facing material; together they form the "how to use this service" deck for v1.
+
+**Sequencing**: each scenario can land in a separate commit. Recommended commit order: (1) shared helpers + `examples/_lib/`; (2) scenario 01 (smallest, validates the pattern); (3) scenarios 02 + 03 (attachment-mode pair); (4) scenario 06 (orphan, the most distinctive demo); (5) the remaining four scenarios (04, 05, 07, 08); (6) top-level `examples/README.md`; (7) the conformance test. Could land before or after Increment 24 — independent, but 24's pipeline-integration guide and this increment cross-reference each other, so co-landing them in either order is fine. Final commit: tag v1.
+
+**Effort estimate**: largest of the v1 closing increments by line count (~2,000–3,000 lines of orchestration code + READMEs + templates), but the work is parallelizable per scenario and each scenario is small in isolation. Two week-equivalents from a single developer who already understands the spec.
 
 ### Cross-cutting tradeoffs (refreshed 2026-04-25)
 

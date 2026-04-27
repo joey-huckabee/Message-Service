@@ -35,7 +35,9 @@ Done:
 
 Still open:
 
-- **Increment 24** — Documentation deliverables (release-gating). Increment 20d's remainder lives as deferred work in `R-DASH-004`.
+- **Increment 26e** — L1-CICD trace-matrix closure. Cluster 26's implementation work (26a-d) is done, but the L1-CICD-002/003/004/006/007 entries still show Draft / Partially Implemented in the trace matrix because most L3-CICD children lack `@pytest.mark.requirement(...)` markers / inspection tests. Same shape as the L1-DEP-001 audit follow-up that landed inside Increment 23 (`7bae9da`). Marker plumbing + a small set of inspection tests.
+- **Increment 27** — UoW serialization fix. Real bug discovered during the 23 audit: `SqliteUnitOfWorkFactory` shares one aiosqlite connection across all UoWs but has no mutex, despite the docstring's false claim of one. Concurrent UoW openings produce `cannot start a transaction within a transaction`. Surfaces intermittently as a flake in `tests/e2e/orphan_path/`; the underlying production risk is concurrent gRPC + sweeper traffic causing sporadic `PersistenceError` 500s. Add an `asyncio.Lock` around BEGIN/COMMIT.
+- **Increment 24** — Documentation deliverables (release-gating). Two ADRs (SQLite-for-in-flight-state, hexagonal-boundary), operator runbook, pipeline integration guide, promote `tests/README.md` to formal test strategy. Increment 20d's remainder lives as deferred work in `R-DASH-004`.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -403,6 +405,24 @@ Implements **L1-CICD-004** specifically. `scripts/build-trace-matrix.py` gains a
 
 Implements **L1-CICD-001 / L1-CICD-005** specifically. Audit `pyproject.toml`'s `filterwarnings` (currently has `"error"` plus a Google-deprecation ignore) for completeness. Verify `.gitignore` includes `.pytest_tmp/` (likely already does — confirm). Run the suite on Windows with `-W error::ResourceWarning -W error::DeprecationWarning` and fix anything that surfaces. The recent Windows-event-loop work (`tests/conftest.py::_NoImplicitEventLoopPolicy`) suggests this surface is already partly clean, but a deliberate pass is worthwhile.
 
+### Increment 26e — L1-CICD trace-matrix closure
+
+**Problem (traceability, not feature work)**
+
+Cluster 26's increments (26a/b/c/d) authored the L1-CICD requirements category, shipped the workflow YAML, implemented the trace-matrix `--check` mode, and ran the cross-platform pytest hygiene audit. The *implementation* is complete. But the *trace matrix* still shows L1-CICD-002 / L1-CICD-003 / L1-CICD-004 / L1-CICD-006 / L1-CICD-007 as **Draft**, and L1-CICD-001 / L1-CICD-005 as **Partially Implemented** — because most L3-CICD children are Verification-by-Inspection statements that lack `@pytest.mark.requirement(...)` tagged conformance tests, and the trace-matrix-check tests in `tests/conformance/test_trace_matrix_check_mode.py` and `test_trace_matrix_rollup.py` deliberately omitted markers (the file's docstring says markers were deferred "once L1-CICD-004's verification artifacts are wired up").
+
+This is the same shape as the L1-DEP-001 gap closed in Increment 23's audit follow-up (`7bae9da`): code done, traceability plumbing missing.
+
+**Work**
+
+1. Add `@pytest.mark.requirement` markers to existing tests in `tests/conformance/test_trace_matrix_check_mode.py` (L3-CICD-010 / L3-CICD-011) and `tests/conformance/test_trace_matrix_rollup.py` (L3-CICD-012). Pure marker plumbing — closes L1-CICD-004.
+2. Add inspection-style conformance tests for the workflow-YAML / pre-commit / pyproject directives that are Verification: I — L3-CICD-001 (workflow filename), L3-CICD-002 (matrix shape and `fail-fast: false`), L3-CICD-003 (full-suite invocation), L3-CICD-005 (push / pull_request / schedule triggers), L3-CICD-006 (pre-commit invocation with `--show-diff-on-failure`), L3-CICD-007 (pinned `rev:` in `.pre-commit-config.yaml`), L3-CICD-009 (artifact upload shape with `coverage-${{matrix.os}}-...` name), L3-CICD-013 (`--basetemp=.pytest_tmp` literal in pyproject `addopts`), L3-CICD-016 (provenance log shape: `provenance: sha=... os=... python=... trigger=... ts=...`), L3-CICD-017 (`retention-days: 30`). Most slot into `tests/conformance/test_deploy_artifacts.py` extending the existing `ci_workflow_text` fixture; `.pre-commit-config.yaml` gets its own fixture; pyproject already has one.
+3. Add tests for the Verification: T statements that aren't yet covered: L3-CICD-008 (coverage gate enforced via pyproject `[tool.pytest.ini_options] addopts` containing `--cov-fail-under=<N>`), L3-CICD-015 (CI workflow runs `poetry check --lock`).
+
+**Trace impact**: L1-CICD-001 / L1-CICD-002 / L1-CICD-003 / L1-CICD-004 / L1-CICD-005 / L1-CICD-006 / L1-CICD-007 all promoted Partially Implemented / Draft → Implemented. Cluster 26 fully closed.
+
+**Sequencing**: pure marker plumbing + a focused set of inspection tests. One commit. Land before Increment 24 so the v1 release tag has a fully clean trace matrix.
+
 ---
 
 ### Increment 15 — Prometheus metrics adapter  *(✅ done — commit `fe5c3a4`)*
@@ -637,12 +657,52 @@ Out of scope (kept narrow per the original "deployment polish" framing):
 
 - A minimal `.github/workflows/ci.yaml` was already substantial after Cluster 26 — no further work needed in this increment.
 
+### Increment 27 — UoW serialization fix
+
+**Problem (correctness, not just traceability)**
+
+`SqliteUnitOfWorkFactory` (`src/message_service/infrastructure/persistence/unit_of_work.py:247`) shares a single `aiosqlite.Connection` across all UoW instances it produces. The factory's docstring at line 12 claims:
+
+> Because the connection is shared, only one UoW may be active at a time; concurrent requests will queue at the BEGIN boundary via the connection's internal lock
+
+**This is false.** There is no mutex. When two coroutines concurrently enter UoW context, both call `await conn.execute("BEGIN")`. The second BEGIN executes against a connection already in a transaction state and fails with `sqlite3.OperationalError: cannot start a transaction within a transaction` (raised at `unit_of_work.py:135` and wrapped as `PersistenceError`).
+
+The bug is masked in most tests (no concurrent UoW openings) but surfaces intermittently in `tests/e2e/orphan_path/test_sweeper_disposes_orphan.py` because the sweeper-loop tick runs `_tick_once` and `_dispatch_drain` on the same poll iteration — both open UoWs against the same shared connection. The test currently mitigates by starting the sweeper loop AFTER the BeginRun's UoW completes, but this only prevents one of the race orderings; the loop's own internal phases still race against each other every poll interval.
+
+This is an availability bug under load: a misbehaving pipeline driving concurrent gRPC traffic + the sweeper running its normal cadence will produce sporadic `PersistenceError` 500s and orphan-path delays in production. The orphan-path e2e flake is the visible symptom; the underlying production risk is the actual reason to fix it.
+
+**Work**
+
+1. Add an `asyncio.Lock` to `SqliteUnitOfWorkFactory`. Construct lazily on first `__call__` (so the factory remains event-loop-agnostic at construction — bootstrap may run before the running loop is established). Pass the lock into each `SqliteUnitOfWork` instance.
+2. In `SqliteUnitOfWork.__aenter__`: `await self._lock.acquire()` BEFORE `await self._conn.execute("BEGIN")`. In `__aexit__`, `commit()`, and `rollback()`: release the lock in `try/finally`. Ensure the lock is released exactly once even when commit fails after rollback also fails.
+3. Update the misleading docstring at `unit_of_work.py:12` to describe the actual serialization mechanism (asyncio.Lock around BEGIN/COMMIT) rather than the false "via the connection's internal lock" claim.
+4. New test file `tests/integration/persistence/test_unit_of_work_concurrency.py`: spawn two concurrent `async with factory()` blocks doing nontrivial work; assert no `PersistenceError("cannot start a transaction within a transaction")` is raised, both transactions commit. Verify the test is meaningful by temporarily removing the lock and confirming it fails.
+5. Loop the orphan-path e2e test 10× consecutively to verify the flake is gone (`for i in $(seq 1 10); do poetry run pytest tests/e2e/orphan_path/ --no-cov -x; done`).
+6. Document the change in `tests/e2e/orphan_path/test_sweeper_disposes_orphan.py` — remove the comment about the "race" mitigation now that the underlying bug is fixed; the workaround can stay (start-after-BeginRun) for clarity, but the rationale needs updating.
+
+**Trace impact**: no requirement re-classification — this is implementation correctness, not traceability. Stabilizes the orphan-path e2e test (currently the only known flake) and removes a real production bug.
+
+**Sequencing**: small surgical change (~30 lines + one test file + docstring fix). Land before Increment 24 so the v1 release tag has a clean test suite. Could land before or after 26e — they don't conflict.
+
 ### Increment 24 — Documentation deliverables (release-gating)
 
-- Promote `tests/README.md` into the formal **Test strategy document** listed in Part 2.
-- First two ADRs into `docs/adr/`: SQLite-for-in-flight-state, hexagonal boundary enforcement.
-- **Operator runbook** + **Pipeline integration guide** drafts.
-- All four are explicit Part 2 items; tagging v1 should retire them.
+**Problem**
+
+Increment 24 is the final v1 release-gating increment. It produces operator/integrator-facing documentation and the first two ADRs. The original ROADMAP entry listed four bullet items; with Increments 23 + 26e + 27 closing all v1 trace-matrix and stability gaps, this is the last work before the v1 release tag, so it deserves a per-deliverable structure.
+
+**Work**
+
+1. **Promote `tests/README.md` into a formal Test strategy document.** Move/expand to `docs/test-strategy.md`. Sections: unit / integration / e2e / conformance / benchmark tier definitions; fixture-scoping conventions; the auto-applied layer markers (`tests/conftest.py::pytest_collection_modifyitems`); the `@pytest.mark.requirement(...)` convention and how it feeds `scripts/build-trace-matrix.py`; the I/O guard (`tests/fixtures/io_guard.py`) and what it forbids; the SMTP capture (`aiosmtpd`); the deliberate Windows event-loop quirks (`_NoImplicitEventLoopPolicy`); how to run subsets (the `pytest-by-requirement.py` helper). Reference the conformance-test set as the executable specification. Update `CONTRIBUTING.md` and `CLAUDE.md` to point at the new location.
+2. **First two ADRs in `docs/adr/`.**
+   - **`adr/001-sqlite-for-in-flight-state.md`** — record the decision to use SQLite + WAL for in-flight run state, vs. in-memory + custom WAL or an external RDBMS. Capture: motivation (single-node ISOLAN deployment, simplicity, durable across restarts), tradeoffs (single-process write-side; R-DELIVER-001 outbox pattern is the future evolution path; concurrency limited by the now-explicit asyncio.Lock from Increment 27), forces (operational simplicity > horizontal scale within v1 scope).
+   - **`adr/002-hexagonal-boundary-enforcement.md`** — record the decision to enforce the hexagonal boundary via static AST-walk conformance test (`tests/conformance/test_architecture_boundaries.py`) rather than runtime checks or a separate-package layout. Capture: alternatives considered (separate Python packages with import-mocked boundaries, mypy plugin, runtime locks), the decision criterion (cheap to run, fail-fast on PRs, zero runtime cost), known limitations (won't catch dynamically-imported violations).
+3. **Operator runbook** at `docs/operator-runbook.md`. Sections: "Deploying" (cross-references to `deploy/linux/message-service.service`, `deploy/windows/README.md`, and `docs/procedures/windows-install-demonstration.md`); "Day-2 operations" (log inspection — point to structured-log shape and key event names like `service_starting`, `run_finalized`, `sweeper_tick_failed`; metrics scrape via `/metrics`; admin operations — user create/reset/disable; audit-log queries via dashboard); "Common failure modes" (SMTP unreachable → retry behavior; SQLite write contention; sweeper-tick error patterns; orphan-path investigation); "Backup/restore" (SQLite file copy + WAL handling); "Upgrade procedure" (`poetry install --only main` + `migration_runner.py` execution; verify trace matrix is clean post-upgrade).
+4. **Pipeline integration guide** at `docs/pipeline-integration-guide.md`. Sections: "BeginRun → SubmitStageReport → FinalizeRun lifecycle" (state-machine diagram); "Required vs. optional fields per RPC"; "Tag vocabulary" (refer to configured `TagVocabulary`); "Template references" (name + version selection rules and override behavior — point at L1-TMPL-* statements); "Error codes" (gRPC status mapping table from `error_mapping.py`; per-error-code expected client behavior); "Idempotency + retry" (`was_retry=true` semantics for SubmitStageReport); "Rate considerations" (single-node deployment, no v1 rate limiting per L1-API-005 deferral); "End-to-end example" (Python pseudocode walkthrough using the generated stubs).
+5. **Optional consolidation: `docs/deferred-features.md`** — extract ROADMAP Part 2's R-FOO-NNN entries into a stable manifest. Each entry retains its current shape (R-ID title, parent L1, work plan, blocker rationale). The ROADMAP can then point at this file as the canonical deferred-features list, removing inline duplication. Decision deferred to during the increment — it's an organizational improvement, not a release blocker.
+
+**Trace impact**: no requirement promotions — Increment 24 is documentation-only. With 23 + 26e + 27 ahead of it, every L1 should already be Implemented.
+
+**Sequencing**: each deliverable can land in a separate commit. Recommended order: (1) Test strategy promotion (smallest, benchmarks the docs/ structure conventions); (2) ADRs (independent, can parallelize); (3) Operator runbook + Integration guide (related but independent). Final commit: tag v1.
 
 ### Cross-cutting tradeoffs (refreshed 2026-04-25)
 

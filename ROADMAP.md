@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **23 — deployment polish** (commit `2e5cdbb`); closes the `L1-DEP-002` (systemd + NSSM) and `L1-DEP-003` (Poetry packaging) gaps. 15 net-new DEP items promoted from Draft → Implemented across systemd-unit conformance (`L3-DEP-006`/`007`), NSSM-README conformance (`L3-DEP-008`), Windows install demonstration (`L3-DEP-009`), graceful-shutdown integration tests (`L3-DEP-010`/`012`), CLI smoke + LF/CRLF line-ending tests (`L3-DEP-016`/`017`), pyproject + poetry.lock conformance (`L3-DEP-013`/`014`/`015`), `EnvironmentFile=-` operator passthrough, and architecture-boundary + pathlib conformance tests being lifted from TODO stubs to real assertions. Real bug fixed: pyproject's `[tool.poetry.scripts]` entry pointed at a non-existent `interfaces.cli.main` module — created the re-export so `poetry run message-service` works. Prior: **20d (partial) — `/metrics` scrape endpoint** (`4517ba8`); **22 — error-mapping + servicer tests** (`4c59b4a`); **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
+Last full increment merged: **23 — deployment polish** (commits `2e5cdbb` + `7bae9da`); closes **all three L1-DEP-***: `L1-DEP-001` (cross-platform portability), `L1-DEP-002` (systemd + NSSM), `L1-DEP-003` (Poetry packaging). The two-commit shape: the first commit landed the seven planned steps (Draft → Partially/Implemented for L1-DEP-002 + L1-DEP-003); the audit follow-up commit closed the four L3 gaps that L1-DEP-001 still needed (`L3-DEP-001` CI matrix, `L3-DEP-002` skipif convention, `L3-DEP-004` path-separator scanner, `L3-DEP-011` shutdown event + UNAVAILABLE). Highlights: systemd-unit + NSSM-README + Windows install-demo conformance, graceful-shutdown integration tests, CLI smoke + LF/CRLF tests, pyproject + poetry.lock conformance, `EnvironmentFile=-` operator passthrough, architecture-boundary + pathlib stubs replaced with real AST scanners, an L3-DEP-011 integration test that exercises real `grpc.aio.Server.stop` + asserts new RPCs receive UNAVAILABLE during the grace window, and a real bug fix (pyproject's `[tool.poetry.scripts]` entry pointed at a non-existent module). Prior: **20d (partial) — `/metrics` scrape endpoint** (`4517ba8`); **22 — error-mapping + servicer tests** (`4c59b4a`); **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -31,7 +31,7 @@ Done:
 - **Increment 21** — E2E harness + four test suites (happy_path, orphan_path, resend, admin) (`ef10488`); real grpc.aio + httpx + tmp SQLite + in-process aiosmtpd. New dev dep: `aiosmtpd`. 4 new e2e tests at the L1-tier marker level.
 - **Increment 22** — Error-mapping + servicer tests, exception-detail coverage (`41974a7` + `c82f4a6` + `4c59b4a`); L1-ERR-001..004 all promoted Draft → Partially Implemented. DomainError intermediate; http_status + log_level ClassVars; bootstrap proto-enum self-check; details redaction in translator; ruff BLE/S110/S112 enabled. R-ERR-001 (wire-format upgrade) + R-ERR-002 (error-code lockfile) captured as deferred work.
 - **Increment 20d (partial)** — Prometheus `/metrics` scrape endpoint (`4517ba8`); promotes L2-OBS-004 + L3-OBS-007 Draft → Implemented; L1-OBS-002 rolls up to Implemented. The embedded Chart.js dashboard half of L1-DASH-004 is deferred to R-DASH-004 (test-harness blocker — needs Playwright or similar before the frontend code can be built reliably).
-- **Increment 23** — Deployment polish (`2e5cdbb`); promotes L1-DEP-002 + L1-DEP-003 Draft → Implemented (15 net-new DEP items across systemd-unit + NSSM-README + Windows-install-demo conformance, graceful-shutdown integration tests, CLI smoke + LF/CRLF tests, pyproject/poetry.lock conformance). Adds `EnvironmentFile=-` operator passthrough to the systemd unit. Replaces the architecture-boundary + pathlib-enforcement TODO stubs with real assertions. Fixes a real bug: the `[tool.poetry.scripts]` entry pointed at a non-existent module (`interfaces.cli.main`).
+- **Increment 23** — Deployment polish (`2e5cdbb` + `7bae9da`); promotes **all three L1-DEP-*** Draft / Partially Implemented → Implemented. First commit: 15 DEP items across systemd-unit + NSSM-README + Windows-install-demo conformance, graceful-shutdown integration tests, CLI smoke + LF/CRLF tests, pyproject/poetry.lock conformance, `EnvironmentFile=-` operator passthrough, architecture-boundary + pathlib stub replacement, `[tool.poetry.scripts]` bug fix. Second commit: closed the four remaining L3 gaps under L1-DEP-001 — L3-DEP-001 (CI workflow matrix inspection), L3-DEP-002 (skipif `reason=` AST scanner), L3-DEP-004 (path-separator literal scanner over `src/`), L3-DEP-011 (real-grpc.aio integration test asserting new RPCs return UNAVAILABLE during the grace window + sweeper-loop stop-event observation).
 
 Still open:
 
@@ -611,9 +611,9 @@ Closes **L1-ERR-001..004** (all Draft).
 - Unit tests for `interfaces/grpc/error_mapping.py` (translation table, trailing-metadata population).
 - `details=` assertions across the use-case raise sites.
 
-### Increment 23 — Deployment polish  *(✅ done — commit `2e5cdbb`)*
+### Increment 23 — Deployment polish  *(✅ done — commits `2e5cdbb` + `7bae9da`)*
 
-Closed **L1-DEP-002** (systemd + NSSM, Partially Implemented → Implemented) and **L1-DEP-003** (Poetry packaging, Draft → Implemented). 15 net-new DEP items lifted to "Implemented" in the trace matrix.
+Closed **all three L1-DEP-***: L1-DEP-001 (cross-platform portability), L1-DEP-002 (systemd + NSSM), L1-DEP-003 (Poetry packaging). Initial commit landed the seven planned steps; the audit follow-up commit closed the four remaining L3 gaps that L1-DEP-001 still needed.
 
 What landed:
 
@@ -625,6 +625,13 @@ What landed:
 - **Pyproject / poetry.lock conformance (L3-DEP-013 / L3-DEP-014 / L3-DEP-015)** — same conformance file asserts the python constraint is `>=3.12,<4.0`, `poetry.lock` is committed and non-empty, and the `[tool.poetry.scripts]` `message-service` entry resolves correctly.
 - **Architecture-boundary + pathlib conformance** — replaced the TODO stubs in `tests/conformance/test_architecture_boundaries.py` and `tests/conformance/test_pathlib_enforcement.py` with real AST/config inspection (L3-PERS-016, L3-DEP-003, L3-DEP-005, L3-DEP-018).
 - **Real bug fix** — `pyproject.toml`'s `[tool.poetry.scripts]` entry pointed at a non-existent module (`message_service.interfaces.cli.main:main`). Created `src/message_service/interfaces/cli/main.py` re-exporting `__main__.main` so `poetry run message-service` resolves.
+
+Audit follow-up commit (`7bae9da`) — closed L1-DEP-001's remaining children:
+
+- **L3-DEP-001** (CI matrix inspection) — `test_deploy_artifacts.py` reads `.github/workflows/ci.yaml` and asserts both `ubuntu-latest` and `windows-latest` runners are present and that `poetry run pytest` is invoked (full-suite execution).
+- **L3-DEP-002** (skipif convention) — AST-walks every `tests/**/*.py`, finds every `@pytest.mark.skipif(...)` decorator, and asserts each carries a non-empty `reason=` keyword argument.
+- **L3-DEP-004** (path-separator literal scanner) — `test_pathlib_enforcement.py` AST-walks `src/`, examines module-level + class-level str-typed constants, and flags any value containing `/` or `\` outside URL contexts. Codebase is currently clean (zero violations).
+- **L3-DEP-011** (long-running tasks observe shutdown event; new RPCs return UNAVAILABLE) — two new integration tests in `test_servicer.py`. The first stands up a real grpc.aio server, makes a baseline RPC, fires `server.stop(grace=2.0)` as a background task, and asserts the next RPC raises `AioRpcError(code=UNAVAILABLE)`. The second starts the sweeper loop, signals `stop()`, and asserts the scheduler's active task count drops to zero.
 
 Out of scope (kept narrow per the original "deployment polish" framing):
 

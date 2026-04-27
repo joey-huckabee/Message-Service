@@ -9,7 +9,7 @@ This document has two parts:
 
 ## Part 1 — Upcoming v1 increments
 
-Last full increment merged: **20d (partial) — `/metrics` scrape endpoint** (commit `4517ba8`); lands the operationally-important half of `L1-DASH-004` (Prometheus scrape endpoint per `L2-OBS-004` / `L3-OBS-007`) and defers the embedded Chart.js dashboard half to **`R-DASH-004`** with the test-harness-blocker rationale. **L2-OBS-004** + **L3-OBS-007** Draft → Implemented; **L1-OBS-002** rolls up to Implemented. **L1-DASH-004** remains Draft pending R-DASH-004. Prior: **22 — error-mapping + servicer tests** (`4c59b4a`) promoted all four L1-ERR statements; **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
+Last full increment merged: **23 — deployment polish** (commit `2e5cdbb`); closes the `L1-DEP-002` (systemd + NSSM) and `L1-DEP-003` (Poetry packaging) gaps. 15 net-new DEP items promoted from Draft → Implemented across systemd-unit conformance (`L3-DEP-006`/`007`), NSSM-README conformance (`L3-DEP-008`), Windows install demonstration (`L3-DEP-009`), graceful-shutdown integration tests (`L3-DEP-010`/`012`), CLI smoke + LF/CRLF line-ending tests (`L3-DEP-016`/`017`), pyproject + poetry.lock conformance (`L3-DEP-013`/`014`/`015`), `EnvironmentFile=-` operator passthrough, and architecture-boundary + pathlib conformance tests being lifted from TODO stubs to real assertions. Real bug fixed: pyproject's `[tool.poetry.scripts]` entry pointed at a non-existent `interfaces.cli.main` module — created the re-export so `poetry run message-service` works. Prior: **20d (partial) — `/metrics` scrape endpoint** (`4517ba8`); **22 — error-mapping + servicer tests** (`4c59b4a`); **21 — E2E harness** (`ef10488`); **admin stream (20a/b/c)** complete. **Three deferred-features captured this v1 cycle**: R-ERR-001 (gRPC error envelope upgrade), R-ERR-002 (error-code lockfile), R-DASH-004 (embedded Chart.js dashboard).
 
 ### Status snapshot (as of 2026-04-26)
 
@@ -31,10 +31,11 @@ Done:
 - **Increment 21** — E2E harness + four test suites (happy_path, orphan_path, resend, admin) (`ef10488`); real grpc.aio + httpx + tmp SQLite + in-process aiosmtpd. New dev dep: `aiosmtpd`. 4 new e2e tests at the L1-tier marker level.
 - **Increment 22** — Error-mapping + servicer tests, exception-detail coverage (`41974a7` + `c82f4a6` + `4c59b4a`); L1-ERR-001..004 all promoted Draft → Partially Implemented. DomainError intermediate; http_status + log_level ClassVars; bootstrap proto-enum self-check; details redaction in translator; ruff BLE/S110/S112 enabled. R-ERR-001 (wire-format upgrade) + R-ERR-002 (error-code lockfile) captured as deferred work.
 - **Increment 20d (partial)** — Prometheus `/metrics` scrape endpoint (`4517ba8`); promotes L2-OBS-004 + L3-OBS-007 Draft → Implemented; L1-OBS-002 rolls up to Implemented. The embedded Chart.js dashboard half of L1-DASH-004 is deferred to R-DASH-004 (test-harness blocker — needs Playwright or similar before the frontend code can be built reliably).
+- **Increment 23** — Deployment polish (`2e5cdbb`); promotes L1-DEP-002 + L1-DEP-003 Draft → Implemented (15 net-new DEP items across systemd-unit + NSSM-README + Windows-install-demo conformance, graceful-shutdown integration tests, CLI smoke + LF/CRLF tests, pyproject/poetry.lock conformance). Adds `EnvironmentFile=-` operator passthrough to the systemd unit. Replaces the architecture-boundary + pathlib-enforcement TODO stubs with real assertions. Fixes a real bug: the `[tool.poetry.scripts]` entry pointed at a non-existent module (`interfaces.cli.main`).
 
 Still open:
 
-- **Increments 23–24** — Deployment polish, documentation deliverables (release-gating). Increment 20d's remainder lives as deferred work in `R-DASH-004`.
+- **Increment 24** — Documentation deliverables (release-gating). Increment 20d's remainder lives as deferred work in `R-DASH-004`.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -610,14 +611,24 @@ Closes **L1-ERR-001..004** (all Draft).
 - Unit tests for `interfaces/grpc/error_mapping.py` (translation table, trailing-metadata population).
 - `details=` assertions across the use-case raise sites.
 
-### Increment 23 — Deployment polish
+### Increment 23 — Deployment polish  *(✅ done — commit `2e5cdbb`)*
 
-Closes **L1-DEP-001, L1-DEP-003** (Draft). The `deploy/` placeholders need to be finished.
+Closed **L1-DEP-002** (systemd + NSSM, Partially Implemented → Implemented) and **L1-DEP-003** (Poetry packaging, Draft → Implemented). 15 net-new DEP items lifted to "Implemented" in the trace matrix.
 
-- systemd unit env-var passthrough.
-- NSSM Windows install script.
-- Graceful-shutdown verification artifact tied to existing `__main__.py` signal handling.
-- A minimal `.github/workflows/ci.yaml` — the directory exists but is empty.
+What landed:
+
+- **Systemd-unit conformance + env-file passthrough** — added `EnvironmentFile=-/etc/message-service/message-service.env` to `deploy/linux/message-service.service` so operators can drop credentials / per-host overrides into a sibling env-file without editing the unit. New `tests/conformance/test_deploy_artifacts.py` asserts every directive `L3-DEP-006` and `L3-DEP-007` requires (Type=exec, Restart=on-failure, RestartSec=5s, TimeoutStopSec=30s, KillSignal=SIGTERM, NoNewPrivileges, ProtectSystem, ProtectHome, PrivateTmp, ReadWritePaths) is present.
+- **NSSM-README conformance** — same conformance file asserts every nssm command `L3-DEP-008` requires (`install MessageService`, `set DisplayName`, `set Description`, `AppStdout` / `AppStderr` / `AppRotateFiles` / `AppRotateBytes`, `AppStopMethodConsole 30000`, `ObjectName`) is documented.
+- **Windows install demonstration (L3-DEP-009)** — `docs/procedures/windows-install-demonstration.md`: 8-step operator walkthrough (Unpack → Install deps → Provision config → Create service account → Register service → Start service → Verify graceful shutdown → Verify restart cleans up) with checkpoints + signed Attestation form. Conformance test asserts every required section heading is present.
+- **Graceful-shutdown tests (L3-DEP-010 / L3-DEP-012)** — added unit tests for `_install_signal_handlers` and an integration test that patches `grpc.aio._server.Server.stop` to verify the configured `shutdown_grace_period_seconds` is propagated to the gRPC server-stop call.
+- **CLI smoke + line-ending tests (L3-DEP-016 / L3-DEP-017)** — `tests/integration/test_cli_smoke.py`: `message-service --help` exits 0 with "config" in output, and an LF-encoded config and CRLF-encoded config produce equivalent loaded objects.
+- **Pyproject / poetry.lock conformance (L3-DEP-013 / L3-DEP-014 / L3-DEP-015)** — same conformance file asserts the python constraint is `>=3.12,<4.0`, `poetry.lock` is committed and non-empty, and the `[tool.poetry.scripts]` `message-service` entry resolves correctly.
+- **Architecture-boundary + pathlib conformance** — replaced the TODO stubs in `tests/conformance/test_architecture_boundaries.py` and `tests/conformance/test_pathlib_enforcement.py` with real AST/config inspection (L3-PERS-016, L3-DEP-003, L3-DEP-005, L3-DEP-018).
+- **Real bug fix** — `pyproject.toml`'s `[tool.poetry.scripts]` entry pointed at a non-existent module (`message_service.interfaces.cli.main:main`). Created `src/message_service/interfaces/cli/main.py` re-exporting `__main__.main` so `poetry run message-service` resolves.
+
+Out of scope (kept narrow per the original "deployment polish" framing):
+
+- A minimal `.github/workflows/ci.yaml` was already substantial after Cluster 26 — no further work needed in this increment.
 
 ### Increment 24 — Documentation deliverables (release-gating)
 

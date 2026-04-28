@@ -3,17 +3,41 @@
 Exercises the orphan disposition flow against a real running service:
 
 * Real BeginRun via gRPC, putting the run into a non-terminal state.
-* Real sweeper loop running on the asyncio scheduler with a tight
-  ``run_timeout_seconds`` configured at bootstrap.
+* Real :class:`SweeperUseCase.tick` and
+  :class:`SweeperActionDispatcherUseCase.dispatch_pending` invoked
+  directly on the composed service. The background
+  :class:`SweeperLoop` is *not* started — driving the use cases
+  synchronously gives the test exact sequencing of orphan-detection
+  and action-completion, so the post-condition assertions read
+  state that is structurally guaranteed to be settled. No polling,
+  no race window.
 * Real orphan-state transition with the audit row written.
 * Real disposition handlers fired (the default
   ``[NOTIFY_ADMINS, DISCARD_SILENTLY]`` policy from the config
   schema; both are log-only in v1, so we assert on audit rows
   rather than side effects).
 
-This test takes ~3 seconds to run because it waits for the
-sweeper's ``run_timeout_seconds`` plus a poll interval. Auto-marked
-``slow`` by the e2e conftest.
+The only real-time wait is :func:`asyncio.sleep` for slightly
+longer than ``sweeper_run_timeout_seconds``. This crosses the
+orphan-eligibility threshold deterministically — the run's
+``last_transition_at`` is set during BeginRun and the sweeper
+considers any non-terminal run with ``now - last_transition >=
+run_timeout_seconds`` to be orphaned. After the sleep, the
+synchronous tick→drain sequence guarantees:
+
+1. ``service.sweeper.tick()`` opens its own UoW, transitions the
+   run to ORPHANED, writes the SWEEP_ORPHAN audit row, and inserts
+   the disposition-action rows in one transaction.
+2. ``service.sweeper_action_dispatcher.dispatch_pending()`` claims
+   the inserted rows, awaits each handler's ``handle()`` to
+   completion, and settles each row with ``mark_completed`` in a
+   per-row UoW. When this call returns, every claimed row has its
+   ``completed_at`` written.
+
+Both calls are awaited to completion before assertions begin.
+There is no background work in flight when the assertions run, so
+no observation race against unfinished dispatcher progress is
+possible.
 
 Requirement references
 ----------------------
@@ -38,63 +62,41 @@ from message_service.domain.state_machines.run_states import RunState
 from tests.fixtures.email import SmtpCapture
 from tests.fixtures.service import RunningService, build_running_service
 
+# Smallest legal value for ``sweeper.run_timeout_seconds`` per the
+# config schema (``ge=1``). Keeps the test's real-time wait minimal.
+_RUN_TIMEOUT_SECONDS = 1
+# Buffer added to the real-time wait so we are reliably past the
+# orphan-eligibility threshold even with sub-second clock drift or
+# event-loop scheduling variance. Empirically 100ms is more than
+# adequate; doubling for safety.
+_THRESHOLD_BUFFER_SECONDS = 0.2
+
 
 @pytest.fixture
 async def running_service_short_sweeper(
     tmp_path: Path,
     smtp_capture: SmtpCapture,
 ) -> AsyncIterator[RunningService]:
-    """Service with sweeper_run_timeout=2s, poll_interval=1s.
+    """Service with a 1-second sweeper run-timeout; loop NOT started.
 
-    Caller starts the sweeper loop explicitly AFTER any
-    BeginRun-style setup work. The original reason for this
-    ordering was a real concurrency bug — the shared SQLite
-    connection had no in-process serialization, so a sweeper-tick
-    UoW could collide at BEGIN with the test's own BeginRun UoW
-    and raise "cannot start a transaction within a transaction".
-    Increment 27 fixed that bug by introducing an asyncio.Lock
-    around BEGIN/COMMIT (L2-PERS-004 + L3-PERS-006/007/021), so
-    concurrent UoWs now serialize cleanly. The start-after-BeginRun
-    ordering is preserved for test-readability — it keeps the
-    happy-path BeginRun out of the sweeper-loop's polling cadence,
-    which makes timing-sensitive assertions easier to reason about
-    — but it is no longer a correctness workaround. Stop is
-    best-effort in teardown.
+    The background :class:`SweeperLoop` is built but never started by
+    this test. The test drives :meth:`SweeperUseCase.tick` and
+    :meth:`SweeperActionDispatcherUseCase.dispatch_pending`
+    synchronously through the composed service to remove the
+    background-cadence/foreground-assertion race that the previous
+    loop-driven version of this test had.
+
+    ``poll_interval_seconds`` is set to a value comfortably larger
+    than the test's runtime so the loop, if accidentally started,
+    would not tick during the test. The test does not start it.
     """
     async with build_running_service(
         tmp_path,
         smtp_capture,
-        sweeper_run_timeout_seconds=2,
-        sweeper_poll_interval_seconds=1,
+        sweeper_run_timeout_seconds=_RUN_TIMEOUT_SECONDS,
+        sweeper_poll_interval_seconds=60,
     ) as handle:
-        try:
-            yield handle
-        finally:
-            handle.service.sweeper_loop.stop()
-
-
-async def _wait_for_run_state(
-    handle: RunningService,
-    run_id: str,
-    target_state: RunState,
-    *,
-    timeout_seconds: float = 8.0,
-) -> RunState:
-    """Async-poll the run's state until it matches ``target_state``."""
-    loop = asyncio.get_event_loop()
-    deadline = loop.time() + timeout_seconds
-    while loop.time() < deadline:
-        async with handle.service.uow_factory() as uow:
-            run = await uow.run_repo.get(RunId(run_id))
-        if run.state is target_state:
-            return run.state
-        await asyncio.sleep(0.2)
-    async with handle.service.uow_factory() as uow:
-        run = await uow.run_repo.get(RunId(run_id))
-    raise AssertionError(
-        f"timed out waiting for run {run_id} to reach {target_state.name}; "
-        f"current state is {run.state.name}"
-    )
+        yield handle
 
 
 @pytest.mark.asyncio
@@ -126,23 +128,43 @@ async def test_sweeper_orphans_silent_run_and_audits(
     run_id = begin_resp.run_id
     assert run_id
 
-    # 2. Start the sweeper loop AFTER BeginRun. Post-Increment-27
-    #    this is a readability ordering, not a correctness workaround:
-    #    the asyncio.Lock around BEGIN/COMMIT (L2-PERS-004) handles
-    #    sweeper-tick / BeginRun overlap correctly. Keeping the
-    #    BeginRun out of the polling cadence makes the subsequent
-    #    timing assertions easier to reason about.
-    handle.service.sweeper_loop.start()
+    # 2. Cross the orphan-eligibility threshold deterministically.
+    #    The run's last_transition_at was set during BeginRun; the
+    #    sweeper considers it orphaned once now - last_transition
+    #    >= run_timeout_seconds. Sleeping the timeout plus a small
+    #    buffer guarantees the next tick will detect it.
+    await asyncio.sleep(_RUN_TIMEOUT_SECONDS + _THRESHOLD_BUFFER_SECONDS)
 
-    # 3. Wait for the sweeper to fire. With run_timeout_seconds=2
-    #    and poll_interval_seconds=1, the run should be picked up
-    #    within ~4 seconds. The 15s budget is generous for slow CI
-    #    or coverage-instrumented runs (8s was right at the edge
-    #    when coverage instrumentation was active alongside a full
-    #    suite's memory pressure).
-    await _wait_for_run_state(handle, run_id, RunState.ORPHANED, timeout_seconds=15.0)
+    # 3. Drive orphan detection synchronously. tick() opens a UoW,
+    #    transitions the run to ORPHANED, writes the SWEEP_ORPHAN
+    #    audit row, and inserts the disposition-action rows — all
+    #    in a single transaction — before returning.
+    tick_result = await handle.service.sweeper.tick()
+    assert tick_result.orphaned_count == 1, (
+        f"expected exactly one orphan, got {tick_result.orphaned_count}"
+    )
+    # The default disposition policy is [NOTIFY_ADMINS, DISCARD_SILENTLY],
+    # so two action rows are enqueued per orphaned run.
+    assert tick_result.enqueued_actions == 2, (
+        f"expected 2 enqueued actions, got {tick_result.enqueued_actions}"
+    )
 
-    # 3. Assert the SWEEP_ORPHAN audit row was written.
+    # 4. Drive the dispatcher drain synchronously. This claims the
+    #    just-enqueued action rows, runs each handler to completion,
+    #    and writes completed_at on each row in its own per-row UoW.
+    #    When this call returns there is no background work in
+    #    flight — every claimed row's completed_at is settled.
+    dispatch_result = await handle.service.sweeper_action_dispatcher.dispatch_pending()
+    assert dispatch_result.claimed == 2
+    assert dispatch_result.succeeded == 2
+    assert dispatch_result.failed == 0
+
+    # 5. Assert the run is now ORPHANED.
+    async with handle.service.uow_factory() as uow:
+        run = await uow.run_repo.get(RunId(run_id))
+    assert run.state is RunState.ORPHANED, f"expected ORPHANED, got {run.state.name}"
+
+    # 6. Assert the SWEEP_ORPHAN audit row was written exactly once.
     async with handle.service.uow_factory() as uow:
         events = list(
             await uow.audit_log.query(
@@ -155,15 +177,12 @@ async def test_sweeper_orphans_silent_run_and_audits(
     assert sweep_event.outcome.value == "SUCCESS"
     assert sweep_event.details.get("run_id") == run_id
 
-    # 4. No SMTP traffic SHALL have been emitted — the orphan path
+    # 7. No SMTP traffic SHALL have been emitted — the orphan path
     #    does not invoke the mailer.
     assert handle.smtp_capture.messages == []
 
-    # 5. Disposition handlers SHALL have run. The default policy is
-    #    [NOTIFY_ADMINS, DISCARD_SILENTLY]; both are log-only in v1
-    #    but their dispatcher emits one audit-like row per action via
-    #    sweeper_actions table. We check the table directly through
-    #    the connection.
+    # 8. Both disposition actions SHALL have completed_at set
+    #    (already structurally guaranteed by step 4's await).
     async with (
         handle.service.uow_factory() as uow,
         uow._conn.execute(
@@ -176,6 +195,5 @@ async def test_sweeper_orphans_silent_run_and_audits(
     actions = [str(row[0]) for row in rows]
     assert "NOTIFY_ADMINS" in actions
     assert "DISCARD_SILENTLY" in actions
-    # Each action SHALL have completed_at set (not stuck in pending).
     for row in rows:
         assert row[1] is not None, f"action {row[0]} not completed"

@@ -53,6 +53,9 @@ from message_service.application.use_cases.admin_users import (
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
+from message_service.application.use_cases.audit_log_pruner import (
+    AuditLogPrunerUseCase,
+)
 from message_service.application.use_cases.begin_run import BeginRunUseCase
 from message_service.application.use_cases.finalize_run import FinalizeRunUseCase
 from message_service.application.use_cases.get_run_detail import GetRunDetailUseCase
@@ -88,6 +91,9 @@ from message_service.config.schema import (
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
+from message_service.infrastructure.persistence.audit_log_pruner_loop import (
+    AuditLogPrunerLoop,
+)
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.report_pruner_loop import (
@@ -297,6 +303,22 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         poll_interval_seconds=3600,  # effectively never polls during a test
     )
 
+    # Audit-log-pruner components are required for the Service dataclass
+    # (Increment 30d) but the gRPC servicer tests don't exercise the
+    # audit-retention path either. Same minimal-construction pattern as
+    # the report pruner above; loop never fires during the test window.
+    audit_log_pruner_uc = AuditLogPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        retention_days=365,
+        cleanup_batch_size=10_000,
+    )
+    audit_log_pruner_loop = AuditLogPrunerLoop(
+        pruner=audit_log_pruner_uc,
+        scheduler=scheduler,
+        poll_interval_seconds=3600,
+    )
+
     # Auth use cases are required for the Service dataclass but are
     # not exercised by the gRPC servicer tests; they sit on the FastAPI
     # surface (Increment 17). Keep Argon2 cost low so test-suite
@@ -360,6 +382,8 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         sweeper_loop=sweeper_loop,
         report_pruner=report_pruner_uc,
         report_pruner_loop=report_pruner_loop,
+        audit_log_pruner=audit_log_pruner_uc,
+        audit_log_pruner_loop=audit_log_pruner_loop,
         password_hasher=password_hasher,
         login=login_uc,
         logout=logout_uc,

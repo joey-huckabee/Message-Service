@@ -52,6 +52,9 @@ from message_service.application.use_cases.admin_users import (
 from message_service.application.use_cases.assemble_and_deliver import (
     AssembleAndDeliverUseCase,
 )
+from message_service.application.use_cases.audit_log_pruner import (
+    AuditLogPrunerUseCase,
+)
 from message_service.application.use_cases.begin_run import BeginRunUseCase
 from message_service.application.use_cases.finalize_run import FinalizeRunUseCase
 from message_service.application.use_cases.get_run_detail import GetRunDetailUseCase
@@ -81,6 +84,9 @@ from message_service.infrastructure.observability.metrics import (
     PrometheusMetricsRecorder,
 )
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
+from message_service.infrastructure.persistence.audit_log_pruner_loop import (
+    AuditLogPrunerLoop,
+)
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.filesystem.report_store import (
     FilesystemReportStore,
@@ -221,6 +227,16 @@ class Service:
             Constructed but not started; the CLI entrypoint (or
             tests) calls ``start()``. Same start-after-bind /
             stop-in-grace-period lifecycle as ``sweeper_loop``.
+        audit_log_pruner: :class:`AuditLogPrunerUseCase` —
+            audit-log retention pruner per L1-OBS-003 / L2-OBS-008
+            / L2-OBS-009. Driven from ``audit_log_pruner_loop`` in
+            production; tests can drive ``run_once()`` synchronously
+            for deterministic sequencing (same pattern as the
+            orphan-path e2e and report-pruner tests).
+        audit_log_pruner_loop: Periodic loop that calls
+            ``audit_log_pruner.run_once()`` at the
+            ``cleanup_interval_hours`` cadence. Same lifecycle
+            pattern as ``sweeper_loop`` and ``report_pruner_loop``.
     """
 
     config: Config
@@ -241,6 +257,8 @@ class Service:
     sweeper_loop: SweeperLoop
     report_pruner: ReportPrunerUseCase
     report_pruner_loop: ReportPrunerLoop
+    audit_log_pruner: AuditLogPrunerUseCase
+    audit_log_pruner_loop: AuditLogPrunerLoop
     password_hasher: Argon2PasswordHasher
     login: LoginUseCase
     logout: LogoutUseCase
@@ -471,6 +489,25 @@ async def build_service(config: Config) -> Service:
         poll_interval_seconds=config.persistence.filesystem.prune_interval_seconds,
     )
 
+    # 9c. Audit-log retention pruner (L1-OBS-003; Increment 30).
+    # Same BackgroundTaskScheduler-driven pattern as 9b's report
+    # pruner. NOT started here — same CLI-driven lifecycle. Per
+    # L3-OBS-040 the pruner does not audit its own delete activity;
+    # the structured INFO log per tick is the operational signal,
+    # and the L3-OBS-039 sole-deleter conformance test provides
+    # forensic-grade auditability.
+    audit_log_pruner = AuditLogPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        retention_days=config.observability.audit.retention_days,
+        cleanup_batch_size=config.observability.audit.cleanup_batch_size,
+    )
+    audit_log_pruner_loop = AuditLogPrunerLoop(
+        pruner=audit_log_pruner,
+        scheduler=scheduler,
+        poll_interval_seconds=config.observability.audit.cleanup_interval_hours * 3600,
+    )
+
     # 10. Auth (Increment 16). The Argon2 hasher is a service-scoped
     # singleton (L3-AUTH-001) sourced from the auth.argon2.* config keys.
     password_hasher = Argon2PasswordHasher(
@@ -540,6 +577,8 @@ async def build_service(config: Config) -> Service:
         sweeper_loop=sweeper_loop,
         report_pruner=report_pruner,
         report_pruner_loop=report_pruner_loop,
+        audit_log_pruner=audit_log_pruner,
+        audit_log_pruner_loop=audit_log_pruner_loop,
         password_hasher=password_hasher,
         login=login,
         logout=logout,
@@ -587,6 +626,7 @@ async def shutdown_service(service: Service, *, timeout: float) -> None:
     # Phase 1: signal the periodic loops to exit cleanly.
     service.sweeper_loop.stop()
     service.report_pruner_loop.stop()
+    service.audit_log_pruner_loop.stop()
 
     # Phase 2: stop accepting new background work.
     service.scheduler.begin_shutdown()

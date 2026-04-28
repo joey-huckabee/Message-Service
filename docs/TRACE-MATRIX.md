@@ -325,9 +325,9 @@ the single source of truth.
 | L2-PERS-008 | L3-PERS-013, L3-PERS-014, L3-PERS-024 | `tests/integration/persistence/filesystem/test_report_store.py::test_read_email_body_returns_none_for_absent_run`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_email_body_round_trips_saved_bytes`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_fragment_returns_none_for_absent_stage`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_fragment_returns_none_for_unrelated_run`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_read_fragment_round_trips_saved_bytes`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_wraps_oserror_in_persistence_error`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_audit_log_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_io_bound_ports_use_async_def`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_mailer_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_abstract_and_specable`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_is_mockable_with_spec`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_port_methods_are_fully_annotated`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_run_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_stage_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_subscription_repository_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_tag_vocabulary_exposes_expected_methods`<br>`tests/unit/application/ports/contracts/test_port_contracts.py::test_template_repository_exposes_expected_methods`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_read_email_body_returns_none`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_read_fragment_returns_none`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_save_email_body_is_silent`<br>`tests/unit/application/ports/test_report_store.py::test_noop_report_store_save_fragment_is_silent`<br>`tests/unit/application/ports/test_report_store.py::test_report_store_cannot_be_instantiated_directly`<br>`tests/unit/application/ports/test_report_store.py::test_report_store_is_specifiable_via_magicmock`<br>`tests/unit/application/ports/test_report_store.py::test_report_store_method_is_abstract`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_failed_delivery_does_not_save_email_body`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_persistence_error_during_save_is_swallowed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sent_path_saves_assembled_email_body`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sent_path_saves_each_rendered_fragment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_zero_recipient_path_still_saves_email_body`<br>`tests/unit/bootstrap/test_service.py::test_report_store_is_filesystem_adapter` | Implemented |
 | L2-PERS-009 | L3-PERS-015 | _(TBD)_ | Draft |
 | L2-PERS-010 | L3-PERS-016, L3-PERS-017 | `tests/conformance/test_architecture_boundaries.py::test_application_does_not_import_infrastructure_or_interfaces`<br>`tests/conformance/test_architecture_boundaries.py::test_domain_does_not_import_infrastructure_or_interfaces` | Partially Implemented |
-| L2-PERS-011 | _(none)_ | _(TBD)_ | Draft |
-| L2-PERS-012 | _(none)_ | _(TBD)_ | Draft |
-| L2-PERS-013 | _(none)_ | _(TBD)_ | Draft |
+| L2-PERS-011 | L3-PERS-027, L3-PERS-028 | _(TBD)_ | Draft |
+| L2-PERS-012 | L3-PERS-029, L3-PERS-030, L3-PERS-031, L3-PERS-032 | _(TBD)_ | Draft |
+| L2-PERS-013 | L3-PERS-033, L3-PERS-034, L3-PERS-035 | _(TBD)_ | Draft |
 
 ### L1-OBS: Observability
 
@@ -486,15 +486,15 @@ the single source of truth.
 | AUTH | 3 | 9 | 17 | 5 | 12 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
-| PERS | 4 | 13 | 26 | 3 | 15 |
+| PERS | 4 | 13 | 35 | 3 | 15 |
 | OBS | 4 | 18 | 38 | 2 | 17 |
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **373** | **60** | **195** |
+| **Total** | **67** | **192** | **382** | **60** | **195** |
 
-**Requirements verified by at least one test**: 255 of 565 (45.1%).
+**Requirements verified by at least one test**: 255 of 574 (44.4%).
 
 ### Orphan check
 

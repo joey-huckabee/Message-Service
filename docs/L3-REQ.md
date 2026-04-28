@@ -32,16 +32,16 @@ of truth for live status; this file holds only the spec content above.
 | `AGGR`    | 10       | 20       |
 | `SWEEP`   | 10       | 21       |
 | `SUB`     | 10       | 20       |
-| `AUTH`    | 6        | 13       |
-| `MAIL`    | 13       | 26       |
-| `DASH`    | 14       | 30       |
-| `PERS`    | 13       | 26       |
+| `AUTH`    | 9        | 13       |
+| `MAIL`    | 14       | 26       |
+| `DASH`    | 16       | 30       |
+| `PERS`    | 13       | 35       |
 | `OBS`     | 18       | 38       |
 | `ERR`     | 10       | 22       |
 | `CFG`     | 8        | 16       |
 | `DEP`     | 9        | 18       |
 | `CICD`    | 15       | 17       |
-| **Total** | **186**  | **361**  |
+| **Total** | **192**  | **382**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -883,6 +883,33 @@ The filesystem `ReportStore` adapter SHALL place files under `<persistence.files
 
 **L3-PERS-026** · Parent: L2-PERS-005 · Verification: T
 All writes performed by the filesystem `ReportStore` adapter SHALL use the atomic-rename mechanic pinned in L2-PERS-005: write the rendered bytes to a sibling file with suffix `.tmp` in the same directory, then call `Path.replace()` to atomically promote it to the final filename. A test SHALL kill the process between the write and the rename and verify that the final filename does not exist (no partially-written report is observable).
+
+**L3-PERS-027** · Parent: L2-PERS-011 · Verification: T
+`FilesystemPersistenceConfig.report_retention_days: int` SHALL be a Pydantic field with default 90 and constraint `ge=1`. A configuration that omits the field SHALL fall back to the default; a configuration that supplies a value of 0 or negative SHALL fail validation at startup and raise `ConfigurationError` before any background task is constructed.
+
+**L3-PERS-028** · Parent: L2-PERS-011 · Verification: T
+The pruner SHALL compute the retention cutoff once per tick as `clock.now() - timedelta(days=report_retention_days)`, where `clock` is the injected `Clock` port (per L2-RUN-016). A run SHALL be considered eligible for eviction when its terminal-state transition `last_transition_at` is at or before that cutoff (inclusive boundary, matching the L1-SWEEP-002 per-second-honored convention) AND the run's state is one of the terminal states `SENT`, `FAILED`, `ORPHANED`.
+
+**L3-PERS-029** · Parent: L2-PERS-012 · Verification: T
+`FilesystemPersistenceConfig.prune_interval_seconds: int` (default 86400, `ge=1`) and `FilesystemPersistenceConfig.max_prunes_per_iteration: int` (default 1000, `ge=1`) SHALL be Pydantic fields enforced at startup; out-of-range values SHALL raise `ConfigurationError`. The minimum cadence of 1 second is intentionally permissive for testing; production cadences SHALL be operator-configured to balance disk-pressure responsiveness against scheduler overhead.
+
+**L3-PERS-030** · Parent: L2-PERS-012 · Verification: T
+The report-pruner task SHALL be constructed during service bootstrap, registered with the same `BackgroundTaskScheduler` port that hosts `sweeper_loop`, started after the gRPC server has bound its listen port (so the pruner does not run before the service is otherwise ready), and stopped during the shutdown grace period in the order documented under L1-DEP-002 (after gRPC stops accepting RPCs, before the SQLite connection closes).
+
+**L3-PERS-031** · Parent: L2-PERS-012 · Verification: T
+Each pruner tick SHALL: (a) compute the retention cutoff per L3-PERS-028, (b) query the run repository for candidate `run_id`s in terminal states with `last_transition_at <= cutoff`, (c) for each candidate, locate the `<persistence.filesystem.report_directory>/<run_id>/` subdirectory, (d) delete every file under that subdirectory and the subdirectory itself via `Path.unlink()` + `Path.rmdir()`, (e) cap the per-tick file-deletion count at `max_prunes_per_iteration`. Runs not processed in this tick SHALL be picked up the next tick; the pruner SHALL NOT carry partial state across ticks.
+
+**L3-PERS-032** · Parent: L2-PERS-012 · Verification: T
+The pruner SHALL acquire UoWs through the same `SqliteUnitOfWorkFactory` as gRPC handlers and the orphan sweeper, inheriting the L2-PERS-004 single-shared-connection + `asyncio.Lock` serialization without introducing any additional concurrency primitives. A test SHALL spawn a pruner tick and a concurrent gRPC handler against the same factory and assert no `PersistenceError` arises (mirrors the L3-PERS-021 contract verification at the cross-task boundary).
+
+**L3-PERS-033** · Parent: L2-PERS-013 · Verification: T
+Each successfully evicted file SHALL produce exactly one audit row with `action=PRUNE_REPORT`, `actor="system:report_pruner"`, `resource="report:<run_id>"`, `outcome=SUCCESS`, and `details = {"file_path": <absolute path string>, "file_size_bytes": <int>, "terminal_state": <SENT|FAILED|ORPHANED string>, "terminal_state_at": <ISO-Z timestamp string>}`. The audit row SHALL be committed in the same per-file UoW as the deletion decision; per-file ordering is `Path.unlink()` first, then audit-row insert, then UoW commit (best-effort audit-after-effect — file deletion is not transactional with SQLite, so a UoW commit failure after a successful unlink loses the audit row but preserves the operational outcome; this is the same trade-off the gRPC-then-audit boundaries elsewhere accept).
+
+**L3-PERS-034** · Parent: L2-PERS-013 · Verification: T
+Per-file failures (file missing on disk; permission denied; OS-level I/O error) SHALL be caught at the per-file boundary, logged at WARNING with event name `report_pruner_eviction_failed` and structured fields `run_id`, `file_path`, `error_message`, and recorded as a `PRUNE_REPORT` audit row with `outcome=FAILURE` and `details.failure_reason = str(exc)`. The pruner SHALL proceed to the next candidate without aborting the tick, mirroring the L3-SWEEP-013 swallow-with-log pattern that the disposition dispatcher uses.
+
+**L3-PERS-035** · Parent: L2-PERS-013 · Verification: A, I
+The report pruner SHALL be the only code path that calls `Path.unlink()`, `Path.rmdir()`, `shutil.rmtree()`, or `os.remove()` against paths constructed under `persistence.filesystem.report_directory`. A conformance test SHALL AST-scan `src/` and assert no other module performs filesystem deletion against the report-store root, ensuring every report eviction goes through the audit-emitting path.
 
 ---
 

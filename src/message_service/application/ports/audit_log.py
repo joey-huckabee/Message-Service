@@ -6,10 +6,14 @@ The audit log is written transactionally with every state change
 statement order. If the audit insert fails, the state change is
 aborted; if the state update fails, the audit insert is rolled back.
 
-The port exposes only :meth:`record` and :meth:`query`. There is no
-update or delete — retention is handled separately by a background
-pruner driven by :attr:`observability.audit.retention_days`
-(L1-OBS-003).
+The port exposes :meth:`record` (write), :meth:`query` /
+:meth:`list_paginated` (read), and :meth:`delete_older_than`
+(retention pruning). The delete method is reserved for the
+audit-log retention pruner per L3-OBS-039 (sole-deleter
+conformance) — no other caller in ``src/`` is permitted to invoke
+it. The pruner is driven by
+:attr:`observability.audit.retention_days` and friends (L1-OBS-003 /
+L2-OBS-008 / L2-OBS-009).
 
 Requirement references
 ----------------------
@@ -94,6 +98,48 @@ class AuditLog(ABC):
 
         Raises:
             ValueError: If ``limit`` is not positive.
+            PersistenceError: Infrastructure failure.
+        """
+
+    @abstractmethod
+    async def delete_older_than(
+        self,
+        cutoff: datetime,
+        *,
+        batch_size: int,
+    ) -> int:
+        """Delete audit rows whose ``timestamp`` is strictly less than ``cutoff``.
+
+        Reserved for the audit-log retention pruner per L3-OBS-039.
+        No other caller in ``src/`` is permitted to invoke this; the
+        Increment 30e conformance test enforces the allow-list.
+
+        The boundary is **strict less-than** per L3-OBS-015: a row
+        whose ``timestamp`` is exactly equal to ``cutoff`` is
+        preserved. (This deliberately differs from L1-SWEEP-002's
+        inclusive boundary; each L3 pins its own semantic and the
+        spec accepts the inconsistency for v1.)
+
+        Bounded by ``batch_size``: at most that many rows are
+        deleted per call. Backlogs larger than ``batch_size`` drain
+        across multiple calls. Implementations using SQLite SHALL
+        use a sub-select on the primary key to bound the DELETE
+        because stdlib sqlite3 lacks
+        ``SQLITE_ENABLE_UPDATE_DELETE_LIMIT``.
+
+        Args:
+            cutoff: Timezone-aware UTC cutoff. Rows with
+                ``timestamp < cutoff`` are deleted.
+            batch_size: Maximum rows to delete this call. MUST be
+                positive.
+
+        Returns:
+            Number of rows actually deleted (``cursor.rowcount``).
+            Zero when no rows are eligible.
+
+        Raises:
+            ValueError: ``batch_size`` is not positive, or
+                ``cutoff`` is naive.
             PersistenceError: Infrastructure failure.
         """
 

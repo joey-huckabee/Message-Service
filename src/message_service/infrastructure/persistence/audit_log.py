@@ -58,6 +58,21 @@ SELECT audit_id, timestamp, action, actor, resource, outcome, details_json
 FROM audit_log
 """
 
+# Bounded DELETE for the L3-OBS-014..016 retention pruner. Stdlib sqlite3
+# lacks SQLITE_ENABLE_UPDATE_DELETE_LIMIT, so the standard sub-select
+# pattern is used. The timestamp index makes the inner query efficient.
+# See L3-OBS-039 for the sole-deleter conformance constraint that
+# limits callers of delete_older_than to the audit_log_pruner module.
+_SQL_DELETE_OLDER_THAN = """
+DELETE FROM audit_log
+WHERE audit_id IN (
+    SELECT audit_id FROM audit_log
+    WHERE timestamp < ?
+    ORDER BY timestamp ASC
+    LIMIT ?
+)
+"""
+
 
 class SqliteAuditLog(AuditLog):
     """SQLite-backed append-only :class:`AuditLog`."""
@@ -121,6 +136,31 @@ class SqliteAuditLog(AuditLog):
         async with self._conn.execute(sql, tuple(params)) as cur:
             rows = await cur.fetchall()
         return [_row_to_event(r) for r in rows]
+
+    async def delete_older_than(
+        self,
+        cutoff: datetime,
+        *,
+        batch_size: int,
+    ) -> int:
+        """Delete up to ``batch_size`` rows whose ``timestamp`` < ``cutoff``.
+
+        Reserved for the audit-log retention pruner per L3-OBS-039.
+        Implements the sub-select pattern documented in
+        ``_SQL_DELETE_OLDER_THAN`` because stdlib sqlite3 lacks
+        ``DELETE ... LIMIT`` support.
+        """
+        if cutoff.tzinfo is None:
+            raise ValueError(
+                f"delete_older_than requires a timezone-aware cutoff; got naive {cutoff!r}"
+            )
+        if batch_size < 1:
+            raise ValueError(f"batch_size must be positive; got {batch_size}")
+        cursor = await self._conn.execute(
+            _SQL_DELETE_OLDER_THAN,
+            (iso_z(cutoff), batch_size),
+        )
+        return int(cursor.rowcount)
 
     async def list_paginated(  # noqa: D102
         self,

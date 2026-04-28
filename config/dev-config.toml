@@ -105,7 +105,11 @@ parallelism = 4
 log_level = "DEBUG"                  # verbose during dev
 
 [observability.audit]
+# Dev defaults: shorter retention + faster cadence so the pruner
+# exercises real eligible candidates within a typical dev session.
 retention_days = 30                  # short retention for dev
+cleanup_interval_hours = 1           # hourly cadence
+cleanup_batch_size = 1000            # smaller batch keeps individual ticks fast
 
 # --- Service -----------------------------------------------------------------
 

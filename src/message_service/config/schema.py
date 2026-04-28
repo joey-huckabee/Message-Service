@@ -293,9 +293,19 @@ LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 class AuditConfig(_FrozenForbid):
-    """Audit log retention (L1-OBS-003)."""
+    """Audit log retention (L1-OBS-003).
+
+    The retention pruner consumes ``retention_days`` (rows older than
+    ``now - retention_days`` are deleted), ``cleanup_interval_hours``
+    (poll cadence — defaults to 24h per L3-OBS-014), and
+    ``cleanup_batch_size`` (per-tick delete-batch ceiling per
+    L3-OBS-016, default 10000 rows to avoid long-running deletes
+    blocking other writers on the shared SQLite connection).
+    """
 
     retention_days: int = Field(default=365, ge=1)
+    cleanup_interval_hours: int = Field(default=24, ge=1)
+    cleanup_batch_size: int = Field(default=10_000, ge=100, le=1_000_000)
 
 
 class ObservabilityConfig(_FrozenForbid):

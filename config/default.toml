@@ -105,8 +105,18 @@ time_cost = 3
 parallelism = 4
 
 [observability.audit]
-# L1-OBS-003: audit log retention
+# L1-OBS-003 audit log retention + L2-OBS-008/009 retention-pruner.
+# retention_days       — rows older than (now - retention_days) are
+#                        eligible for deletion (L3-OBS-015). Default 365.
+# cleanup_interval_hours — poll cadence of the retention pruner
+#                        (L3-OBS-014). Default 24 (daily).
+# cleanup_batch_size   — per-tick DELETE row cap (L3-OBS-016). Default
+#                        10000 keeps individual deletes short to avoid
+#                        blocking other writers on the shared SQLite
+#                        connection.
 retention_days = 365
+cleanup_interval_hours = 24
+cleanup_batch_size = 10000
 
 [service]
 # L2-DEP-006: cross-platform graceful shutdown window

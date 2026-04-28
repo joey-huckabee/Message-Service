@@ -219,9 +219,32 @@ parallelism = 4
 log_level = "INFO"
 
 [observability.audit]
-# How long SUCCESS/FAILURE audit rows are kept before the retention
-# sweeper prunes them. Regulated environments may need 7+ years.
+# Audit log retention + retention-pruner knobs (L1-OBS-003 / L2-OBS-008 /
+# L2-OBS-009).
+#
+# retention_days
+#   How long SUCCESS/FAILURE audit rows are kept before the retention
+#   pruner deletes them (L3-OBS-015). Default 365 covers the common
+#   1-year compliance horizon; regulated environments often need 7+
+#   years. Rows older than (now - retention_days) become eligible.
+#
+# cleanup_interval_hours
+#   Pruner-loop polling cadence (L3-OBS-014). Default 24 (daily). The
+#   pruner uses the same BackgroundTaskScheduler as the orphan
+#   sweeper and the rendered-report retention pruner, so this cadence
+#   is observed in service-process wall time.
+#
+# cleanup_batch_size
+#   Per-tick DELETE row cap (L3-OBS-016). Default 10000 keeps any
+#   individual DELETE statement short enough not to monopolize the
+#   shared SQLite connection while other writers (gRPC, sweeper,
+#   report-pruner) are queued behind the L2-PERS-004 mutex. Operators
+#   with very large audit-log backlogs (e.g., a retention-policy
+#   tightening that suddenly makes years of rows eligible) can lower
+#   this further; the backlog drains across multiple ticks regardless.
 retention_days = 365
+cleanup_interval_hours = 24
+cleanup_batch_size = 10000
 
 # --- Service -----------------------------------------------------------------
 

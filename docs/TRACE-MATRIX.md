@@ -318,7 +318,7 @@ the single source of truth.
 | L2-PERS-001 | L3-PERS-001, L3-PERS-018 | `tests/integration/persistence/test_connection.py::test_creates_missing_parent_directory`<br>`tests/integration/persistence/test_connection.py::test_existing_parent_is_not_disturbed` | Partially Implemented |
 | L2-PERS-002 | L3-PERS-002, L3-PERS-003, L3-PERS-019 | `tests/integration/persistence/test_connection.py::test_busy_timeout_is_5000_ms`<br>`tests/integration/persistence/test_connection.py::test_foreign_keys_enabled`<br>`tests/integration/persistence/test_connection.py::test_synchronous_is_normal`<br>`tests/integration/persistence/test_connection.py::test_wal_journal_mode_set_on_disk_db`<br>`tests/integration/persistence/test_unit_of_work.py::test_foreign_key_violation_triggers_rollback` | Partially Implemented |
 | L2-PERS-003 | L3-PERS-004, L3-PERS-005, L3-PERS-020 | `tests/integration/persistence/test_migration_runner.py::test_gap_in_version_sequence_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_migrations_table_records_version_name_timestamp`<br>`tests/integration/persistence/test_migration_runner.py::test_missing_three_digit_prefix_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_non_conforming_filename_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_non_sequential_starting_version_fails`<br>`tests/integration/persistence/test_migration_runner.py::test_packaged_migrations_create_expected_tables`<br>`tests/integration/persistence/test_migration_runner.py::test_reapply_is_noop` | Partially Implemented |
-| L2-PERS-004 | L3-PERS-006, L3-PERS-007, L3-PERS-021 | _(TBD)_ | Draft |
+| L2-PERS-004 | L3-PERS-006, L3-PERS-007, L3-PERS-021 | `tests/integration/persistence/test_unit_of_work_concurrency.py::test_factory_lock_constructed_lazily`<br>`tests/integration/persistence/test_unit_of_work_concurrency.py::test_lock_released_after_clean_commit`<br>`tests/integration/persistence/test_unit_of_work_concurrency.py::test_lock_released_after_exception_rollback`<br>`tests/integration/persistence/test_unit_of_work_concurrency.py::test_lock_released_after_explicit_commit`<br>`tests/integration/persistence/test_unit_of_work_concurrency.py::test_two_concurrent_uows_serialize_and_both_commit` | Implemented |
 | L2-PERS-005 | L3-PERS-008, L3-PERS-009, L3-PERS-022, L3-PERS-025, L3-PERS-026 | `tests/integration/persistence/filesystem/test_report_store.py::test_interrupted_write_leaves_final_file_absent`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_multiple_fragments_share_one_run_directory`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_creates_intermediate_directories_on_demand`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_email_body_overwrites_existing_atomically`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_email_body_uses_tmp_then_replace_and_leaves_no_tmp`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_email_body_writes_to_run_id_email_html`<br>`tests/integration/persistence/filesystem/test_report_store.py::test_save_fragment_writes_to_run_id_fragments_stage_id_html` | Partially Implemented |
 | L2-PERS-006 | L3-PERS-010, L3-PERS-011 | `tests/unit/bootstrap/test_service.py::test_build_service_creates_missing_report_directory`<br>`tests/unit/bootstrap/test_service.py::test_ensure_report_directory_creates_missing`<br>`tests/unit/bootstrap/test_service.py::test_ensure_report_directory_no_op_when_already_exists`<br>`tests/unit/bootstrap/test_service.py::test_ensure_report_directory_raises_configuration_error_when_mkdir_fails`<br>`tests/unit/bootstrap/test_service.py::test_ensure_report_directory_raises_configuration_error_when_unwritable`<br>`tests/unit/bootstrap/test_service.py::test_ensure_report_directory_removes_probe_file` | Implemented |
 | L2-PERS-007 | L3-PERS-012, L3-PERS-023 | _(TBD)_ | Draft |
@@ -486,15 +486,15 @@ the single source of truth.
 | AUTH | 3 | 9 | 17 | 5 | 12 |
 | MAIL | 5 | 14 | 29 | 5 | 9 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
-| PERS | 4 | 13 | 26 | 2 | 12 |
+| PERS | 4 | 13 | 26 | 3 | 15 |
 | OBS | 4 | 18 | 38 | 2 | 17 |
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **373** | **59** | **192** |
+| **Total** | **67** | **192** | **373** | **60** | **195** |
 
-**Requirements verified by at least one test**: 251 of 565 (44.4%).
+**Requirements verified by at least one test**: 255 of 565 (45.1%).
 
 ### Orphan check
 

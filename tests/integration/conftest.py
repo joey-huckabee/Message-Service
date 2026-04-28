@@ -10,8 +10,9 @@ Fixtures provided (to be implemented in ``tests/fixtures/``):
 
 * ``sqlite_db_path`` — fresh SQLite file in a ``tmp_path`` directory,
   with migrations applied.
-* ``sqlite_connection_pool`` — a ready-to-use connection pool bound to
-  ``sqlite_db_path``.
+* ``sqlite_connection`` — a single aiosqlite connection bound to
+  ``sqlite_db_path`` (per L2-PERS-004 post-Increment-27, the runtime
+  uses one shared connection serialized via asyncio.Lock — not a pool).
 * ``temp_report_store`` — filesystem report store rooted at ``tmp_path``.
 * ``sandboxed_template_env`` — fully-configured ``SandboxedEnvironment``
   backed by a test manifest.
@@ -25,7 +26,7 @@ from __future__ import annotations
 
 # Placeholder imports — populate as fixtures are implemented.
 #
-# from tests.fixtures.persistence import sqlite_db_path, sqlite_connection_pool
+# from tests.fixtures.persistence import sqlite_db_path, sqlite_connection
 # from tests.fixtures.persistence import temp_report_store
 # from tests.fixtures.templating import sandboxed_template_env
 # from tests.fixtures.email import fake_smtp_server

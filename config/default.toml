@@ -23,10 +23,13 @@ port = 8080
 https_only = true
 
 [persistence]
-# L2-PERS-001: single SQLite file per deployment
+# L2-PERS-001: single SQLite file per deployment.
+# L2-PERS-004 (post-Increment-27): single shared aiosqlite connection
+# serialized via asyncio.Lock around BEGIN/COMMIT — no pool. The
+# previous connection_pool_size key has been removed; if present in
+# operator-supplied configs, it now fails validation rather than being
+# silently ignored. See docs/archive/connection-pool-architecture.md.
 sqlite_path = "./data/message-service.sqlite"
-# L2-PERS-004: connection pool sizing
-connection_pool_size = 16
 
 [persistence.filesystem]
 # L1-PERS-002: rendered report storage root

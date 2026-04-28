@@ -107,7 +107,6 @@ class PersistenceConfig(_FrozenForbid):
     """SQLite persistence for metadata + in-flight state (L2-PERS-001)."""
 
     sqlite_path: Path
-    connection_pool_size: int = Field(default=16, ge=1, le=256)
     filesystem: FilesystemPersistenceConfig
 
 

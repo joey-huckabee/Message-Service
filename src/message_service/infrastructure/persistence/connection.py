@@ -1,10 +1,14 @@
 """Open a single :mod:`aiosqlite` connection with the v1 PRAGMA profile.
 
-v1 uses a single shared connection (not a pool): the service's
-throughput does not justify pool complexity, and SQLite's WAL mode
-permits concurrent readers with a single writer behind a
-``busy_timeout``. A pool is on the ROADMAP as R-PERS-001 pending
-profiling.
+v1 uses a single shared connection (not a pool); concurrent UoW
+openings are serialized in-process via an :class:`asyncio.Lock`
+held across BEGIN→COMMIT (see :mod:`message_service.infrastructure.
+persistence.unit_of_work` and L2-PERS-004). SQLite's WAL mode plus
+the ``busy_timeout`` PRAGMA below cover cross-process file
+contention, but the in-process serialization is the lock, not the
+PRAGMA. The pool architecture and the conditions under which it
+should be revisited are preserved verbatim in
+``docs/archive/connection-pool-architecture.md``.
 
 Startup PRAGMA sequence (L3-PERS-002):
 

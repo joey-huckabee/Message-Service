@@ -28,7 +28,6 @@ https_only = false
 # Paths are resolved relative to this config file's directory
 # (config/), so `../` reaches the repo root.
 sqlite_path = "../.local/dev/message-service.db"
-connection_pool_size = 16
 
 [persistence.filesystem]
 # Rendered HTML reports (and any per-stage attachments saved to disk).

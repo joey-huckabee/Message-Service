@@ -1,16 +1,32 @@
 """Concrete :class:`UnitOfWork` for the SQLite backend.
 
 This implementation shares a single :class:`aiosqlite.Connection`
-across the service process (v1; a pool is on the ROADMAP). Each
-``async with factory() as uow`` call begins a transaction on the
-shared connection and commits or rolls back on exit.
+across the service process. Each ``async with factory() as uow``
+call begins a transaction on the shared connection and commits or
+rolls back on exit.
 
-Because the connection is shared, only one UoW may be active at a
-time in the current process. The asyncio single-threaded event loop
-naturally serialises this: as long as use cases use the UoW with
-``async with`` (not bare) and do not start overlapping nested UoWs,
-concurrent requests will queue at the :class:`BEGIN` boundary via the
-``busy_timeout`` PRAGMA.
+Because the connection is shared, at most one UoW may hold a
+transaction at any time — concurrent UoW openings would otherwise
+collide at ``BEGIN`` with ``sqlite3.OperationalError: cannot start
+a transaction within a transaction``. The factory owns an
+:class:`asyncio.Lock` and threads it into every UoW it produces;
+each UoW acquires the lock before issuing ``BEGIN`` and releases it
+exactly once on every transaction-closing path (``__aexit__``
+clean-commit; ``__aexit__`` exception-driven rollback; explicit
+:meth:`SqliteUnitOfWork.commit`; explicit
+:meth:`SqliteUnitOfWork.rollback`). Combined commit-then-rollback
+spans (when the commit raises and the best-effort rollback also
+runs) release the lock exactly once across the combined span,
+regardless of whether the rollback itself raises.
+
+The lock is constructed lazily on the factory's first ``__call__``
+rather than at ``__init__``, so the factory remains
+event-loop-agnostic at construction (bootstrap may run before the
+running event loop is established).
+
+The pool architecture that previously appeared in the spec is
+preserved verbatim with re-evaluation triggers in
+``docs/archive/connection-pool-architecture.md``.
 
 Repository attributes are set at :meth:`__aenter__` time so every
 repo sees the same connection under the same transaction.
@@ -21,6 +37,8 @@ added in Increment 11b).
 Requirement references
 ----------------------
 L1-PERS-003 (repository pattern)
+L2-PERS-004, L3-PERS-006, L3-PERS-007, L3-PERS-021 (single shared
+connection + asyncio mutex serialization)
 L2-RUN-003 (persistence + audit in a single transaction)
 L3-RUN-004 (atomic writes)
 L3-RUN-026, L3-RUN-027 (audit-first ordering; enforced at the call
@@ -29,6 +47,7 @@ site, not here)
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from types import TracebackType
 from typing import Self
@@ -77,6 +96,7 @@ class SqliteUnitOfWork(UnitOfWork):
         self,
         *,
         conn: aiosqlite.Connection,
+        lock: asyncio.Lock,
         run_repo_factory: RunRepoFactory,
         stage_repo_factory: StageRepoFactory,
         subscription_repo_factory: SubscriptionRepoFactory,
@@ -85,11 +105,15 @@ class SqliteUnitOfWork(UnitOfWork):
         user_repo_factory: UserRepoFactory,
         session_repo_factory: SessionRepoFactory,
     ) -> None:
-        """Construct with a live connection and the seven repo factories.
+        """Construct with a live connection, a serialization lock, and the seven repo factories.
 
         Args:
             conn: Shared :class:`aiosqlite.Connection`. This UoW will
                 issue ``BEGIN``/``COMMIT``/``ROLLBACK`` against it.
+            lock: :class:`asyncio.Lock` shared with all UoWs produced
+                by the same factory. Acquired before ``BEGIN`` and
+                released exactly once per UoW lifecycle (see
+                L2-PERS-004, L3-PERS-006, L3-PERS-007).
             run_repo_factory: Given the connection, produce a
                 :class:`RunRepository` scoped to this UoW's transaction.
             stage_repo_factory: Same for :class:`StageRepository`.
@@ -104,6 +128,7 @@ class SqliteUnitOfWork(UnitOfWork):
                 (Increment 16).
         """
         self._conn = conn
+        self._lock = lock
         self._run_repo_factory = run_repo_factory
         self._stage_repo_factory = stage_repo_factory
         self._subscription_repo_factory = subscription_repo_factory
@@ -113,11 +138,18 @@ class SqliteUnitOfWork(UnitOfWork):
         self._session_repo_factory = session_repo_factory
         self._entered: bool = False
         self._finalized: bool = False
+        self._lock_held: bool = False
 
     # -- Context manager -------------------------------------------------
 
     async def __aenter__(self) -> Self:
         """Begin a transaction and bind the scoped repository instances.
+
+        Acquires the factory-shared :class:`asyncio.Lock` BEFORE
+        issuing ``BEGIN`` so concurrent UoW openings serialize at the
+        Python layer rather than colliding inside SQLite. If ``BEGIN``
+        fails the lock is released before the exception propagates,
+        because no transaction was opened against the connection.
 
         Raises:
             PersistenceError: Starting the transaction failed, or the
@@ -129,9 +161,15 @@ class SqliteUnitOfWork(UnitOfWork):
                 details={"reason": "__aenter__ called twice on the same instance"},
             )
         self._entered = True
+
+        await self._lock.acquire()
+        self._lock_held = True
         try:
             await self._conn.execute("BEGIN")
         except Exception as exc:
+            # No transaction is open on the connection; release the
+            # lock so other waiters can proceed.
+            self._release_lock()
             raise PersistenceError(
                 f"failed to begin SQLite transaction: {exc}",
                 details={"reason": str(exc)},
@@ -148,6 +186,17 @@ class SqliteUnitOfWork(UnitOfWork):
         self.session_repo = self._session_repo_factory(self._conn)
         return self
 
+    def _release_lock(self) -> None:
+        """Release the serialization lock if held; idempotent.
+
+        Used on every transaction-closing path. The ``_lock_held``
+        flag ensures the lock is released exactly once per UoW
+        lifecycle even when control flow crosses commit-and-rollback.
+        """
+        if self._lock_held:
+            self._lock_held = False
+            self._lock.release()
+
     async def __aexit__(
         self,
         exc_type: type[BaseException] | None,
@@ -155,6 +204,10 @@ class SqliteUnitOfWork(UnitOfWork):
         exc_tb: TracebackType | None,
     ) -> None:
         """Commit on clean exit; roll back on exception.
+
+        The serialization lock is released exactly once per UoW
+        lifecycle on every path (clean commit, exception rollback,
+        commit-fail-then-rollback) via ``try/finally``.
 
         Args:
             exc_type: Exception class if the ``async with`` block
@@ -169,45 +222,61 @@ class SqliteUnitOfWork(UnitOfWork):
         """
         if self._finalized:
             # commit() or rollback() was called explicitly inside the
-            # block. The transaction is already closed.
+            # block. The transaction and the lock are already
+            # released; nothing to do here.
             return
 
-        if exc_type is not None:
-            # The block raised. Roll back; the caller's exception
-            # propagates.
-            try:
-                await self._conn.rollback()
-            except Exception as rb_exc:  # noqa: BLE001 — best-effort rollback; original exc propagates
-                _log.error(
-                    "sqlite_rollback_failed",
-                    reason=str(rb_exc),
-                    exc_info=rb_exc,
-                )
-            return
-
-        # Clean exit: commit.
         try:
-            await self._conn.commit()
-        except Exception as exc:
-            # Commit failed. Attempt rollback to release the
-            # transaction, then raise.
+            if exc_type is not None:
+                # The block raised. Roll back; the caller's exception
+                # propagates.
+                try:
+                    await self._conn.rollback()
+                except Exception as rb_exc:  # noqa: BLE001 — best-effort rollback; original exc propagates
+                    _log.error(
+                        "sqlite_rollback_failed",
+                        reason=str(rb_exc),
+                        exc_info=rb_exc,
+                    )
+                return
+
+            # Clean exit: commit.
             try:
-                await self._conn.rollback()
-            except Exception as rb_exc:  # noqa: BLE001 — best-effort rollback; commit-fail still raises
-                _log.error(
-                    "sqlite_rollback_after_commit_failure",
-                    reason=str(rb_exc),
-                    exc_info=rb_exc,
-                )
-            raise PersistenceError(
-                f"SQLite commit failed: {exc}",
-                details={"reason": str(exc)},
-            ) from exc
+                await self._conn.commit()
+            except Exception as exc:
+                # Commit failed. Attempt rollback to release the
+                # transaction, then raise. The lock release at the
+                # outer ``finally`` covers both the commit and the
+                # follow-up rollback as a single span — exactly-once
+                # release per UoW lifecycle, regardless of whether
+                # the rollback also raises.
+                try:
+                    await self._conn.rollback()
+                except Exception as rb_exc:  # noqa: BLE001 — best-effort rollback; commit-fail still raises
+                    _log.error(
+                        "sqlite_rollback_after_commit_failure",
+                        reason=str(rb_exc),
+                        exc_info=rb_exc,
+                    )
+                raise PersistenceError(
+                    f"SQLite commit failed: {exc}",
+                    details={"reason": str(exc)},
+                ) from exc
+        finally:
+            self._release_lock()
 
     # -- Explicit control ------------------------------------------------
 
     async def commit(self) -> None:
-        """Commit early. After this, the repos must not be used."""
+        """Commit early. After this, the repos must not be used.
+
+        On success, releases the serialization lock and marks the UoW
+        finalized. On failure, leaves both flags untouched so the
+        enclosing :meth:`__aexit__` can run its cleanup rollback under
+        the same lock and release it via the outer ``try/finally``.
+        Net effect: the lock is released exactly once per UoW
+        lifecycle on every path.
+        """
         if self._finalized:
             raise PersistenceError(
                 "UnitOfWork already finalized",
@@ -221,9 +290,17 @@ class SqliteUnitOfWork(UnitOfWork):
                 details={"reason": str(exc)},
             ) from exc
         self._finalized = True
+        self._release_lock()
 
     async def rollback(self) -> None:
-        """Roll back early. After this, the repos must not be used."""
+        """Roll back early. After this, the repos must not be used.
+
+        On success, releases the serialization lock and marks the UoW
+        finalized. On failure, leaves both flags untouched (matching
+        the symmetric behavior of :meth:`commit`); :meth:`__aexit__`
+        will see ``_finalized=False`` and attempt its own rollback,
+        which is the original cleanup contract.
+        """
         if self._finalized:
             raise PersistenceError(
                 "UnitOfWork already finalized",
@@ -237,6 +314,7 @@ class SqliteUnitOfWork(UnitOfWork):
                 details={"reason": str(exc)},
             ) from exc
         self._finalized = True
+        self._release_lock()
 
 
 # -----------------------------------------------------------------------------
@@ -249,7 +327,18 @@ class SqliteUnitOfWorkFactory:
 
     Constructed once at service start. Injected into use cases as a
     ``Callable[[], UnitOfWork]``. Each call returns a fresh UoW bound
-    to the shared connection.
+    to the shared connection and the same shared serialization lock,
+    so concurrent UoW openings serialize at the Python layer (see
+    L2-PERS-004 + L3-PERS-006).
+
+    The :class:`asyncio.Lock` is constructed lazily on the first
+    ``__call__`` rather than at ``__init__``, so the factory remains
+    event-loop-agnostic at construction. Bootstrap may run before the
+    running event loop is established; constructing the lock at
+    bootstrap would bind it to whichever loop happens to be current
+    at that moment, which can differ from the loop the use cases run
+    on. Lazy construction defers the binding until a UoW is first
+    requested, which by definition happens inside the running loop.
 
     Service bootstrap is responsible for calling :meth:`close` on
     shutdown to release the connection.
@@ -276,11 +365,15 @@ class SqliteUnitOfWorkFactory:
         self._sweeper_action_repo_factory = sweeper_action_repo_factory
         self._user_repo_factory = user_repo_factory
         self._session_repo_factory = session_repo_factory
+        self._lock: asyncio.Lock | None = None
 
     def __call__(self) -> SqliteUnitOfWork:
-        """Produce a fresh UoW bound to the shared connection."""
+        """Produce a fresh UoW bound to the shared connection + lock."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         return SqliteUnitOfWork(
             conn=self._conn,
+            lock=self._lock,
             run_repo_factory=self._run_repo_factory,
             stage_repo_factory=self._stage_repo_factory,
             subscription_repo_factory=self._subscription_repo_factory,

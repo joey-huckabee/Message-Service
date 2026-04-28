@@ -47,10 +47,19 @@ async def running_service_short_sweeper(
     """Service with sweeper_run_timeout=2s, poll_interval=1s.
 
     Caller starts the sweeper loop explicitly AFTER any
-    BeginRun-style setup work, because the bootstrap notes that
-    starting the loop inline races with the first legitimate UoW
-    on the shared SQLite connection ("cannot start a transaction
-    within a transaction"). Stop is best-effort in teardown.
+    BeginRun-style setup work. The original reason for this
+    ordering was a real concurrency bug — the shared SQLite
+    connection had no in-process serialization, so a sweeper-tick
+    UoW could collide at BEGIN with the test's own BeginRun UoW
+    and raise "cannot start a transaction within a transaction".
+    Increment 27 fixed that bug by introducing an asyncio.Lock
+    around BEGIN/COMMIT (L2-PERS-004 + L3-PERS-006/007/021), so
+    concurrent UoWs now serialize cleanly. The start-after-BeginRun
+    ordering is preserved for test-readability — it keeps the
+    happy-path BeginRun out of the sweeper-loop's polling cadence,
+    which makes timing-sensitive assertions easier to reason about
+    — but it is no longer a correctness workaround. Stop is
+    best-effort in teardown.
     """
     async with build_running_service(
         tmp_path,
@@ -117,10 +126,12 @@ async def test_sweeper_orphans_silent_run_and_audits(
     run_id = begin_resp.run_id
     assert run_id
 
-    # 2. Start the sweeper loop AFTER BeginRun so the loop's
-    #    immediate first tick doesn't race with BeginRun on the
-    #    shared SQLite connection (the bootstrap note about
-    #    "cannot start a transaction within a transaction").
+    # 2. Start the sweeper loop AFTER BeginRun. Post-Increment-27
+    #    this is a readability ordering, not a correctness workaround:
+    #    the asyncio.Lock around BEGIN/COMMIT (L2-PERS-004) handles
+    #    sweeper-tick / BeginRun overlap correctly. Keeping the
+    #    BeginRun out of the polling cadence makes the subsequent
+    #    timing assertions easier to reason about.
     handle.service.sweeper_loop.start()
 
     # 3. Wait for the sweeper to fire. With run_timeout_seconds=2

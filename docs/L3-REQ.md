@@ -36,12 +36,12 @@ of truth for live status; this file holds only the spec content above.
 | `MAIL`    | 14       | 26       |
 | `DASH`    | 16       | 30       |
 | `PERS`    | 13       | 35       |
-| `OBS`     | 18       | 38       |
+| `OBS`     | 18       | 40       |
 | `ERR`     | 10       | 22       |
 | `CFG`     | 8        | 16       |
 | `DEP`     | 9        | 18       |
 | `CICD`    | 15       | 17       |
-| **Total** | **192**  | **382**  |
+| **Total** | **192**  | **384**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -1028,6 +1028,12 @@ A `SEND_REPORT` audit record SHALL set `actor` to `system:assemble_and_deliver`,
 
 **L3-OBS-038** · Parent: L2-OBS-018 · Verification: T
 A `DISPATCHER_ACTION_ABANDONED` audit record (emitted when a stuck-claim dispatcher row exhausts `max_dispatch_attempts` per L3-SWEEP-021) SHALL set `actor` to `system:sweeper_action_dispatcher`, `resource` to `dispatcher_action:<action_id>`, and `outcome` to `FAILURE`. `details` SHALL contain at minimum `action_id`, `run_id`, `action_name`, `attempts` (the count when abandonment occurred), and `last_error` (the most recent error string captured during the dispatch attempts).
+
+**L3-OBS-039** · Parent: L2-OBS-008 · Verification: A, I
+The audit-log retention pruner SHALL be the only code path under `src/` that issues `DELETE` or `UPDATE` against the `audit_log` table. A conformance test SHALL AST-scan `src/` (and inspect string-literal SQL in repository modules) to assert no other module emits `DELETE FROM audit_log` or `UPDATE audit_log`, preserving the L1-OBS-003 append-only invariant declared by `L1-DASH-005`. The sweeper, dispatcher, mailer, gRPC servicer, and dashboard routes all invoke `AuditLog.record(...)` only; mutation of existing rows is reserved for the pruner.
+
+**L3-OBS-040** · Parent: L2-OBS-008 · Verification: T
+The audit-log pruner SHALL NOT emit audit-log rows for its own delete activity (no `PRUNE_AUDIT_LOG` action is added to the `AuditAction` enum). Recording each prune tick as an audit row would create a self-referential growth pattern: the rows recording past prunes would themselves accumulate and eventually need pruning. Instead, the pruner SHALL emit one structured INFO log line per tick when work was done, with event name `audit_log_pruner_tick_completed` and fields `rows_deleted`, `retention_days`, `cutoff_iso_z`; ticks where `rows_deleted == 0` SHALL log at DEBUG so production logs do not accumulate daily empty-tick entries (mirrors the report-pruner posture in L3-PERS-031).
 
 ---
 

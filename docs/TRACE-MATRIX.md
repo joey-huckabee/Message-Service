@@ -351,7 +351,7 @@ the single source of truth.
 | L2-OBS-005 | L3-OBS-008 | `tests/unit/infrastructure/observability/test_metrics.py::test_all_module_metrics_use_message_service_prefix` | Implemented |
 | L2-OBS-006 | L3-OBS-009, L3-OBS-010, L3-OBS-011 | `tests/unit/infrastructure/observability/test_metrics.py::test_email_delivery_outcome_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_state_transition_increments_labeled_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_stage_state_transition_increments_labeled_counter` | Implemented |
 | L2-OBS-007 | L3-OBS-012, L3-OBS-013 | _(TBD)_ | Draft |
-| L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016 | _(TBD)_ | Draft |
+| L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016, L3-OBS-039, L3-OBS-040 | _(TBD)_ | Draft |
 | L2-OBS-009 | L3-OBS-017 | _(TBD)_ | Draft |
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | _(TBD)_ | Draft |
 | L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Partially Implemented |
@@ -487,14 +487,14 @@ the single source of truth.
 | MAIL | 5 | 14 | 29 | 5 | 9 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
 | PERS | 4 | 13 | 35 | 4 | 20 |
-| OBS | 4 | 18 | 38 | 2 | 17 |
+| OBS | 4 | 18 | 40 | 2 | 17 |
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **382** | **61** | **200** |
+| **Total** | **67** | **192** | **384** | **61** | **200** |
 
-**Requirements verified by at least one test**: 261 of 574 (45.5%).
+**Requirements verified by at least one test**: 261 of 576 (45.3%).
 
 ### Orphan check
 

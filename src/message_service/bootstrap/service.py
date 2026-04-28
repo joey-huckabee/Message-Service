@@ -58,6 +58,7 @@ from message_service.application.use_cases.get_run_detail import GetRunDetailUse
 from message_service.application.use_cases.list_past_runs import ListPastRunsUseCase
 from message_service.application.use_cases.login import LoginUseCase
 from message_service.application.use_cases.logout import LogoutUseCase
+from message_service.application.use_cases.report_pruner import ReportPrunerUseCase
 from message_service.application.use_cases.resend_run import ResendRunUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
@@ -85,6 +86,9 @@ from message_service.infrastructure.persistence.filesystem.report_store import (
     FilesystemReportStore,
 )
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
+from message_service.infrastructure.persistence.report_pruner_loop import (
+    ReportPrunerLoop,
+)
 from message_service.infrastructure.persistence.run_repository import SqliteRunRepository
 from message_service.infrastructure.persistence.session_repository import (
     SqliteSessionRepository,
@@ -207,6 +211,16 @@ class Service:
             ``sweeper.tick()`` then ``sweeper_action_dispatcher.dispatch_pending()``
             on each tick. Constructed but not started; the CLI
             entrypoint (or tests) calls ``start()``.
+        report_pruner: :class:`ReportPrunerUseCase` — rendered-report
+            retention pruner per L1-PERS-004. Driven from
+            ``report_pruner_loop`` in production; tests can drive
+            ``run_once()`` synchronously for deterministic
+            sequencing (same pattern as the orphan-path e2e test).
+        report_pruner_loop: Periodic loop that calls
+            ``report_pruner.run_once()`` at the configured cadence.
+            Constructed but not started; the CLI entrypoint (or
+            tests) calls ``start()``. Same start-after-bind /
+            stop-in-grace-period lifecycle as ``sweeper_loop``.
     """
 
     config: Config
@@ -225,6 +239,8 @@ class Service:
     sweeper: SweeperUseCase
     sweeper_action_dispatcher: SweeperActionDispatcherUseCase
     sweeper_loop: SweeperLoop
+    report_pruner: ReportPrunerUseCase
+    report_pruner_loop: ReportPrunerLoop
     password_hasher: Argon2PasswordHasher
     login: LoginUseCase
     logout: LogoutUseCase
@@ -431,11 +447,29 @@ async def build_service(config: Config) -> Service:
     )
     # NOTE: the sweeper loop is constructed but NOT started here.
     # The CLI entrypoint (or tests that want the loop running) calls
-    # ``service.sweeper_loop.start()`` explicitly. Starting inline
-    # would race with the first legitimate UoW call against the
-    # shared SQLite connection — ``list_expired`` fires immediately
-    # and the second UoW on the same connection hits
-    # "cannot start a transaction within a transaction".
+    # ``service.sweeper_loop.start()`` explicitly. The L2-PERS-004
+    # mutex (Increment 27) makes the inline start safe against the
+    # historical "cannot start a transaction within a transaction"
+    # race, but the CLI-driven start ordering is preserved as a
+    # readability convention so request listeners are bound before
+    # any background polling begins.
+
+    # 9b. Rendered-report retention pruner (L1-PERS-004; Increment 29).
+    # Constructed alongside the sweeper because it shares the
+    # BackgroundTaskScheduler + UoW-mutex story. NOT started here —
+    # same CLI-driven lifecycle as ``sweeper_loop`` per L3-PERS-030.
+    report_pruner = ReportPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        report_directory=config.persistence.filesystem.report_directory,
+        retention_days=config.persistence.filesystem.report_retention_days,
+        max_prunes_per_iteration=config.persistence.filesystem.max_prunes_per_iteration,
+    )
+    report_pruner_loop = ReportPrunerLoop(
+        pruner=report_pruner,
+        scheduler=scheduler,
+        poll_interval_seconds=config.persistence.filesystem.prune_interval_seconds,
+    )
 
     # 10. Auth (Increment 16). The Argon2 hasher is a service-scoped
     # singleton (L3-AUTH-001) sourced from the auth.argon2.* config keys.
@@ -504,6 +538,8 @@ async def build_service(config: Config) -> Service:
         sweeper=sweeper,
         sweeper_action_dispatcher=sweeper_action_dispatcher,
         sweeper_loop=sweeper_loop,
+        report_pruner=report_pruner,
+        report_pruner_loop=report_pruner_loop,
         password_hasher=password_hasher,
         login=login,
         logout=logout,
@@ -523,7 +559,8 @@ async def shutdown_service(service: Service, *, timeout: float) -> None:
 
     Order:
 
-    1. Signal the sweeper loop to exit at the next iteration boundary.
+    1. Signal the sweeper loop AND the report-pruner loop to exit at
+       the next iteration boundary.
     2. Flip the scheduler into shutdown mode so no new background
        tasks can be scheduled.
     3. Await in-flight background tasks up to ``timeout`` seconds;
@@ -532,7 +569,7 @@ async def shutdown_service(service: Service, *, timeout: float) -> None:
 
     Steps (1)-(3) happen before the connection closes so that any
     AssembleAndDeliver task mid-flight can still persist its final
-    state transition. Step (1) gives the sweeper loop a chance to
+    state transition. Step (1) gives the periodic loops a chance to
     exit cleanly rather than via :class:`asyncio.CancelledError` from
     the scheduler's ``await_all`` timeout.
 
@@ -547,8 +584,9 @@ async def shutdown_service(service: Service, *, timeout: float) -> None:
         timeout_seconds=timeout,
     )
 
-    # Phase 1: signal the sweeper loop to exit cleanly.
+    # Phase 1: signal the periodic loops to exit cleanly.
     service.sweeper_loop.stop()
+    service.report_pruner_loop.stop()
 
     # Phase 2: stop accepting new background work.
     service.scheduler.begin_shutdown()

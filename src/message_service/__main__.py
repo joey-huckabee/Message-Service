@@ -234,13 +234,17 @@ async def _run(
             address=f"{config.dashboard.host}:{config.dashboard.port}",
         )
 
-        # Kick off the orphan sweeper. Must happen AFTER both
-        # listeners are accepting connections (so any accidental
-        # transaction collisions during startup surface as request
-        # errors rather than crashing the service) and BEFORE we
-        # block on ``shutdown_event.wait`` (otherwise the sweeper
-        # never ticks in production).
+        # Kick off the orphan sweeper and the rendered-report retention
+        # pruner. Both periodic loops are started AFTER both listeners
+        # are accepting connections (so any accidental transaction
+        # collisions during startup surface as request errors rather
+        # than crashing the service) and BEFORE we block on
+        # ``shutdown_event.wait`` (otherwise neither ticks in production).
+        # Order between the two does not matter — they share the
+        # L2-PERS-004 mutex and serialize cleanly through the UoW
+        # factory regardless of who ticks first.
         service.sweeper_loop.start()
+        service.report_pruner_loop.start()
 
         _log.info("service_running")
 

@@ -59,6 +59,7 @@ from message_service.application.use_cases.get_run_detail import GetRunDetailUse
 from message_service.application.use_cases.list_past_runs import ListPastRunsUseCase
 from message_service.application.use_cases.login import LoginUseCase
 from message_service.application.use_cases.logout import LogoutUseCase
+from message_service.application.use_cases.report_pruner import ReportPrunerUseCase
 from message_service.application.use_cases.resend_run import ResendRunUseCase
 from message_service.application.use_cases.submit_stage_report import (
     SubmitStageReportUseCase,
@@ -89,6 +90,9 @@ from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHash
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
+from message_service.infrastructure.persistence.report_pruner_loop import (
+    ReportPrunerLoop,
+)
 from message_service.infrastructure.persistence.run_repository import (
     SqliteRunRepository,
 )
@@ -275,6 +279,24 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         poll_interval_seconds=3600,  # effectively never polls during a test
     )
 
+    # Report-pruner components are required for the Service dataclass
+    # (Increment 29d) but the gRPC servicer tests don't exercise the
+    # rendered-report-retention path. Construct a minimal pruner whose
+    # poll-interval is large enough to never fire during the test
+    # window; the loop is built but not started.
+    report_pruner_uc = ReportPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        report_directory=service_config.persistence.filesystem.report_directory,
+        retention_days=90,
+        max_prunes_per_iteration=1000,
+    )
+    report_pruner_loop = ReportPrunerLoop(
+        pruner=report_pruner_uc,
+        scheduler=scheduler,
+        poll_interval_seconds=3600,  # effectively never polls during a test
+    )
+
     # Auth use cases are required for the Service dataclass but are
     # not exercised by the gRPC servicer tests; they sit on the FastAPI
     # surface (Increment 17). Keep Argon2 cost low so test-suite
@@ -336,6 +358,8 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         sweeper=sweeper_uc,
         sweeper_action_dispatcher=sweeper_action_dispatcher_uc,
         sweeper_loop=sweeper_loop,
+        report_pruner=report_pruner_uc,
+        report_pruner_loop=report_pruner_loop,
         password_hasher=password_hasher,
         login=login_uc,
         logout=logout_uc,

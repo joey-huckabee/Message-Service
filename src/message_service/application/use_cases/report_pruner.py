@@ -83,6 +83,14 @@ if TYPE_CHECKING:
 _log = structlog.get_logger(__name__)
 
 
+# SQL-side candidate-fetch ceiling. Generous for the v1 workload (single
+# node; modest run rate times90-day retention horizon is well under this).
+# A future migration adding ``runs.report_pruned_at`` would let the run
+# repository pre-filter already-pruned candidates and obsolete this
+# scan-and-skip approach.
+_CANDIDATE_QUERY_LIMIT: int = 10_000
+
+
 @dataclass(frozen=True, slots=True)
 class PruneResult:
     """Outcome of one :meth:`ReportPrunerUseCase.run_once` invocation.
@@ -172,10 +180,23 @@ class ReportPrunerUseCase:
             # reasons (the sweeper passes non-terminal states); the
             # contract just filters on the state set, so passing
             # terminal states works correctly per L3-PERS-028.
+            #
+            # NB on ``limit``: per L3-PERS-031 the per-tick *file*
+            # deletion cap is ``max_prunes_per_iteration``, not a cap
+            # on the SQL query. We pass a large constant here to give
+            # the pruner room to skip past already-pruned candidates
+            # (whose Run rows linger in the DB after their files have
+            # been evicted) and reach freshly-eligible runs in the
+            # same tick. 10 000 is generous for the v1 single-node
+            # workload (annual terminal-run rate timesretention horizon
+            # is well under this for any realistic deployment); a
+            # future migration adding ``runs.report_pruned_at`` would
+            # let list_expired pre-filter and remove this scan
+            # overhead entirely (potential R-PERS entry).
             candidates: Sequence[Run] = await uow.run_repo.list_expired(
                 cutoff=cutoff,
                 active_states=TERMINAL_STATES,
-                limit=self._max_prunes,
+                limit=_CANDIDATE_QUERY_LIMIT,
             )
 
         files_deleted = 0
@@ -187,9 +208,20 @@ class ReportPrunerUseCase:
             run_dir = self._report_directory / str(candidate.run_id)
             files = self._list_files(run_dir)
 
+            if not files:
+                # Already-pruned candidate (or one that never had any
+                # report files on disk): cheap rmdir cleanup if a
+                # subtree somehow lingers, then move on without
+                # consuming budget or incrementing runs_processed.
+                # ``runs_processed`` is the number of runs whose files
+                # the pruner actually attempted to evict this tick,
+                # not the number of DB candidates it iterated.
+                self._rmdir_empty_subtree(run_dir)
+                continue
+
             # L3-PERS-031: don't start a run that would exceed the
-            # per-tick budget. The run stays a candidate for the
-            # next tick. Skipping rather than partial-processing
+            # per-tick file-deletion budget. The run stays a candidate
+            # for the next tick. Skipping rather than partial-processing
             # keeps run-level deletion atomicity.
             if len(files) > budget_remaining:
                 break

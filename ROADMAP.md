@@ -35,7 +35,7 @@ Done:
 
 Still open:
 
-- **Increment 27** — UoW serialization fix. Real bug discovered during the 23 audit: `SqliteUnitOfWorkFactory` shares one aiosqlite connection across all UoWs but has no mutex, despite the docstring's false claim of one. Concurrent UoW openings produce `cannot start a transaction within a transaction`. Surfaces intermittently as a flake in `tests/e2e/orphan_path/`; the underlying production risk is concurrent gRPC + sweeper traffic causing sporadic `PersistenceError` 500s. Add an `asyncio.Lock` around BEGIN/COMMIT.
+- **Increment 27** — UoW serialization correctness + spec alignment. Real bug discovered during the 23 audit: `SqliteUnitOfWorkFactory` shares one aiosqlite connection across all UoWs but has no mutex, despite the docstring's false claim of one. Concurrent UoW openings produce `cannot start a transaction within a transaction`. Survey at kickoff revealed the spec describes a connection-pool architecture (L2-PERS-004 + L3-PERS-006/007/021 + L1-REQ.md:578 config-knob + `c4-component-persistence.puml:21`) that v1 does NOT implement; v1 uses single-connection + (now) asyncio mutex. SQLite serializes writers regardless of pool size and the workload doesn't justify pool complexity, so v1 ships with single-connection + mutex; the pool architecture is preserved as a future evolution path. Rescoped into nine sub-steps (27a–27i) so spec cleanup commits land before code so the requirement set is internally consistent at every commit boundary.
 - **Increment 24** — Documentation deliverables (release-gating). Two ADRs (SQLite-for-in-flight-state, hexagonal-boundary), operator runbook, pipeline integration guide, promote `tests/README.md` to formal test strategy. Increment 20d's remainder lives as deferred work in `R-DASH-004`.
 - **Increment 28** — Runnable demonstration examples. New top-level `examples/` directory containing eight self-contained, fully-documented scenario scripts (hello-world, multi-stage aggregated, per-stage attachments, retry flow, tag routing, orphan detection, manual resend, error recovery) plus shared helpers (`smtp_capture.py`, `service_runner.py`, `expectations.py`). Each scenario has a complete README with verbatim expected output so an unfamiliar user can run it without making assumptions. Recommended slot: with or after 24 — they cross-reference each other.
 
@@ -657,32 +657,57 @@ Out of scope (kept narrow per the original "deployment polish" framing):
 
 - A minimal `.github/workflows/ci.yaml` was already substantial after Cluster 26 — no further work needed in this increment.
 
-### Increment 27 — UoW serialization fix
+### Increment 27 — UoW serialization correctness + spec alignment
 
 **Problem (correctness, not just traceability)**
 
-`SqliteUnitOfWorkFactory` (`src/message_service/infrastructure/persistence/unit_of_work.py:247`) shares a single `aiosqlite.Connection` across all UoW instances it produces. The factory's docstring at line 12 claims:
-
-> Because the connection is shared, only one UoW may be active at a time; concurrent requests will queue at the BEGIN boundary via the connection's internal lock
-
-**This is false.** There is no mutex. When two coroutines concurrently enter UoW context, both call `await conn.execute("BEGIN")`. The second BEGIN executes against a connection already in a transaction state and fails with `sqlite3.OperationalError: cannot start a transaction within a transaction` (raised at `unit_of_work.py:135` and wrapped as `PersistenceError`).
+`SqliteUnitOfWorkFactory` (`src/message_service/infrastructure/persistence/unit_of_work.py:247`) shares a single `aiosqlite.Connection` across all UoW instances it produces. The factory's module docstring claims serialization happens "via the `busy_timeout` PRAGMA," which is wrong — `busy_timeout` is for cross-process file contention, not for serializing in-process transactions on the same connection. There is no mutex. When two coroutines concurrently enter UoW context, both call `await conn.execute("BEGIN")`. The second BEGIN executes against a connection already in a transaction state and fails with `sqlite3.OperationalError: cannot start a transaction within a transaction` (raised at `unit_of_work.py:133` and wrapped as `PersistenceError`).
 
 The bug is masked in most tests (no concurrent UoW openings) but surfaces intermittently in `tests/e2e/orphan_path/test_sweeper_disposes_orphan.py` because the sweeper-loop tick runs `_tick_once` and `_dispatch_drain` on the same poll iteration — both open UoWs against the same shared connection. The test currently mitigates by starting the sweeper loop AFTER the BeginRun's UoW completes, but this only prevents one of the race orderings; the loop's own internal phases still race against each other every poll interval.
 
 This is an availability bug under load: a misbehaving pipeline driving concurrent gRPC traffic + the sweeper running its normal cadence will produce sporadic `PersistenceError` 500s and orphan-path delays in production. The orphan-path e2e flake is the visible symptom; the underlying production risk is the actual reason to fix it.
 
-**Work**
+**Rescope rationale (spec/implementation drift discovered at kickoff)**
 
-1. Add an `asyncio.Lock` to `SqliteUnitOfWorkFactory`. Construct lazily on first `__call__` (so the factory remains event-loop-agnostic at construction — bootstrap may run before the running loop is established). Pass the lock into each `SqliteUnitOfWork` instance.
-2. In `SqliteUnitOfWork.__aenter__`: `await self._lock.acquire()` BEFORE `await self._conn.execute("BEGIN")`. In `__aexit__`, `commit()`, and `rollback()`: release the lock in `try/finally`. Ensure the lock is released exactly once even when commit fails after rollback also fails.
-3. Update the misleading docstring at `unit_of_work.py:12` to describe the actual serialization mechanism (asyncio.Lock around BEGIN/COMMIT) rather than the false "via the connection's internal lock" claim.
-4. New test file `tests/integration/persistence/test_unit_of_work_concurrency.py`: spawn two concurrent `async with factory()` blocks doing nontrivial work; assert no `PersistenceError("cannot start a transaction within a transaction")` is raised, both transactions commit. Verify the test is meaningful by temporarily removing the lock and confirming it fails.
-5. Loop the orphan-path e2e test 10× consecutively to verify the flake is gone (`for i in $(seq 1 10); do poetry run pytest tests/e2e/orphan_path/ --no-cov -x; done`).
-6. Document the change in `tests/e2e/orphan_path/test_sweeper_disposes_orphan.py` — remove the comment about the "race" mitigation now that the underlying bug is fixed; the workaround can stay (start-after-BeginRun) for clarity, but the rationale needs updating.
+Survey of the cited code path turned up a deeper inconsistency than the original problem statement captured. The active spec describes a connection-pool architecture:
 
-**Trace impact**: no requirement re-classification — this is implementation correctness, not traceability. Stabilizes the orphan-path e2e test (currently the only known flake) and removes a real production bug.
+- **L2-PERS-004** — "The service SHALL maintain a connection pool sized to accommodate concurrent gRPC servicer calls and FastAPI request handlers, with pool size controlled by configuration key `persistence.connection_pool_size`."
+- **L3-PERS-006** — pool backed by `asyncio.Queue`, `connection_acquire_timeout_seconds` default 5s.
+- **L3-PERS-007** — default `connection_pool_size` 16; exhaustion increments a Prometheus counter.
+- **L3-PERS-021** — connection acquisition logs DEBUG with current pool depth.
+- **L1-REQ.md:578** lists `connection-pool size` as a required config knob.
+- **`docs/diagrams/c4-component-persistence.puml:21`** describes the Connection Manager as "Pool sized by `persistence.connection_pool_size`; WAL pragmas at startup."
+- **`src/message_service/config/schema.py:110`** defines `connection_pool_size: int = Field(default=16, ge=1, le=256)` — but no code path reads this field. The shipped configs (`config/default.toml`, `config/dev-config.toml`, `config/config.toml.example`) all set the key.
 
-**Sequencing**: small surgical change (~30 lines + one test file + docstring fix). Land before Increment 24 so the v1 release tag has a clean test suite. Could land before or after 26e — they don't conflict.
+v1 does NOT implement a pool — the actual mechanism is single shared `aiosqlite.Connection`. With a real pool, the original bug doesn't exist (BEGINs go to different connections); the bug exists *because* the implementation is single-connection without the synchronization that design requires.
+
+**Architectural decision for v1**: keep single-connection + asyncio mutex. SQLite has at most one writer per database file regardless of pool size; pool would not deliver write parallelism for this codebase's write-heavy UoWs. Pool's main benefit (read parallelism in WAL mode) is real but does not justify the complexity for a single-node ETL reporting service with low concurrent dashboard usage. Pool architecture preserved as a future evolution path, with explicit re-evaluation triggers, in `docs/archive/connection-pool-architecture.md`.
+
+The increment is broken into nine sub-steps so each stays reviewable in isolation. Spec cleanup commits land before code so the requirement set is internally consistent at every commit boundary.
+
+**Sub-steps**
+
+**27a — Pool architecture archive document** *(spec)*. Author `docs/archive/connection-pool-architecture.md`. Capture verbatim: the existing L2-PERS-004 statement; L3-PERS-006, L3-PERS-007, L3-PERS-021 statements; L1-REQ.md:578 config-knob bullet excerpt; the C4 PlantUML fragment for the Connection Manager component. Add forward-looking evolution-trigger rationale (when dashboard P95 latency under sustained sweeper load justifies revisiting). This is the authoritative record of the pool design — leaving the active spec but not lost.
+
+**27b — Replace pool requirements with mutex requirements** *(spec)*. Reword L2-PERS-004 to describe single shared `aiosqlite.Connection` serialized via `asyncio.Lock` around BEGIN/COMMIT. Replace L3-PERS-006, L3-PERS-007, L3-PERS-021 with mutex-flavored L3 children: lock placement (acquire before BEGIN, release in `try/finally` on every exit path); exactly-once release on commit-then-rollback failure; concurrency-test verification. Drop `connection_pool_size` from the L1-REQ.md:578 config-knob bullet. Trace-matrix regen.
+
+**27c — Update C4 PlantUML diagram** *(spec)*. Modify `docs/diagrams/c4-component-persistence.puml:21` to describe single `aiosqlite.Connection` + `asyncio.Lock` around BEGIN/COMMIT. Other diagrams reviewed; the SVG architecture overview does not mention pool — no change needed.
+
+**27d — Config schema cleanup** *(code)*. Remove unused `connection_pool_size: int` field from `PersistenceConfig` in `src/message_service/config/schema.py`. Remove the corresponding key from `config/default.toml`, `config/dev-config.toml`, `config/config.toml.example`. Update fixture docstrings in `tests/fixtures/persistence.py` and `tests/integration/conftest.py` (TODO-stub docstrings referencing the pool fixture by name). Schema-shrink is operator-backwards-compatible because the field was never read by any code path.
+
+**27e — Mutex implementation** *(code)*. Add lazy `asyncio.Lock` to `SqliteUnitOfWorkFactory` (constructed on first `__call__` so the factory remains event-loop-agnostic at construction — bootstrap may run before the running loop is established). Pass the lock into each `SqliteUnitOfWork` instance. In `__aenter__`: acquire BEFORE BEGIN. In `__aexit__`, `commit()`, `rollback()`: release in `try/finally` so the lock is released exactly once even when commit fails after rollback also fails. Update the misleading module docstring at `unit_of_work.py` lines 1-28 to describe the actual mechanism (asyncio.Lock around BEGIN/COMMIT) rather than the false `busy_timeout` claim.
+
+**27f — Concurrency test** *(code)*. New `tests/integration/persistence/test_unit_of_work_concurrency.py`. Two coroutines concurrently `async with factory()` on a real migrated DB doing real inserts; assert no `PersistenceError`, both commit, both rows visible after the contention. Markers: the new mutex L3 IDs from 27b. The test naturally fails without the lock — the assertion is the proof; no manufactured proof-of-effectiveness.
+
+**27g — Orphan-path test rationale update** *(code)*. Update fixture docstring (lines 49-54) and inline comment (lines 120-124) in `tests/e2e/orphan_path/test_sweeper_disposes_orphan.py`. Start-after-BeginRun ordering can stay for clarity; rationale references the new mutex (no longer a workaround for an unfixed bug — now an ordering convention for test clarity).
+
+**27h — Verify orphan-path stability** *(verification)*. Loop `tests/e2e/orphan_path/` 10× consecutively (`for i in $(seq 1 10); do poetry run pytest tests/e2e/orphan_path/ --no-cov -x; done`); confirm 10/10 green.
+
+**27i — Pre-commit pipeline + ✅ done + status snapshot** *(closeout)*. Run the full pre-commit pipeline (ruff format, ruff check --fix, mypy strict, pytest with 85% coverage gate, build-trace-matrix, pre-commit run --all-files). Mark `### Increment 27 — UoW serialization correctness + spec alignment *(✅ done — commits ...)*`; refresh banner; move 27 from "Still open" to "Done" in the Status snapshot with all sub-step commit hashes.
+
+**Trace impact**: L2-PERS-004 + L3-PERS-006/007/021 are reworded (same parent L1-PERS-001, content changed). No L1 promotion/demotion. The new mutex L3s become Implemented through 27e + 27f, so L1-PERS-001's trace status moves toward Implemented (full status determined when the matrix regenerates after 27b).
+
+**Sequencing**: 27a→27b→27c→27d are spec/diagram/code-cleanup; 27e→27f→27g are the impl code; 27h verifies; 27i closes out. Land before Increment 24 so the v1 release tag has a clean test suite and a self-consistent requirement set.
 
 ### Increment 24 — Documentation deliverables (release-gating)
 

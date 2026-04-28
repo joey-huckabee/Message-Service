@@ -575,7 +575,7 @@ single source of truth for live status; the source docs in this file,
 **Statement**: The configuration schema SHALL include at minimum the following settings, grouped by area:
 
 - **Network**: gRPC listen address and port; FastAPI listen address and port.
-- **Persistence**: SQLite database path; SQLite connection-pool size; rendered-report directory path; rendered-report retention duration (`persistence.filesystem.report_retention_days`, see L1-PERS-004); rendered-report pruner cadence and per-iteration cap.
+- **Persistence**: SQLite database path; rendered-report directory path; rendered-report retention duration (`persistence.filesystem.report_retention_days`, see L1-PERS-004); rendered-report pruner cadence and per-iteration cap.
 - **Templates**: template manifest path; email-body template reference (name + version); maximum context byte size; maximum rendered byte size.
 - **Tags and pipelines**: tag vocabulary path; registered pipeline-type list.
 - **Sweeper**: global run timeout; orphan sweeper poll interval; orphan disposition policy set; per-tick maximum candidates (`sweeper.max_candidates_per_iteration`, see L3-SWEEP-008); stuck-claim recovery threshold (`sweeper.stale_claim_threshold_seconds`, see L3-SWEEP-020); maximum dispatch attempts before abandonment (`sweeper.max_dispatch_attempts`, see L3-SWEEP-021).

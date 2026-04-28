@@ -822,10 +822,10 @@ Migrations SHALL be named `NNN_description.sql` with three-digit zero-padded pre
 Applied migrations tracked in `_migrations(version INT PRIMARY KEY, name TEXT, applied_at TEXT)`; re-running is a no-op.
 
 **L3-PERS-006** · Parent: L2-PERS-004 · Verification: T
-The connection pool SHALL be backed by an `asyncio.Queue`; exhaustion blocks with `persistence.connection_acquire_timeout_seconds` (default 5s) before raising `PersistenceError`.
+The shared-connection serialization mutex SHALL be an `asyncio.Lock` owned by the `SqliteUnitOfWorkFactory`. The factory SHALL construct the lock lazily on its first `__call__()` rather than at `__init__()`, so the factory remains event-loop-agnostic at construction (bootstrap may run before the running event loop is established). Each `SqliteUnitOfWork` produced by the factory SHALL receive a reference to that same lock.
 
 **L3-PERS-007** · Parent: L2-PERS-004 · Verification: T
-Default `persistence.connection_pool_size` SHALL be 16; exhaustion events SHALL increment a Prometheus counter.
+Each `SqliteUnitOfWork` SHALL `await self._lock.acquire()` BEFORE calling `await self._conn.execute("BEGIN")` in `__aenter__`, and SHALL release the lock exactly once via `try/finally` on every transaction-closing path: clean `__aexit__` commit, exception-driven `__aexit__` rollback, explicit `commit()`, and explicit `rollback()`. Where a commit failure triggers a follow-up rollback (best-effort), the lock SHALL still be released exactly once across the combined commit+rollback span, regardless of whether the rollback itself raises.
 
 **L3-PERS-008** · Parent: L2-PERS-005 · Verification: T
 Atomic writes SHALL write to `<final>.tmp.<uuid>`, `fsync`, then `os.rename` to `<final>`; concurrent writers SHALL each use distinct `.tmp` suffixes.
@@ -867,7 +867,7 @@ Service shutdown SHALL issue `PRAGMA wal_checkpoint(TRUNCATE)` before closing th
 Migrations SHALL be applied one per transaction; a migration failure rolls back only that migration, leaving prior migrations applied.
 
 **L3-PERS-021** · Parent: L2-PERS-004 · Verification: T
-Connection acquisition SHALL log DEBUG with the current pool depth; a test SHALL verify the debug line fires when the pool is near exhaustion.
+A concurrency test SHALL verify the serialization contract: two coroutines simultaneously open a UoW against a real migrated database via the same factory, each performs a non-trivial write (e.g., a row insert into a real table), and both UoWs exit cleanly. The test SHALL assert (a) no `PersistenceError` is raised by either coroutine, (b) both transactions commit, and (c) both written rows are observable on a fresh read after the contention completes. The assertion is sufficient on its own to verify the lock — without the lock, the second coroutine's BEGIN raises `cannot start a transaction within a transaction` and the test fails naturally; no manufactured proof-of-effectiveness step (e.g., temporary lock removal) is required.
 
 **L3-PERS-022** · Parent: L2-PERS-005 · Verification: T
 Report filenames SHALL be derived from deterministic identifiers — `run_id` for the email body, `run_id` + `stage_id` for per-stage fragments (see L3-PERS-025 for the on-disk layout). No timestamp, sequence number, or other non-identity-derived variable component SHALL appear in the filename.

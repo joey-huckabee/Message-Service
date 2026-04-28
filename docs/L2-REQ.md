@@ -1027,9 +1027,9 @@ single source of truth for live status.
 #### L2-PERS-004
 
 **Parent**: L1-PERS-001
-**Statement**: The service SHALL maintain a connection pool sized to accommodate concurrent gRPC servicer calls and FastAPI request handlers, with pool size controlled by configuration key `persistence.connection_pool_size`.
-**Rationale**: Explicit pool sizing prevents connection exhaustion under concurrent load and gives operators a tuning knob.
-**Verification Method**: Inspection (I)
+**Statement**: The service SHALL hold a single shared `aiosqlite.Connection` across all UnitOfWork instances and SHALL serialize concurrent UoW openings via an `asyncio.Lock` held across the BEGIN→COMMIT (or BEGIN→ROLLBACK) span, so that at most one transaction is active on the connection at any time.
+**Rationale**: SQLite enforces at most one writer per database file regardless of how many connections are open; the codebase's UoWs are write-heavy (audit-log writes are bundled with most reads), so the pool's main potential benefit (read parallelism in WAL mode) is small in practice. A single shared connection plus an explicit `asyncio.Lock` makes the serialization point obvious in code, gives a predictable failure mode under contention (latency, not `SQLITE_BUSY` retries), and avoids pool-sizing / acquire-timeout / exhaustion-handling complexity that this single-node workload does not justify. The pool architecture, including its rationale, configuration knob, and diagram fragment, is preserved verbatim in `docs/archive/connection-pool-architecture.md` along with the re-evaluation triggers that would justify revisiting it.
+**Verification Method**: Test (T), Inspection (I)
 
 ### Derivations of L1-PERS-002 (filesystem storage)
 

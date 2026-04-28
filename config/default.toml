@@ -34,6 +34,17 @@ sqlite_path = "./data/message-service.sqlite"
 [persistence.filesystem]
 # L1-PERS-002: rendered report storage root
 report_directory = "./data/reports"
+# L1-PERS-004 / L2-PERS-011/012/013: rendered-report retention pruner.
+# report_retention_days  — minimum days a rendered report SHALL be retained
+#                          on disk (L3-PERS-027). Default 90.
+# prune_interval_seconds — pruner-loop polling cadence (L3-PERS-029).
+#                          Default 86400 (daily).
+# max_prunes_per_iteration — per-tick deletion cap (L3-PERS-029) so a
+#                            backlog drains over multiple iterations rather
+#                            than monopolizing the connection. Default 1000.
+report_retention_days = 90
+prune_interval_seconds = 86400
+max_prunes_per_iteration = 1000
 
 [templates]
 # L2-TMPL-001: template manifest path (TOML)

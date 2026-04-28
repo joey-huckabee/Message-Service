@@ -98,9 +98,20 @@ class DashboardConfig(_FrozenForbid):
 
 
 class FilesystemPersistenceConfig(_FrozenForbid):
-    """Filesystem persistence for rendered reports (L1-PERS-002)."""
+    """Filesystem persistence for rendered reports (L1-PERS-002).
+
+    The retention knobs (``report_retention_days``,
+    ``prune_interval_seconds``, ``max_prunes_per_iteration``) drive
+    the rendered-report retention pruner specified by L1-PERS-004
+    and the L2-PERS-011 / L2-PERS-012 / L2-PERS-013 derivations.
+    Defaults (90 days / 1 day cadence / 1000 files per tick) match
+    the L3-PERS-027/029 constraints.
+    """
 
     report_directory: Path
+    report_retention_days: int = Field(default=90, ge=1)
+    prune_interval_seconds: int = Field(default=86_400, ge=1)
+    max_prunes_per_iteration: int = Field(default=1_000, ge=1)
 
 
 class PersistenceConfig(_FrozenForbid):

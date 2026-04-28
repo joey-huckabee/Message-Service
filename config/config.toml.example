@@ -59,6 +59,31 @@ sqlite_path = "/var/lib/message-service/message-service.db"
 # Must be writable by the service user.
 report_directory = "/var/lib/message-service/reports"
 
+# Rendered-report retention pruner (L1-PERS-004 / L2-PERS-011/012/013).
+#
+# report_retention_days
+#   Minimum days a rendered report SHALL be retained on disk before the
+#   pruner is permitted to evict it (L3-PERS-027). Default 90 covers a
+#   typical post-incident investigation window. Operators with stricter
+#   retention requirements should raise this value; the pruner will not
+#   evict reports younger than the configured threshold regardless of
+#   disk pressure.
+#
+# prune_interval_seconds
+#   How often the pruner-loop wakes up to scan for eligible reports
+#   (L3-PERS-029). Default 86400 (daily). The pruner uses the same
+#   BackgroundTaskScheduler as the orphan sweeper, so this cadence is
+#   observed in service-process wall time, not cron-style triggers.
+#
+# max_prunes_per_iteration
+#   Per-tick deletion cap (L3-PERS-029). A large eviction backlog
+#   (post-extended-downtime, post-policy-change) drains across multiple
+#   ticks rather than monopolizing the SQLite connection in one pass.
+#   Mirrors sweeper.max_candidates_per_iteration (L3-SWEEP-008).
+report_retention_days = 90
+prune_interval_seconds = 86400
+max_prunes_per_iteration = 1000
+
 # --- Templates ---------------------------------------------------------------
 
 [templates]

@@ -32,6 +32,13 @@ sqlite_path = "../.local/dev/message-service.db"
 [persistence.filesystem]
 # Rendered HTML reports (and any per-stage attachments saved to disk).
 report_directory = "../.local/dev/reports"
+# Rendered-report retention pruner (L1-PERS-004 / L2-PERS-011/012/013).
+# Dev defaults shorten the retention window so the pruner exercises
+# real eligible candidates within a typical dev session, while keeping
+# the per-tick cap small enough that any individual tick is fast.
+report_retention_days = 7
+prune_interval_seconds = 300
+max_prunes_per_iteration = 100
 
 # --- Templates ---------------------------------------------------------------
 

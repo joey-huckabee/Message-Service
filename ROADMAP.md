@@ -36,8 +36,18 @@ Done:
 
 Still open:
 
-- **Increment 24** — Documentation deliverables (release-gating). Two ADRs (SQLite-for-in-flight-state, hexagonal-boundary), operator runbook, pipeline integration guide, promote `tests/README.md` to formal test strategy. Increment 20d's remainder lives as deferred work in `R-DASH-004`.
-- **Increment 28** — Runnable demonstration examples. New top-level `examples/` directory containing eight self-contained, fully-documented scenario scripts (hello-world, multi-stage aggregated, per-stage attachments, retry flow, tag routing, orphan detection, manual resend, error recovery) plus shared helpers (`smtp_capture.py`, `service_runner.py`, `expectations.py`). Each scenario has a complete README with verbatim expected output so an unfamiliar user can run it without making assumptions. Recommended slot: with or after 24 — they cross-reference each other.
+A 2026-04-27 audit (post-27) categorized the remaining v1 closure work. Three implementation drifts (similar shape to the connection-pool drift Increment 27 fixed), one feature gap discovered while categorizing the 5 Draft L1s, one architectural-pattern increment for L1-TMPL-002, and a large but mechanical trace-matrix coverage pass for 41 of 44 Partial L1s where code already exists. Increments 24 + 28 (previously thought to be the last work) are now the *final* gating steps after the new increments land.
+
+- **Increment 29** — Rendered-report retention pruner (L1-PERS-004 implementation). Spec promised retention pruner + 3 config keys + audit per eviction; code never built it. L2-PERS-011/012/013 currently have zero L3 children. Sub-steps 29a–29f author L3s, add config fields, implement `ReportPrunerUseCase` on the existing `BackgroundTaskScheduler`, integration tests. Promotes L1-PERS-004 Draft → Implemented.
+- **Increment 30** — Audit-log retention pruner (L1-OBS-003 implementation; closes R-PERS-002). Spec promises retention enforcement; code has `retention_days` config but no pruner — `R-PERS-002` already acknowledges the gap as deferred but the active L2-OBS-008/009 statements still read as non-deferred SHALL. Sub-steps 30a–30g author missing L3s, add `cleanup_interval_hours` + `cleanup_batch_size` schema fields, implement `AuditLogPrunerUseCase`, close R-PERS-002. Promotes L2-OBS-008/009 Draft → Implemented.
+- **Increment 31** — L1-MAIL-004 admin notification + spec inconsistencies. EMAIL_SIZE_EXCEEDED admin-notification path missing in `assemble_and_deliver.py`. Plus three small spec-cleanup items: L2-OBS-018 dangles cross-references to non-existent L3-OBS-037/038; L2-OBS-007 verification-method mismatch with its L3 child; L3-MAIL-001 "no SMTP pooling" speculation mirrors the pre-27 pool drift wording. Sub-steps 31a–31g. Promotes L1-MAIL-004 Draft → Implemented.
+- **Increment 33** — L1-TMPL-002 "latest" version resolution. The audit found that the string `"latest"` appears in L1/L2/L3 + one diagram but is **absent from every Python source file and every test**. No code path implements the sentinel. Sub-steps 33a–33e author L3s, implement `resolve_latest`, wire BeginRun, tests. Promotes L1-TMPL-002 Partially → Implemented.
+- **Increment 34** — L1-TMPL-004 JSON Schema context validation. Audit found `Jinja2SandboxedTemplateRenderer.render()` performs size checks but never validates context against the manifest's declared JSON Schema; `jsonschema` library is not even imported. Sub-steps 34a–34e author L3s, add Poetry dep, wire validation, tests. Promotes L1-TMPL-004 Draft → Implemented.
+- **Increment 32** — Trace-matrix coverage pass (the "Category C" cleanup). 41 of 44 Partial L1s + 4 of the 5 Draft L1s have code that already implements the requirement; the matrix shows them Partial only because L3 statements / test markers / small inspection tests are missing. Sub-steps 32a–32f follow the audit chunk structure (32a API+RUN, 32b STAGE+SWEEP+AGGR, 32c SUB+AUTH, 32d MAIL+TMPL, 32e DASH+PERS+OBS+ERR+CFG, 32f matrix regen + AUTH-session-memo correction + done). Promotes ~41 + 4 L1s to Implemented in one increment.
+- **Increment 24** — Documentation deliverables (release-gating). Two ADRs (SQLite-for-in-flight-state, hexagonal-boundary), operator runbook, pipeline integration guide, promote `tests/README.md` to formal test strategy. Increment 20d's remainder lives as deferred work in `R-DASH-004`. Now safe to author because every L1 will be either Implemented or have an honest deferral entry after 29-34.
+- **Increment 28** — Runnable demonstration examples. New top-level `examples/` directory containing eight self-contained, fully-documented scenario scripts plus shared helpers. Each scenario has a complete README with verbatim expected output. Recommended slot: with or after 24 — they cross-reference each other.
+
+**Recommended sequence** (per 2026-04-27 audit synthesis): **29 → 30 → 31 → 33 → 34 → 32 → 24 → 28 → v1 tag.** 29 and 30 share the `BackgroundTaskScheduler` pattern so 29 first sets the template for 30. 31 / 33 / 34 are independent and could parallelize. 32 lands last among implementation increments so its matrix regens capture all upstream promotions in one final pass. 24 + 28 are documentation/examples; 24 ADRs benefit from every L1 being Implemented (or honestly deferred) so the document content doesn't go stale on commit.
 
 The list below is keyed off `docs/TRACE-MATRIX.md` (now authoritative for status, per 25a) and the empty source/test directories under `src/message_service/interfaces/rest/{auth,routes}/`, `tests/e2e/`, and `docs/adr/`.
 
@@ -796,6 +806,183 @@ Operators, evaluators, and new contributors lack a hands-on way to see the Messa
 **Sequencing**: each scenario can land in a separate commit. Recommended commit order: (1) shared helpers + `examples/_lib/`; (2) scenario 01 (smallest, validates the pattern); (3) scenarios 02 + 03 (attachment-mode pair); (4) scenario 06 (orphan, the most distinctive demo); (5) the remaining four scenarios (04, 05, 07, 08); (6) top-level `examples/README.md`; (7) the conformance test. Could land before or after Increment 24 — independent, but 24's pipeline-integration guide and this increment cross-reference each other, so co-landing them in either order is fine. Final commit: tag v1.
 
 **Effort estimate**: largest of the v1 closing increments by line count (~2,000–3,000 lines of orchestration code + READMEs + templates), but the work is parallelizable per scenario and each scenario is small in isolation. Two week-equivalents from a single developer who already understands the spec.
+
+### Increment 29 — Rendered-report retention pruner (L1-PERS-004 implementation)
+
+**Problem**
+
+L1-PERS-004 declares that rendered HTML reports SHALL be retained at least `persistence.filesystem.report_retention_days` (default 90), after which a background pruner SHALL evict expired reports with one audit row per file. L2-PERS-011 / L2-PERS-012 / L2-PERS-013 elaborate (configurable retention days; daily pruner cadence using the same `BackgroundTaskScheduler` as the orphan sweeper; per-tick eviction cap). The pre-Increment-29 audit (2026-04-27) confirmed:
+
+- `FilesystemPersistenceConfig` (`src/message_service/config/schema.py:100-103`) only declares `report_directory`. None of `report_retention_days`, `prune_interval_seconds`, `max_prunes_per_iteration` exist.
+- No pruner use case exists; bootstrap registers `sweeper_loop` only.
+- No `PRUNE_REPORT` audit action is emitted anywhere.
+- **L2-PERS-011 / L2-PERS-012 / L2-PERS-013 have ZERO L3 children** — the requirement tree is incomplete.
+
+The matrix correctly shows L1-PERS-004 as Draft. This is the same shape as the connection-pool drift Increment 27 fixed: spec promises a feature; code never delivered. Path A (chosen 2026-04-27) is to implement properly.
+
+**Sub-steps**
+
+**29a — Author L3 children for L2-PERS-011 / L2-PERS-012 / L2-PERS-013** *(spec)*. Three new L2s currently have no L3 derivations. Likely shape: L3-PERS-027 (config-key constraints + defaults), L3-PERS-028 (pruner-task lifecycle on `BackgroundTaskScheduler`), L3-PERS-029 (per-tick batch claim + eviction loop), L3-PERS-030 (atomic-rename precondition: report file present at decision time + still present at delete), L3-PERS-031 (`PRUNE_REPORT` audit row shape: actor `system:report_pruner`, resource `run:<run_id>`, details with file path + retention threshold + decision timestamp), L3-PERS-032 (concurrency: pruner UoW serializes against gRPC + sweeper via the L2-PERS-004 mutex). Trace-matrix regen.
+
+**29b — Config schema fields + shipped configs** *(code)*. Add `report_retention_days: int = Field(default=90, ge=1)`, `prune_interval_seconds: int = Field(default=86400, ge=1)`, `max_prunes_per_iteration: int = Field(default=1000, ge=1)` to `FilesystemPersistenceConfig`. Add the three keys to `config/default.toml`, `config/dev-config.toml`, `config/config.toml.example` with explanatory comments. Update L1-CFG-003 enumeration cross-reference where the audit found the config-knob bullet listed these but the schema didn't.
+
+**29c — `PRUNE_REPORT` audit action + ReportPrunerUseCase** *(code)*. Add `PRUNE_REPORT` to `AuditAction` enum. Author `application/use_cases/report_pruner.py` with three phases: scan candidate `run_id`s with terminal-state transition older than `now - retention_days`; for each, attempt atomic-delete of `<report_directory>/<run_id>/` tree (or per-file); audit one row per evicted file. Per-tick batch capped at `max_prunes_per_iteration`.
+
+**29d — Bootstrap wiring** *(code)*. Construct the `ReportPrunerUseCase`, register a periodic task on `BackgroundTaskScheduler` with cadence `prune_interval_seconds`. Mirror sweeper-loop construction shape. Lifecycle hooks (start at bootstrap end, stop on shutdown).
+
+**29e — Integration tests** *(code)*. New `tests/integration/persistence/test_report_pruner.py`: real filesystem under `tmp_path`, real SQLite, real `SystemClock` advanced via injected `FakeClock` to push terminal runs past the threshold. Assertions on (a) eligible runs' report files removed, (b) ineligible runs' files preserved, (c) one `PRUNE_REPORT` audit row per evicted file, (d) per-tick cap respected (configure cap=2, seed 5 eligible, expect 2 deletions per tick, 3 surviving until next tick), (e) rollback on UoW failure leaves filesystem unchanged (audit-first ordering preserved).
+
+**29f — Pre-commit + status snapshot + ✅ done** *(closeout)*. Full pre-commit pipeline (ruff format, ruff check, mypy strict, pytest with 85% gate, build-trace-matrix, pre-commit run --all-files). L1-PERS-004 promotes Draft → Implemented. Status snapshot follow-up moves 29 to Done.
+
+**Trace impact**: L2-PERS-011 / L2-PERS-012 / L2-PERS-013 promote Draft → Implemented; new L3-PERS-027..032 (or whatever range) become first-time Implemented; L1-PERS-004 promotes Draft → Implemented.
+
+**Sequencing**: Land first among the new v1-closing increments. Independent of 30 / 31 / 33 / 34 / 32, but its `BackgroundTaskScheduler`-based pattern sets the template for 30's audit-log pruner so doing 29 first benefits 30.
+
+### Increment 30 — Audit-log retention pruner (L1-OBS-003 implementation; closes R-PERS-002)
+
+**Problem**
+
+L1-OBS-003 declares audit-log records SHALL be retained for a globally configurable duration. L2-OBS-008 says "Audit log retention SHALL be enforced by a daily cleanup task that deletes records whose `timestamp` is older than the configured retention duration." L2-OBS-009 pins the asyncio scheduling. L3-OBS-014 references config key `observability.audit.cleanup_interval_hours` (default 24); L3-OBS-015 references `observability.audit.cleanup_batch_size` (default 10000).
+
+Pre-29 audit findings:
+
+- `AuditConfig` (`src/message_service/config/schema.py:284-287`) declares `retention_days` (default 365) but neither `cleanup_interval_hours` nor `cleanup_batch_size` exists.
+- No background pruner is constructed in bootstrap.
+- The `AuditLog` port docstring says retention "is handled separately by a background pruner" — but no such pruner exists.
+- **R-PERS-002 already exists** as a deferred-features entry: *"`observability.audit.retention_days` is in the config schema but not yet enforced by a running process. Future option: scheduled background task that deletes audit rows older than the retention window. Small; can piggyback on the same scheduler used for orphan sweeping."*
+
+So the drift is already half-captured (R-PERS-002 acknowledges the gap) — but the active L2-OBS-008 / L2-OBS-009 statements still read as a non-deferred SHALL. Same shape as the pool drift before Increment 27. Path A (chosen 2026-04-27) is to implement the pruner and close R-PERS-002.
+
+**Sub-steps**
+
+**30a — L3 verification + authoring** *(spec)*. L3-OBS-014 / L3-OBS-015 already exist (per audit). Verify they're still accurate and don't need rewording. Author any additional L3s the implementation surfaces (e.g., per-batch transaction scope, audit-the-pruner audit row, monotonic-non-decreasing timestamp assumption per L2-RUN-016). Trace-matrix regen.
+
+**30b — Config schema fields + shipped configs** *(code)*. Add `cleanup_interval_hours: int = Field(default=24, ge=1)`, `cleanup_batch_size: int = Field(default=10000, ge=100, le=1_000_000)` to `AuditConfig`. Add the keys to `config/default.toml`, `config/dev-config.toml`, `config/config.toml.example` with explanatory comments.
+
+**30c — AuditLogPrunerUseCase** *(code)*. New `application/use_cases/audit_log_pruner.py`. Per-tick: compute cutoff `now - retention_days`; in one UoW, run `DELETE FROM audit_log WHERE timestamp < ? LIMIT batch_size` (SQLite supports `LIMIT` on DELETE via `SQLITE_ENABLE_UPDATE_DELETE_LIMIT` — verify in the build; if not, use a sub-select on `audit_id`); count rows deleted, return `PruneResult`. Repeat per cadence cycle until all-eligible-rows-deleted or per-tick cap reached. Per L1-OBS-003's append-only invariant, the pruner is the *only* code path that issues DELETE against `audit_log` (verified by a conformance test).
+
+**30d — Bootstrap wiring** *(code)*. Mirror Increment 29d. Schedule the pruner on `BackgroundTaskScheduler` at `cleanup_interval_hours` cadence.
+
+**30e — Integration tests** *(code)*. `tests/integration/persistence/test_audit_log_pruner.py`: seed audit rows at varied timestamps, advance fake clock, assert (a) only old rows deleted, (b) batch-size respected, (c) UoW rolls back cleanly on injected failure, (d) repeat-tick eventually empties beyond-retention rows. New conformance test asserts the pruner is the only DELETE-issuer against `audit_log` (AST scan of `src/`).
+
+**30f — Close R-PERS-002 + reword if needed** *(spec)*. Move R-PERS-002 entry from active deferred-features section to a "Closed by Increment 30" sub-section (or remove with a note in the increment commit). Verify L2-OBS-008 / L2-OBS-009 statement wording still matches the implementation; update if drift is found.
+
+**30g — Pre-commit + status snapshot + ✅ done** *(closeout)*. Full pre-commit pipeline. L1-OBS-003's audit-pruner blockers are removed; the L1's promotion from Partially Implemented → Implemented depends on the 32e Category-C marker work landing in parallel or after.
+
+**Trace impact**: L2-OBS-008 / L2-OBS-009 promote Draft → Implemented; L3-OBS-014 / L3-OBS-015 verified by tests for the first time. R-PERS-002 closed.
+
+**Sequencing**: Land after 29 (same `BackgroundTaskScheduler` pattern; 29 sets the template). Could parallelize but serializing simplifies the bootstrap diff.
+
+### Increment 31 — L1-MAIL-004 admin notification + spec inconsistency fixes
+
+**Problem**
+
+Two adjacent gaps surfaced in the 2026-04-27 audit:
+
+1. **L1-MAIL-004 (Draft)**: When a composed email exceeds `max_email_size_bytes`, the spec says the run SHALL transition to FAILED *and* the service SHALL persist the rendered report *and* SHALL notify administrators "via the same channel used for orphan administrator notifications." Code state: `assemble_and_deliver.py` does the FAILED transition and the size-check, but the admin-notification path is missing. The L2-MAIL-009 / L2-MAIL-010 / L2-MAIL-011 derivations describe the notification template + persistence semantics but no L3 verification artifacts exist for them.
+
+2. **Spec inconsistencies** flagged in the requirements consistency audit (sub-agent 1, 2026-04-27):
+   - **L2-OBS-018** references `L3-OBS-037` and `L3-OBS-038` for `SEND_REPORT` and `DISPATCHER_ACTION_ABANDONED` audit-row format obligations. Those L3 IDs don't exist in `docs/L3-REQ.md`. Either author them or rework L2-OBS-018 to inline the format obligations.
+   - **L2-OBS-007** declares "Verification: Inspection (I)" only, but its L3 child L3-OBS-012 declares "Verification: T". Either add T to L2-OBS-007 or re-parent L3-OBS-012.
+   - **L3-MAIL-001** hard-codes the "no SMTP pooling" position with deferred-pool wording mirroring the pre-27 pool drift; reword to describe the actual mechanism (instantiate-per-send) without the speculative deferral.
+
+**Sub-steps**
+
+**31a — L3 authoring for L2-MAIL-009 / L2-MAIL-010 / L2-MAIL-011** *(spec)*. Author L3 derivations: structured `EMAIL_SIZE_EXCEEDED` reason in audit details (measured + configured size); admin-notification template hard-coded (no user content interpolated) — the existing `L3-MAIL-006`-style permanent-failure pattern is the model; oversized rendered report stored under `<run_id>/email.html` so dashboard resend can find it. Trace-matrix regen.
+
+**31b — Implement EMAIL_SIZE_EXCEEDED admin notification path** *(code)*. In `assemble_and_deliver.py`, on `EmailSizeExceededError` raise: (1) persist the rendered report via the existing `ReportStore` adapter (per L2-MAIL-011), (2) construct a fixed-template admin notification email (`MailerPort.send_admin_notification(...)` — may need new port method or reuse existing `Mailer.send` with a fixed template), (3) audit `EMAIL_SIZE_EXCEEDED` action with measured + configured + recipient list, (4) transition run to FAILED with structured reason. Order: persist → audit → notify → transition. Audit-first preserves L2-OBS-013-style ordering even on failure path.
+
+**31c — Tests** *(code)*. Integration test in `tests/integration/test_full_pipeline.py` (or dedicated file): drive a run with intentionally oversized templates against `max_email_size_bytes=1024`; assert admin notification captured by SMTP harness with sanitized subject + measured size in body; assert run state == FAILED with `EMAIL_SIZE_EXCEEDED` reason; assert rendered report is at `<run_id>/email.html`.
+
+**31d — Resolve L2-OBS-018 dangling cross-references** *(spec)*. Two options: author L3-OBS-037 / L3-OBS-038 statements pinning `SEND_REPORT` / `DISPATCHER_ACTION_ABANDONED` audit row formats, OR rewrite L2-OBS-018 to inline the obligations and drop the cross-reference. Lean toward authoring the L3s for symmetry with sibling L3-OBS-* entries that pin per-action shapes.
+
+**31e — Resolve L2-OBS-007 verification-method mismatch** *(spec)*. L2-OBS-007 has `Verification: I`; L3-OBS-012 (its child) has `Verification: T`. Either add T to L2-OBS-007's verification methods or re-parent L3-OBS-012 if appropriate. Decision likely: add T (the L3 is correctly testable; the L2 was overly conservative).
+
+**31f — Optional L3-MAIL-001 reword** *(spec, optional)*. Rewrite L3-MAIL-001 to describe the v1 actual mechanism (`aiosmtplib.SMTP` instantiated per send) without the "pooling on the ROADMAP" speculation — same anti-pattern as the pre-27 pool drift wording. If the SMTP-pooling decision is genuinely deferred, capture as a new R-MAIL-NNN entry; otherwise drop the speculation entirely. Defer to during the increment if scope creeps.
+
+**31g — Pre-commit + status snapshot + ✅ done** *(closeout)*. Full pre-commit pipeline. L1-MAIL-004 promotes Draft → Implemented. Spec inconsistencies removed; trace matrix re-checked.
+
+**Trace impact**: L2-MAIL-009 / L2-MAIL-010 / L2-MAIL-011 promote Draft → Implemented; L1-MAIL-004 promotes Draft → Implemented; L2-OBS-018 / L2-OBS-007 spec wording corrected (no status change); L3-MAIL-001 optionally reworded (no status change).
+
+**Sequencing**: Independent of 29 / 30; can land in parallel. Recommended after 30 because both touch audit-row authoring patterns.
+
+### Increment 33 — L1-TMPL-002 "latest" version resolution
+
+**Problem**
+
+L1-TMPL-002 says template version SHALL be either an explicit semver matching a manifest entry OR the literal `"latest"`, in which case the service SHALL resolve it to the highest available semver for that template. L2-TMPL-005 pins resolution at BeginRun initiation time (not render time) using `packaging.version.Version`; L2-TMPL-006 pins recording the resolved version with run state and audit.
+
+The 2026-04-27 audit found: **the string `"latest"` is mentioned only in `docs/L1-REQ.md`, `docs/L2-REQ.md`, `docs/L3-REQ.md`, and one diagram. It is absent from every Python source file and every test.** No code path implements the sentinel. Pipeline clients sending `template_version="latest"` would today fail with `UNKNOWN_TEMPLATE` because the manifest lookup is exact-match-only.
+
+L1-TMPL-002 is currently Partially Implemented in the matrix; the audit recategorizes it as Category D (real implementation gap, no R-entry). Path A: implement.
+
+**Sub-steps**
+
+**33a — L3 authoring + verify** *(spec)*. Verify L3 children of L2-TMPL-005 / L2-TMPL-006 are accurate. Author missing L3s if needed (likely: sentinel-string-recognition; resolution-at-BeginRun ordering; resolution-uses-`packaging.version.Version`-not-string-compare; resolved-version-recorded-on-Run-aggregate; resolved-version-in-audit). Trace-matrix regen.
+
+**33b — Implement "latest" resolution in `TemplateRepository`** *(code)*. New method on the port (or use case helper): `resolve_latest(name: str) -> TemplateRef`. Returns the manifest entry with the highest `packaging.version.Version`-parsed version for the given name. Raise `UnknownTemplateError` if zero entries match. Adapter implementation reads from the same in-memory manifest the existing exact-lookup uses.
+
+**33c — Wire BeginRun to call resolution** *(code)*. In `BeginRunUseCase.execute`: for every `TemplateRef` in the request (stage templates, aggregation template, email body template ref), if `version == "latest"`, call resolve before validation; replace the request's TemplateRef with the resolved version; proceed. Store the *resolved* TemplateRef on the `Run` aggregate (the existing `aggregation_template_ref` field already supports this). Audit-row from `BEGIN_RUN` records the resolved version (not `"latest"`).
+
+**33d — Tests** *(code)*. Unit test for `resolve_latest`: empty manifest → raise; one entry → that one returned; multiple → highest semver returned; pre-release vs final per `packaging` semantics. Integration test for BeginRun flow: submit `version="latest"`; verify the persisted `Run` aggregate has the resolved version; verify audit row has the resolved version not `"latest"`.
+
+**33e — Pre-commit + status snapshot + ✅ done** *(closeout)*. Full pre-commit pipeline. L1-TMPL-002 promotes Partially → Implemented (assuming 32d's marker work for the rest of L1-TMPL-* lands first or parallel).
+
+**Trace impact**: L2-TMPL-005 / L2-TMPL-006 promote Draft → Implemented; L1-TMPL-002 promotes Partially → Implemented.
+
+**Sequencing**: Independent of 29 / 30 / 31. Recommended after them; can parallelize with 34 since both touch templating.
+
+### Increment 34 — L1-TMPL-004 JSON Schema context validation
+
+**Problem**
+
+L1-TMPL-004 says each template manifest entry SHALL declare a JSON Schema and the service SHALL validate submitted context against that schema before rendering. L2-TMPL-010 pins use of the `jsonschema` library with Draft 2020-12; L2-TMPL-011 pins `INVALID_ARGUMENT` + error code `CONTEXT_SCHEMA_VIOLATION` + JSON-Pointer path in the detail.
+
+The 2026-04-27 audit (Agent A on the 5 Draft L1s) found: **`Jinja2SandboxedTemplateRenderer.render()` (`src/message_service/infrastructure/templating/renderer.py:149-215`) performs size checks but never calls `jsonschema`. The library is not even imported.** `ContextSchemaViolationError` exists in `domain/errors.py` and `manifest_loader.py` accepts a `schema_path` field, but the validation logic was never wired. Manifest entries declaring `schema_path` have no effect at runtime.
+
+L1-TMPL-004 is in the 8-Drafts set (Agent A disposition: hybrid — partial code, real gap). Path A: implement.
+
+**Sub-steps**
+
+**34a — L3 authoring + verify** *(spec)*. Verify L3 children of L2-TMPL-010 / L2-TMPL-011 are accurate (Draft 2020-12 specifically; INVALID_ARGUMENT + CONTEXT_SCHEMA_VIOLATION + JSON-Pointer). Author missing L3s if needed (likely: validation-fires-at-render-call-site or BeginRun-time; failed-validation-raises-`ContextSchemaViolationError`-with-pointer-in-`details`; pre-loaded-`Validator`-instances cached on manifest load to avoid per-call schema compile cost). Trace-matrix regen.
+
+**34b — Add `jsonschema` Poetry dependency** *(code)*. `poetry add jsonschema`. Pin to a Draft 2020-12-supporting version. Update `poetry.lock`.
+
+**34c — Implement validation** *(code)*. Two open questions decided during the increment: (1) does validation fire in `BeginRun` (early-fail per L2-TMPL-005's "resolve early" pattern) or in the renderer (late-fail at `render()` call time)? Lean late-fail because the context isn't known at BeginRun (it's submitted with `SubmitStageReport`). (2) compile schemas eagerly at manifest load, or lazily on first use? Lean eagerly — manifest load is the right time to surface bad schemas. Implementation: add `jsonschema.Draft202012Validator` instance per manifest entry; in `Jinja2SandboxedTemplateRenderer.render()` (or a new validating wrapper), call `validator.validate(context)` before passing to Jinja2; on `ValidationError`, raise `ContextSchemaViolationError` with `details={"json_pointer": str(error.absolute_path), "validator": error.validator, "schema_path": ...}`. The error mapper translates this to `INVALID_ARGUMENT` (already does, since it derives from `ValidationError` per the existing hierarchy).
+
+**34d — Tests** *(code)*. Unit test of validator wiring: schema requires "name"; submit `{}` → raises with pointer. Integration test through the full renderer: invalid context → `ContextSchemaViolationError` with structured details. gRPC integration test: invalid context arrives via SubmitStageReport, returns `INVALID_ARGUMENT` with `CONTEXT_SCHEMA_VIOLATION` in trailing metadata.
+
+**34e — Pre-commit + status snapshot + ✅ done** *(closeout)*. Full pre-commit pipeline. L1-TMPL-004 promotes Draft → Implemented.
+
+**Trace impact**: L2-TMPL-010 / L2-TMPL-011 promote Draft → Implemented; L1-TMPL-004 promotes Draft → Implemented.
+
+**Sequencing**: Can parallelize with 33 since both touch templating but they don't conflict (33 is BeginRun-time resolution; 34 is render-time validation).
+
+### Increment 32 — Trace-matrix coverage pass (the "Category C" cleanup)
+
+**Problem**
+
+The 2026-04-27 Partials audit categorized 41 of the 44 Partially Implemented L1s as **Category C: code exists, only L3 statements / test markers / small inspection tests missing**. The implementations are real and exercised; the matrix shows them Partial only because the requirement tree is incomplete. This is dramatically less work per L1 than feature implementation, but applied to ~41 L1s (and 4 of the 5 Agent-A Draft L1s where code already exists), it's the largest absolute scope of any v1 closing increment.
+
+Sub-divided into five chunks matching the audit's investigation chunks so each commit stays reviewable. Each chunk authors L3 statements where missing, attaches `@pytest.mark.requirement(...)` markers to the existing tests that already exercise the behavior, and adds small inspection tests where conventions need a marker (e.g., proto-method enumeration, `add_insecure_port` usage, `argon2id` library binding). Final sub-step does the matrix regen + the AUTH session-memo correction + closeout.
+
+**Sub-steps**
+
+**32a — API + RUN coverage** *(code + spec)*. Targets: L1-API-001 (L2-API-001/002), L1-API-002 (L2-API-004/005, currently Draft as part of Agent-A's 5-Drafts list — code exists in `interfaces/grpc/servicer.py`), L1-API-003 (L2-API-006/007, Agent-A Drafts — code exists in `__main__.py:130`), L1-API-004 (L2-API-008/009/010/011), L1-RUN-002 (L2-RUN-004), L1-RUN-003 (L2-RUN-007), L1-RUN-004 (L2-RUN-012/013), L1-RUN-005 (L2-RUN-015/016). Author missing L3s; attach markers; add inspection tests for proto-shape / unary-only / `add_insecure_port` / config-key-resolution where missing.
+
+**32b — STAGE + SWEEP + AGGR coverage** *(code + spec)*. Targets: L1-STAGE-001 through L1-STAGE-004 (8 L2s); L1-AGGR-002 (L2-AGGR-004/005); L1-AGGR-003 (L2-AGGR-007/008); L1-AGGR-004 (L2-AGGR-009/010, Agent-A Draft — see-L2-RUN-011 cross-reference + manifest validation already implemented); L1-SWEEP-001 (L2-SWEEP-001/002/003); L1-SWEEP-002 (L2-SWEEP-004/006); L1-SWEEP-003 (L2-SWEEP-007/008). Skip L1-AGGR-001 — its Partial state is intentional and covered by R-AGGR-001 (Category A; verify R-entry wording is current).
+
+**32c — SUB + AUTH coverage** *(code + spec)*. Targets: L1-SUB-001 (L2-SUB-001/002/003); L1-SUB-002 (L2-SUB-004/005, Agent-A Draft — opt-in default already enforced in `admin_users.py:203-212`); L1-SUB-003 (L2-SUB-007/008); L1-SUB-004 (L2-SUB-009/010); L1-AUTH-001 (L2-AUTH-001/002/003 — including `Password` redacted-repr at `domain/aggregates/password.py:44-50`); L1-AUTH-002 (L2-AUTH-006).
+
+**32d — MAIL + TMPL coverage** *(code + spec)*. Targets: L1-MAIL-001 (L2-MAIL-001/002/003); L1-MAIL-002 (L2-MAIL-005/006); L1-MAIL-003 (L2-MAIL-007/008); L1-MAIL-005 (L2-MAIL-012/013); L1-TMPL-001 (L2-TMPL-002/003); L1-TMPL-003 (L2-TMPL-007/008/009); L1-TMPL-005 (L2-TMPL-012/013/014). Excludes L1-TMPL-002 (Increment 33) and L1-TMPL-004 (Increment 34) and L1-MAIL-004 (Increment 31).
+
+**32e — DASH + PERS + OBS + ERR + CFG coverage** *(code + spec)*. Targets: L1-DASH-001 / L1-DASH-002 / L1-DASH-003; L1-PERS-001 / L1-PERS-002 / L1-PERS-003; L1-OBS-001 / L1-OBS-004; all four L1-ERR-* (L2-ERR-001/005/006/008/009/010); L1-CFG-001 (L2-CFG-001/002); L1-CFG-002 (L2-CFG-005/006). Excludes L1-OBS-003 (Increment 30 covers the audit-pruner half; the rest of L1-OBS-003's Partials are 32e-style markers).
+
+**32f — Final matrix regen + session-memo correction + ✅ done** *(closeout)*. Run `poetry run python scripts/build-trace-matrix.py` after all per-chunk markers are in. Verify `--check` is clean. Correct the 2026-04-26 session memo statement claiming "AUTH category fully closed: L1-AUTH-001/002/003 all Implemented" — only L1-AUTH-003 was Implemented at that time; L1-AUTH-001/002 promote to Implemented now, after this increment lands. Status snapshot final regen with all 41 L1s rolled up. Banner refresh.
+
+**Trace impact**: ~41 Partial L1s + 4 Draft L1s (L1-API-002, L1-API-003, L1-AGGR-004, L1-SUB-002) promote to Implemented. Per-category L2-Implemented and L3-Implemented counts increase substantially. Overall verified-by-test percentage moves from 45.1% (post-27) toward something like 80%+.
+
+**Sequencing**: Land **last** among the implementation increments (after 29, 30, 31, 33, 34) so its matrix regenerations capture all the upstream promotions in one final pass. Each sub-step (32a–32e) is reviewable in isolation; 32f is the closeout.
 
 ### Cross-cutting tradeoffs (refreshed 2026-04-25)
 

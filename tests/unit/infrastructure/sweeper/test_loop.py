@@ -104,6 +104,7 @@ def stub_dispatcher() -> _StubDispatcher:
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-001")
 async def test_start_schedules_exactly_one_task(
     stub_use_case: _StubUseCase,
     stub_dispatcher: _StubDispatcher,

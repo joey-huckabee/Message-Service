@@ -577,6 +577,7 @@ async def test_empty_disposition_actions_still_transitions_to_orphaned(
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-SWEEP-014")
 @pytest.mark.requirement("L3-SWEEP-019")
 def test_constructor_rejects_action_without_registered_handler(
     uow_factory: SqliteUnitOfWorkFactory,

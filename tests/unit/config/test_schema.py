@@ -250,6 +250,7 @@ def test_log_level_rejects_unknown(tmp_path: Path) -> None:
 
 
 @pytest.mark.requirement("L2-SWEEP-007")
+@pytest.mark.requirement("L3-SWEEP-012")
 def test_sweeper_disposition_rejects_unknown_action(tmp_path: Path) -> None:
     data = _minimal_valid_data(tmp_path)
     data["sweeper"] = {"disposition_actions": ["SHOUT_AT_USER"]}

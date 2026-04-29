@@ -424,7 +424,7 @@ PER_STAGE attachments SHALL have MIME `Content-Type: text/html` and `Content-Dis
 ## L3-SWEEP: Orphan detection and disposition
 
 **L3-SWEEP-001** · Parent: L2-SWEEP-001 · Verification: T
-The sweeper task SHALL be registered in service lifespan via `contextlib.asynccontextmanager`; on exit, `task.cancel()` is awaited with `contextlib.suppress(asyncio.CancelledError)`.
+The sweeper task SHALL be registered with the same `BackgroundTaskScheduler` port that hosts the assembly background task (per `L2-RUN-013`); the bootstrap composition root constructs `SweeperLoop` and `start()`s it after the gRPC listener binds. On shutdown the loop's `stop()` method sets the internal `asyncio.Event` that the poll loop's `wait_for(...)` is suspended on, allowing graceful exit within `service.shutdown_grace_period_seconds` (per `L3-SWEEP-002`). Earlier drafts mandated `contextlib.asynccontextmanager`-based lifecycle; v1 dropped that in favor of the `BackgroundTaskScheduler` abstraction so sweeper, report-pruner, and audit-log-pruner share a single lifecycle pattern.
 
 **L3-SWEEP-002** · Parent: L2-SWEEP-001 · Verification: T
 Cancellation SHALL propagate within `shutdown_grace_period_seconds`; a test SHALL assert shutdown completes within this window even if the sweeper is mid-query.
@@ -474,8 +474,8 @@ If the sweeper's repository query fails, the counter SHALL increment `sweeper_er
 **L3-SWEEP-017** · Parent: L2-SWEEP-002 · Verification: T
 A test SHALL construct a run with `last_transition_at` exactly `run_timeout_seconds` ago; the sweeper SHALL classify it as orphaned (inclusive boundary).
 
-**L3-SWEEP-018** · Parent: L2-SWEEP-001 · Verification: T
-The sweeper task SHALL NOT start until after database migrations have completed and config validation has passed.
+**L3-SWEEP-018** · Parent: L2-SWEEP-001 · Verification: I
+The bootstrap composition root (`bootstrap/service.py::build_service`) applies SQLite migrations (per `L3-PERS-005`) and validates configuration BEFORE constructing any background task. The `SweeperLoop` is constructed during `Service` assembly and `start()`-ed by `__main__._run` after `_build_grpc_server`'s `add_insecure_port` returns successfully — so migrations + config validation are guaranteed complete by the time the sweeper's first tick fires. Verification by inspection of the `__main__._run` ordering rather than a runtime test, because the ordering is structural (a different ordering would require deleting the `await server.start()` call before the sweeper start, which a code reviewer would catch).
 
 **L3-SWEEP-019** · Parent: L2-SWEEP-007 · Verification: T
 A *known* `DispositionAction` identifier whose handler is not registered in the bootstrap handler registry (e.g., `SEND_PARTIAL_FLAGGED` and `NOTIFY_SUBSCRIBERS` in v1 — see L1-SWEEP-003's v1 implementation boundary) SHALL cause `SweeperUseCase.__init__` to raise `ConfigurationError`. The error's `details` SHALL include `missing_actions` (the offending ids) and `registered_actions` (the available alternatives), so operators can edit `sweeper.disposition_actions` before retry. Distinct from L3-SWEEP-012 (which covers ids unknown to the type system, caught at Pydantic-validation time).

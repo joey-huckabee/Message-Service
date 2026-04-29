@@ -43,12 +43,16 @@ def template_source(tmp_path: Path) -> Path:
 def repo(template_source: Path) -> MagicMock:
     """Repository mock returning metadata pointing at `template_source`."""
     r = MagicMock(spec=TemplateRepository)
-    r.get.return_value = TemplateMetadata(
+    meta = TemplateMetadata(
         name=_REF.name,
         version=_REF.version,
         kind=TemplateKind.REPORT_FRAGMENT,
         source_path=template_source,
     )
+    r.get.return_value = meta
+    # Renderer constructor calls list_all() to build its eager schema
+    # validator cache; default these tests to no schemas (empty list).
+    r.list_all.return_value = (meta,)
     return r
 
 

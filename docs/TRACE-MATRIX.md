@@ -113,7 +113,7 @@ the single source of truth.
 | L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Partially Implemented |
 | L1-TMPL-002 | L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 | Partially Implemented |
 | L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Partially Implemented |
-| L1-TMPL-004 | L2-TMPL-010, L2-TMPL-011 | Draft |
+| L1-TMPL-004 | L2-TMPL-010, L2-TMPL-011 | Implemented |
 | L1-TMPL-005 | L2-TMPL-012, L2-TMPL-013, L2-TMPL-014 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -129,9 +129,9 @@ the single source of truth.
 | L2-TMPL-007 | L3-TMPL-013, L3-TMPL-014, L3-TMPL-028 | `tests/unit/infrastructure/templating/test_renderer.py::test_sandbox_has_no_range_global` | Partially Implemented |
 | L2-TMPL-008 | L3-TMPL-015, L3-TMPL-016 | `tests/unit/infrastructure/templating/test_renderer.py::test_allowed_filter_works`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_removed_filter_raises` | Partially Implemented |
 | L2-TMPL-009 | L3-TMPL-017 | `tests/unit/infrastructure/templating/test_renderer.py::test_undefined_variable_raises_template_render_error` | Partially Implemented |
-| L2-TMPL-010 | L3-TMPL-018, L3-TMPL-019 | _(TBD)_ | Draft |
-| L2-TMPL-011 | L3-TMPL-020 | _(TBD)_ | Draft |
-| L2-TMPL-012 | L3-TMPL-021, L3-TMPL-022 | _(TBD)_ | Draft |
+| L2-TMPL-010 | L3-TMPL-018, L3-TMPL-019, L3-TMPL-029, L3-TMPL-030, L3-TMPL-031 | `tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_malformed_json_schema_raises_configuration_error`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_missing_schema_file_raises_configuration_error`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_same_validator_reused_across_renders`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_schema_failing_meta_schema_raises_configuration_error`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_self_referencing_internal_defs_resolve`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_template_without_schema_skips_validation`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_validation_runs_at_render_not_at_construction`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_validator_constructed_eagerly_at_renderer_init` | Implemented |
+| L2-TMPL-011 | L3-TMPL-020, L3-TMPL-032 | `tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_details_contains_all_required_fields`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_json_pointer_helper_escapes_special_chars`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_json_pointer_helper_nested_path`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_json_pointer_helper_root_violation_renders_empty`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_validation_error_carries_json_pointer_for_nested_violation`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_context_schema_violation_carries_code_and_pointer_through_translator`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_context_schema_violation_maps_to_invalid_argument` | Implemented |
+| L2-TMPL-012 | L3-TMPL-021, L3-TMPL-022 | `tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_size_check_runs_before_schema_validation` | Partially Implemented |
 | L2-TMPL-013 | L3-TMPL-023, L3-TMPL-024 | _(TBD)_ | Draft |
 | L2-TMPL-014 | L3-TMPL-025, L3-TMPL-026 | `tests/unit/infrastructure/templating/test_renderer.py::test_non_json_serializable_context_raises_template_render_error`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_context_raises_before_template_invoked`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_render_raises` | Partially Implemented |
 
@@ -479,7 +479,7 @@ the single source of truth.
 | API | 4 | 11 | 18 | 3 | 1 |
 | RUN | 5 | 16 | 30 | 9 | 23 |
 | STAGE | 4 | 9 | 18 | 8 | 9 |
-| TMPL | 5 | 14 | 28 | 7 | 6 |
+| TMPL | 5 | 14 | 32 | 8 | 14 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **386** | **64** | **215** |
+| **Total** | **67** | **192** | **390** | **65** | **223** |
 
-**Requirements verified by at least one test**: 279 of 578 (48.3%).
+**Requirements verified by at least one test**: 288 of 582 (49.5%).
 
 ### Orphan check
 

@@ -311,13 +311,13 @@ A test SHALL assert `{{ x | tojson }}`, `{{ x | reverse }}`, `{{ x | attr('__cla
 The render call SHALL catch `jinja2.UndefinedError` and convert to `ContextSchemaViolation` with `details={"missing_variable": ...}` before propagation.
 
 **L3-TMPL-018** · Parent: L2-TMPL-010 · Verification: I
-Schema validation SHALL use `jsonschema.Draft202012Validator`; the validator instance SHALL be constructed once per template (cached) and reused.
+Schema validation SHALL use `jsonschema.Draft202012Validator`; one validator instance SHALL be constructed per template entry at manifest load time (eager) and cached for reuse on every subsequent render. Lazy/per-render compilation is forbidden — bad schemas SHALL surface at service start, not on the first render that touches them.
 
 **L3-TMPL-019** · Parent: L2-TMPL-010 · Verification: T
 A test SHALL exercise a schema with `$ref` to external schemas and assert resolution is relative to the schema file location, not CWD.
 
 **L3-TMPL-020** · Parent: L2-TMPL-011 · Verification: T
-`ContextSchemaViolation.details` SHALL include `schema_path` (JSON Pointer like `"/foo/bar/0"`), `instance_value`, and the schema's `message` field.
+`ContextSchemaViolationError.details` SHALL include `json_pointer` (RFC 6901 pointer to the offending element, see L3-TMPL-032), `instance_value` (the rejected value, set to `jsonschema.ValidationError.instance`), and `message` (the validator's human-readable failure description, set from `jsonschema.ValidationError.message`).
 
 **L3-TMPL-021** · Parent: L2-TMPL-012 · Verification: T
 Context size measurement SHALL use `json.dumps(context, sort_keys=True, separators=(",", ":")).encode("utf-8")` length for determinism.
@@ -342,6 +342,18 @@ The `SandboxedEnvironment` SHALL be constructed exactly once per service lifetim
 
 **L3-TMPL-028** · Parent: L2-TMPL-007 · Verification: A
 A security review SHALL be recorded in `docs/reviews/` after any change to the template sandbox configuration.
+
+**L3-TMPL-029** · Parent: L2-TMPL-010 · Verification: T
+JSON Schema validation SHALL run at render time, immediately before the Jinja2 template is rendered, and SHALL NOT run at `BeginRun`. Rationale: the `context` dict is not known until `SubmitStageReport` (or aggregation), so `BeginRun` cannot validate it; running validation any earlier would either be impossible or duplicative.
+
+**L3-TMPL-030** · Parent: L2-TMPL-010 · Verification: T
+A manifest entry that omits `context_schema_path` SHALL cause schema validation to be skipped for that template. The renderer SHALL NOT apply an implicit empty schema, and SHALL NOT raise `ContextSchemaViolationError` for unschema-ed templates regardless of context contents (size and Jinja2 strictness still apply).
+
+**L3-TMPL-031** · Parent: L2-TMPL-010 · Verification: T
+At service start, during template renderer construction, every `context_schema_path` declared by the loaded manifest SHALL be read from disk, parsed as JSON, and validated via `Draft202012Validator.check_schema(...)`. Any failure (missing file, JSON parse error, `SchemaError`) SHALL raise `ConfigurationError` with `details = {"name": <template_name>, "version": <template_version>, "schema_path": <str(resolved_schema_path)>, "reason": <str(exc)>}`, aborting service start. Lazy/per-render compilation is forbidden so bad schemas surface at start-up rather than on the first request that touches them.
+
+**L3-TMPL-032** · Parent: L2-TMPL-011 · Verification: T
+The `json_pointer` value in `ContextSchemaViolationError.details` SHALL be derived from `jsonschema.ValidationError.absolute_path` formatted as a slash-prefixed pointer (e.g., `["foo", "bar", 0]` → `"/foo/bar/0"`); a root-level violation (empty `absolute_path`) SHALL render as `""`. The `details` dict SHALL also include `validator` (the failing keyword name, e.g., `"required"`, `"type"`), `template_name`, and `template_version`.
 
 ---
 
@@ -1284,3 +1296,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 |------------|--------|-----------------------------------------------------------|
 | 2026-04-18 | Joey   | Initial L3 draft; 287 statements across 14 cats.          |
 | 2026-04-19 | Joey   | Added L3-ERR (22 stmts) and L3-OBS-019..024 (6 stmts).    |
+| 2026-04-27 | Joey   | Refined L3-TMPL-018; added L3-TMPL-029..032 (4 stmts) for L1-TMPL-004 (timing/optionality/load-time/JSON Pointer). Total: 390. |

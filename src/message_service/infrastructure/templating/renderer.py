@@ -26,15 +26,34 @@ Size enforcement (L2-TMPL-014):
   :attr:`templates.max_rendered_bytes`,
   :class:`RenderedSizeExceededError` is raised.
 
+JSON Schema validation (L1-TMPL-004 / L2-TMPL-010..011):
+
+* At construction the renderer iterates :meth:`TemplateRepository.list_all`
+  and, for every entry whose
+  :attr:`TemplateMetadata.context_schema_path` is set, reads the file,
+  parses JSON, runs ``Draft202012Validator.check_schema`` and caches a
+  validator instance keyed by ``(name, version)`` — eager-at-startup
+  per L3-TMPL-018 / L3-TMPL-031. Any failure raises
+  :class:`ConfigurationError` and aborts service start.
+* On :meth:`render`, after the context size pre-check and immediately
+  before Jinja invocation, the cached validator (if any) runs against
+  the supplied context. ``jsonschema.ValidationError`` is translated
+  to :class:`ContextSchemaViolationError` with details containing the
+  JSON Pointer to the offending element (per L3-TMPL-020 / L3-TMPL-032).
+* Templates whose manifest entry omits ``context_schema_path`` skip
+  schema validation entirely (L3-TMPL-030).
+
 The adapter is **sync** per the port contract. Template rendering is
 CPU-bound; wrapping in async would add overhead without concurrency.
 
 Requirement references
 ----------------------
 L1-TMPL-002, L1-TMPL-003 (sandboxing)
+L1-TMPL-004 (JSON Schema validation)
 L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 (SandboxedEnvironment config)
+L2-TMPL-010, L2-TMPL-011 (schema validation)
 L2-TMPL-014 (size limits)
-L3-TMPL-025 (default sizes)
+L3-TMPL-018, L3-TMPL-020, L3-TMPL-025, L3-TMPL-029..032
 """
 
 from __future__ import annotations
@@ -43,14 +62,19 @@ import json
 from pathlib import Path
 from typing import Any
 
+import jsonschema
 from jinja2 import StrictUndefined
 from jinja2.exceptions import TemplateError
 from jinja2.sandbox import SandboxedEnvironment
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 
 from message_service.application.ports.template_renderer import TemplateRenderer
 from message_service.application.ports.template_repository import TemplateRepository
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
+    ConfigurationError,
+    ContextSchemaViolationError,
     ContextSizeExceededError,
     RenderedSizeExceededError,
     TemplateRenderError,
@@ -145,6 +169,60 @@ class Jinja2SandboxedTemplateRenderer(TemplateRenderer):
         self._env = _build_sandbox()
         # Compiled-template cache: (name, version) -> Template.
         self._cache: dict[tuple[str, str], Any] = {}
+        # Eager schema validator cache (L3-TMPL-018 / L3-TMPL-031). Built
+        # at construction; bad schemas raise ConfigurationError now so
+        # they cannot surface mid-render.
+        self._validators: dict[tuple[str, str], Draft202012Validator] = self._build_validators(
+            repository
+        )
+
+    @staticmethod
+    def _build_validators(
+        repository: TemplateRepository,
+    ) -> dict[tuple[str, str], Draft202012Validator]:
+        validators: dict[tuple[str, str], Draft202012Validator] = {}
+        for meta in repository.list_all():
+            schema_path = meta.context_schema_path
+            if schema_path is None:
+                continue
+            try:
+                schema_text = schema_path.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise ConfigurationError(
+                    f"context schema file not readable: {schema_path}",
+                    details={
+                        "name": meta.name,
+                        "version": meta.version,
+                        "schema_path": str(schema_path),
+                        "reason": str(exc),
+                    },
+                ) from exc
+            try:
+                schema_doc = json.loads(schema_text)
+            except json.JSONDecodeError as exc:
+                raise ConfigurationError(
+                    f"context schema is not valid JSON: {schema_path}",
+                    details={
+                        "name": meta.name,
+                        "version": meta.version,
+                        "schema_path": str(schema_path),
+                        "reason": str(exc),
+                    },
+                ) from exc
+            try:
+                Draft202012Validator.check_schema(schema_doc)
+            except SchemaError as exc:
+                raise ConfigurationError(
+                    f"context schema fails Draft 2020-12 meta-schema: {schema_path}",
+                    details={
+                        "name": meta.name,
+                        "version": meta.version,
+                        "schema_path": str(schema_path),
+                        "reason": str(exc),
+                    },
+                ) from exc
+            validators[(meta.name, meta.version)] = Draft202012Validator(schema_doc)
+        return validators
 
     def render(self, ref: TemplateRef, context: dict[str, Any]) -> str:  # noqa: D102
         # Context size pre-check (L2-TMPL-014). Serialize deterministically
@@ -173,6 +251,27 @@ class Jinja2SandboxedTemplateRenderer(TemplateRenderer):
                     "limit_bytes": self._max_context_bytes,
                 },
             )
+
+        # JSON Schema validation (L3-TMPL-029): runs after the size
+        # pre-check (per L3-TMPL-022) and immediately before Jinja2 is
+        # invoked. Templates without a context_schema_path skip this
+        # step entirely (L3-TMPL-030).
+        validator = self._validators.get((ref.name, ref.version))
+        if validator is not None:
+            try:
+                validator.validate(context)
+            except jsonschema.ValidationError as exc:
+                raise ContextSchemaViolationError(
+                    f"context failed schema for {ref.name!r}@{ref.version!r}: {exc.message}",
+                    details={
+                        "name": ref.name,
+                        "version": ref.version,
+                        "json_pointer": _to_json_pointer(exc.absolute_path),
+                        "validator": str(exc.validator) if exc.validator else "",
+                        "instance_value": exc.instance,
+                        "message": exc.message,
+                    },
+                ) from exc
 
         # Resolve template source. `repository.get` raises
         # UnknownTemplateError if the ref is absent.
@@ -255,6 +354,20 @@ class Jinja2SandboxedTemplateRenderer(TemplateRenderer):
                     "message": str(exc),
                 },
             ) from exc
+
+
+def _to_json_pointer(absolute_path: Any) -> str:
+    """Render :attr:`jsonschema.ValidationError.absolute_path` as a JSON Pointer.
+
+    Per L3-TMPL-032: ``["foo", "bar", 0]`` → ``"/foo/bar/0"``; an empty
+    deque (root violation) renders as ``""``. RFC 6901 escapes ``~``
+    and ``/`` in path segments.
+    """
+    parts = list(absolute_path)
+    if not parts:
+        return ""
+    encoded = ("/" + str(p).replace("~", "~0").replace("/", "~1") for p in parts)
+    return "".join(encoded)
 
 
 __all__ = ["Jinja2SandboxedTemplateRenderer"]

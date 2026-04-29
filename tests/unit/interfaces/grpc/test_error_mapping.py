@@ -23,6 +23,7 @@ import pytest
 
 from message_service.domain.errors import (
     ConfigurationError,
+    ContextSchemaViolationError,
     DomainError,
     EmailDeliveryError,
     InfrastructureError,
@@ -89,6 +90,50 @@ class _AbortRaisedError(Exception):
 def test_validation_error_maps_to_invalid_argument() -> None:
     exc = UnknownTagError("nope", details={"tag": "x"})
     assert _status_code_for(exc) is grpc.StatusCode.INVALID_ARGUMENT
+
+
+@pytest.mark.requirement("L2-TMPL-011")
+def test_context_schema_violation_maps_to_invalid_argument() -> None:
+    """L2-TMPL-011: schema violations SHALL surface as INVALID_ARGUMENT with code."""
+    exc = ContextSchemaViolationError(
+        "schema mismatch",
+        details={
+            "name": "n",
+            "version": "v",
+            "json_pointer": "/items/0/id",
+            "validator": "type",
+            "instance_value": "oops",
+            "message": "is not of type 'integer'",
+        },
+    )
+    assert _status_code_for(exc) is grpc.StatusCode.INVALID_ARGUMENT
+    assert exc.error_code == "ERROR_CODE_CONTEXT_SCHEMA_VIOLATION"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-TMPL-011")
+async def test_context_schema_violation_carries_code_and_pointer_through_translator() -> None:
+    """L2-TMPL-011: the translator SHALL emit the error code in trailing metadata
+    and a JSON Pointer in the public details string.
+    """
+    ctx = _FakeServicerContext()
+    exc = ContextSchemaViolationError(
+        "context failed schema for 'tpl'@'1.0': 'name' is a required property",
+        details={
+            "name": "tpl",
+            "version": "1.0",
+            "json_pointer": "/items/2/id",
+            "validator": "required",
+            "instance_value": None,
+            "message": "'name' is a required property",
+        },
+    )
+    with pytest.raises(_AbortRaisedError):
+        await _translate_known(ctx, exc)
+    abort = ctx.aborts[0]
+    assert abort.code is grpc.StatusCode.INVALID_ARGUMENT
+    metadata = dict(abort.trailing_metadata)
+    assert metadata["x-message-service-error-code"] == "ERROR_CODE_CONTEXT_SCHEMA_VIOLATION"
 
 
 @pytest.mark.requirement("L3-ERR-014")

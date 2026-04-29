@@ -124,8 +124,8 @@ the single source of truth.
 | L2-TMPL-002 | L3-TMPL-003, L3-TMPL-004 | `tests/unit/domain/aggregates/test_template_metadata.py::test_all_template_kinds_construct` | Partially Implemented |
 | L2-TMPL-003 | L3-TMPL-005, L3-TMPL-006, L3-TMPL-027 | _(TBD)_ | Draft |
 | L2-TMPL-004 | L3-TMPL-007, L3-TMPL-008 | `tests/unit/application/ports/contracts/test_port_contracts.py::test_template_renderer_exposes_expected_methods` | Partially Implemented |
-| L2-TMPL-005 | L3-TMPL-009, L3-TMPL-010 | _(TBD)_ | Draft |
-| L2-TMPL-006 | L3-TMPL-011, L3-TMPL-012 | _(TBD)_ | Draft |
+| L2-TMPL-005 | L3-TMPL-009, L3-TMPL-010 | `tests/unit/application/use_cases/test_begin_run.py::test_explicit_version_passes_through_unchanged`<br>`tests/unit/application/use_cases/test_begin_run.py::test_latest_aggregation_template_ref_resolves_before_persistence`<br>`tests/unit/application/use_cases/test_begin_run.py::test_latest_stage_report_template_ref_resolves_before_persistence`<br>`tests/unit/application/use_cases/test_begin_run.py::test_latest_unknown_template_for_stage_includes_stage_id_in_details`<br>`tests/unit/application/use_cases/test_begin_run.py::test_latest_with_no_matching_manifest_entries_raises_unknown_template`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_resolve_latest_filters_by_name_only_other_names_ignored`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_resolve_latest_orders_pre_release_below_final`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_resolve_latest_picks_highest_semver_among_multiple`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_resolve_latest_raises_unknown_template_error_for_missing_name`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_resolve_latest_returns_canonical_packaging_version_form`<br>`tests/unit/infrastructure/templating/test_manifest_loader.py::test_resolve_latest_returns_single_entry_when_only_one_version` | Implemented |
+| L2-TMPL-006 | L3-TMPL-011, L3-TMPL-012 | `tests/unit/application/use_cases/test_begin_run.py::test_latest_aggregation_template_ref_resolves_before_persistence`<br>`tests/unit/application/use_cases/test_begin_run.py::test_latest_stage_report_template_ref_resolves_before_persistence`<br>`tests/unit/application/use_cases/test_begin_run.py::test_persisted_run_carries_resolved_version_not_sentinel` | Implemented |
 | L2-TMPL-007 | L3-TMPL-013, L3-TMPL-014, L3-TMPL-028 | `tests/unit/infrastructure/templating/test_renderer.py::test_sandbox_has_no_range_global` | Partially Implemented |
 | L2-TMPL-008 | L3-TMPL-015, L3-TMPL-016 | `tests/unit/infrastructure/templating/test_renderer.py::test_allowed_filter_works`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_removed_filter_raises` | Partially Implemented |
 | L2-TMPL-009 | L3-TMPL-017 | `tests/unit/infrastructure/templating/test_renderer.py::test_undefined_variable_raises_template_render_error` | Partially Implemented |
@@ -479,7 +479,7 @@ the single source of truth.
 | API | 4 | 11 | 18 | 3 | 1 |
 | RUN | 5 | 16 | 30 | 9 | 23 |
 | STAGE | 4 | 9 | 18 | 8 | 9 |
-| TMPL | 5 | 14 | 28 | 7 | 2 |
+| TMPL | 5 | 14 | 28 | 7 | 6 |
 | AGGR | 4 | 10 | 20 | 4 | 6 |
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **386** | **64** | **211** |
+| **Total** | **67** | **192** | **386** | **64** | **215** |
 
-**Requirements verified by at least one test**: 275 of 578 (47.6%).
+**Requirements verified by at least one test**: 279 of 578 (48.3%).
 
 ### Orphan check
 

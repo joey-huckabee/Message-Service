@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from message_service.domain.aggregates.template_metadata import TemplateKind
+from message_service.domain.aggregates.template_metadata import TemplateKind, TemplateMetadata
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import ConfigurationError, UnknownTemplateError
 from message_service.infrastructure.templating.manifest_loader import (
@@ -43,6 +43,113 @@ def test_repository_get_raises_on_unknown() -> None:
 def test_repository_exists_returns_false_on_unknown() -> None:
     repo = InMemoryTemplateRepository({})
     assert repo.exists(TemplateRef(name="missing", version="1.0")) is False
+
+
+# -----------------------------------------------------------------------------
+# resolve_latest (L3-TMPL-009 / L3-TMPL-010)
+# -----------------------------------------------------------------------------
+
+
+def _meta(name: str, version: str) -> TemplateMetadata:
+    """Build a TemplateMetadata for resolve_latest tests."""
+    return TemplateMetadata(
+        name=name,
+        version=version,
+        kind=TemplateKind.REPORT_FRAGMENT,
+        source_path=Path(f"/tmp/{name}-{version}.j2"),
+        context_schema_path=None,
+        description=None,
+    )
+
+
+@pytest.mark.requirement("L3-TMPL-010")
+def test_resolve_latest_raises_unknown_template_error_for_missing_name() -> None:
+    """L3-TMPL-010: empty manifest entries for the name SHALL raise."""
+    repo = InMemoryTemplateRepository({})
+    with pytest.raises(UnknownTemplateError) as exc_info:
+        repo.resolve_latest("missing")
+    assert exc_info.value.details["template_name"] == "missing"
+
+
+@pytest.mark.requirement("L3-TMPL-009")
+@pytest.mark.requirement("L3-TMPL-010")
+def test_resolve_latest_returns_single_entry_when_only_one_version() -> None:
+    """A single matching entry SHALL be returned as the resolved ref."""
+    entries = {("nightly", "1.0.0"): _meta("nightly", "1.0.0")}
+    repo = InMemoryTemplateRepository(entries)
+
+    ref = repo.resolve_latest("nightly")
+
+    assert ref.name == "nightly"
+    assert ref.version == "1.0.0"
+
+
+@pytest.mark.requirement("L3-TMPL-009")
+@pytest.mark.requirement("L3-TMPL-010")
+def test_resolve_latest_picks_highest_semver_among_multiple() -> None:
+    """L3-TMPL-010: multiple entries SHALL resolve to the highest semver."""
+    entries = {
+        ("nightly", "1.0.0"): _meta("nightly", "1.0.0"),
+        ("nightly", "2.0.0"): _meta("nightly", "2.0.0"),
+        ("nightly", "1.5.3"): _meta("nightly", "1.5.3"),
+    }
+    repo = InMemoryTemplateRepository(entries)
+
+    ref = repo.resolve_latest("nightly")
+
+    assert ref.version == "2.0.0"
+
+
+@pytest.mark.requirement("L3-TMPL-010")
+def test_resolve_latest_orders_pre_release_below_final() -> None:
+    """Pre-release versions SHALL order below their corresponding final (PEP 440).
+
+    Both ``1.0.0rc1`` and ``1.0.0`` are valid manifest entries; the
+    final version SHALL win regardless of insertion order.
+    """
+    entries = {
+        ("nightly", "1.0.0rc1"): _meta("nightly", "1.0.0rc1"),
+        ("nightly", "1.0.0"): _meta("nightly", "1.0.0"),
+    }
+    repo = InMemoryTemplateRepository(entries)
+
+    ref = repo.resolve_latest("nightly")
+
+    assert ref.version == "1.0.0"
+
+
+@pytest.mark.requirement("L3-TMPL-009")
+def test_resolve_latest_returns_canonical_packaging_version_form() -> None:
+    """The resolved ref SHALL carry the canonical str(Version(...)) form.
+
+    Manifest entry ``"1.0"`` round-trips through ``Version()`` to
+    ``"1.0"`` exactly (packaging preserves the input shape for
+    well-formed inputs); the contract is that whatever str(Version(x))
+    produces is what lands on the resolved ref.
+    """
+    from packaging.version import Version
+
+    entries = {("nightly", "1.0"): _meta("nightly", "1.0")}
+    repo = InMemoryTemplateRepository(entries)
+
+    ref = repo.resolve_latest("nightly")
+
+    assert ref.version == str(Version("1.0"))
+
+
+@pytest.mark.requirement("L3-TMPL-010")
+def test_resolve_latest_filters_by_name_only_other_names_ignored() -> None:
+    """Only manifest entries with the matching name SHALL be considered."""
+    entries = {
+        ("nightly", "1.0.0"): _meta("nightly", "1.0.0"),
+        ("daily", "9.9.9"): _meta("daily", "9.9.9"),  # different name; SHALL be ignored
+    }
+    repo = InMemoryTemplateRepository(entries)
+
+    ref = repo.resolve_latest("nightly")
+
+    assert ref.name == "nightly"
+    assert ref.version == "1.0.0"  # not 9.9.9
 
 
 # -----------------------------------------------------------------------------

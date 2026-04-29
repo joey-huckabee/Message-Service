@@ -360,6 +360,184 @@ async def test_unknown_template_details_include_name_and_version(
 
 
 # -----------------------------------------------------------------------------
+# "latest" version resolution (L3-TMPL-009 / L3-TMPL-010 / L3-TMPL-011)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-009")
+@pytest.mark.requirement("L3-TMPL-011")
+async def test_latest_aggregation_template_ref_resolves_before_persistence(
+    use_case: BeginRunUseCase,
+    template_repo: MagicMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, Any, Any],
+) -> None:
+    """Submitted aggregation_template_ref version='latest' SHALL be resolved before persistence.
+
+    The Run aggregate persisted by the use case SHALL carry the resolved
+    canonical version (in this test, "2.0.0"), not the literal sentinel.
+    """
+    _, _, run_repo, _, _ = uow_factory
+    template_repo.resolve_latest.return_value = TemplateRef(name="nightly_summary", version="2.0.0")
+    cmd = _valid_command(
+        aggregation_template_ref=TemplateRef(name="nightly_summary", version="latest")
+    )
+
+    await use_case.execute(cmd)
+
+    template_repo.resolve_latest.assert_called_once_with("nightly_summary")
+    saved_run: Run = run_repo.save.call_args.args[0]
+    assert saved_run.aggregation_template_ref is not None
+    assert saved_run.aggregation_template_ref.version == "2.0.0"
+    assert saved_run.aggregation_template_ref.name == "nightly_summary"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-009")
+@pytest.mark.requirement("L3-TMPL-011")
+async def test_latest_stage_report_template_ref_resolves_before_persistence(
+    use_case: BeginRunUseCase,
+    template_repo: MagicMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, Any, Any],
+) -> None:
+    """Submitted stage report_template_ref version='latest' SHALL be resolved before persistence."""
+    _, _, run_repo, _, _ = uow_factory
+    # Two stages, both submitting "latest"; resolve to two different concrete versions.
+    template_repo.resolve_latest.side_effect = lambda name: (
+        TemplateRef(name="extract_rpt", version="3.5.0")
+        if name == "extract_rpt"
+        else TemplateRef(name="transform_rpt", version="4.2.1")
+    )
+    cmd = _valid_command(
+        declared_stages=(
+            DeclaredStageInput(
+                stage_id="extract",
+                stage_order=0,
+                report_template_ref=TemplateRef(name="extract_rpt", version="latest"),
+            ),
+            DeclaredStageInput(
+                stage_id="transform",
+                stage_order=1,
+                report_template_ref=TemplateRef(name="transform_rpt", version="latest"),
+            ),
+        ),
+    )
+
+    await use_case.execute(cmd)
+
+    saved_run: Run = run_repo.save.call_args.args[0]
+    saved_versions = {
+        ds.stage_id: ds.report_template_ref.version for ds in saved_run.declared_stages
+    }
+    assert saved_versions == {"extract": "3.5.0", "transform": "4.2.1"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-009")
+async def test_explicit_version_passes_through_unchanged(
+    use_case: BeginRunUseCase,
+    template_repo: MagicMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, Any, Any],
+) -> None:
+    """An explicit version (not 'latest') SHALL bypass resolve_latest entirely."""
+    _, _, run_repo, _, _ = uow_factory
+
+    await use_case.execute(_valid_command())  # default refs use explicit "1.0"
+
+    # resolve_latest is never called because nothing in the command uses
+    # the literal 'latest' sentinel.
+    template_repo.resolve_latest.assert_not_called()
+    saved_run: Run = run_repo.save.call_args.args[0]
+    # Explicit versions land on the aggregate unchanged.
+    assert saved_run.aggregation_template_ref is not None
+    assert saved_run.aggregation_template_ref.version == "1.0"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-010")
+async def test_latest_with_no_matching_manifest_entries_raises_unknown_template(
+    use_case: BeginRunUseCase, template_repo: MagicMock
+) -> None:
+    """L3-TMPL-010: resolve_latest's UnknownTemplateError SHALL surface with role-aware details."""
+    template_repo.resolve_latest.side_effect = UnknownTemplateError(
+        "no manifest entry for template name 'nightly_summary'",
+        details={"template_name": "nightly_summary"},
+    )
+    cmd = _valid_command(
+        aggregation_template_ref=TemplateRef(name="nightly_summary", version="latest")
+    )
+
+    with pytest.raises(UnknownTemplateError) as exc_info:
+        await use_case.execute(cmd)
+    # Use case re-raises with role-aware details so callers see the
+    # same envelope as the existence-check path.
+    assert exc_info.value.details["name"] == "nightly_summary"
+    assert exc_info.value.details["version"] == "latest"
+    assert exc_info.value.details["role"] == "aggregation_template"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-010")
+async def test_latest_unknown_template_for_stage_includes_stage_id_in_details(
+    use_case: BeginRunUseCase, template_repo: MagicMock
+) -> None:
+    """A stage's resolve_latest failure SHALL include stage_id in the error details."""
+    template_repo.resolve_latest.side_effect = UnknownTemplateError(
+        "no manifest entry for template name 'extract_rpt'",
+        details={"template_name": "extract_rpt"},
+    )
+    cmd = _valid_command(
+        declared_stages=(
+            DeclaredStageInput(
+                stage_id="extract",
+                stage_order=0,
+                report_template_ref=TemplateRef(name="extract_rpt", version="latest"),
+            ),
+        ),
+    )
+
+    with pytest.raises(UnknownTemplateError) as exc_info:
+        await use_case.execute(cmd)
+    assert exc_info.value.details["role"] == "report_template"
+    assert exc_info.value.details["stage_id"] == "extract"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-012")
+async def test_persisted_run_carries_resolved_version_not_sentinel(
+    use_case: BeginRunUseCase,
+    template_repo: MagicMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, Any, Any],
+) -> None:
+    """L3-TMPL-012: the persisted Run is the source of truth for resolved versions.
+
+    A request submitting ``version="latest"`` SHALL produce a Run
+    aggregate whose stored TemplateRef carries the canonical version
+    string. Subsequent ``run_repo.get(run_id)`` reads (e.g., for
+    resend or dashboard display) recover the authoritative version
+    that was used.
+
+    (The BEGIN_RUN audit row's details payload doesn't currently
+    include the full template ref — only declared_stage_ids. That's
+    governed by L3-OBS-013 and is intentionally not part of this
+    test's contract; the persisted Run is the authoritative
+    surface per the L3-TMPL-012 wording.)
+    """
+    _, _, run_repo, _, _ = uow_factory
+    template_repo.resolve_latest.return_value = TemplateRef(name="nightly_summary", version="2.5.7")
+    cmd = _valid_command(
+        aggregation_template_ref=TemplateRef(name="nightly_summary", version="latest")
+    )
+
+    await use_case.execute(cmd)
+
+    saved_run: Run = run_repo.save.call_args.args[0]
+    assert saved_run.aggregation_template_ref is not None
+    assert saved_run.aggregation_template_ref.version == "2.5.7"
+    assert saved_run.aggregation_template_ref.version != "latest"
+
+
+# -----------------------------------------------------------------------------
 # Attachment mode / aggregation template consistency
 # (L2-RUN-011 / L3-RUN-018 / L3-RUN-019)
 # -----------------------------------------------------------------------------

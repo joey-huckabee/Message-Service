@@ -1157,7 +1157,7 @@ single source of truth for live status.
 **Parent**: L1-OBS-003
 **Statement**: Audit records SHALL be stored in a single `audit_log` table with the schema `(audit_id, timestamp, event_type, run_id, details_json)`, supporting queries filtered by `event_type` and date range.
 **Rationale**: A unified table simplifies querying and retention enforcement across event types.
-**Verification Method**: Inspection (I)
+**Verification Method**: Test (T), Inspection (I)
 
 #### L2-OBS-008
 

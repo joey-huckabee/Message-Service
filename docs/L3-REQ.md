@@ -607,7 +607,7 @@ Audit-record details:
 ## L3-MAIL: Email delivery
 
 **L3-MAIL-001** · Parent: L2-MAIL-001 · Verification: T
-The `aiosmtplib.SMTP` client SHALL be instantiated per send (not reused); connection pooling is on the ROADMAP pending profiling.
+The `aiosmtplib.SMTP` client SHALL be instantiated per send. The per-send instantiation cost is negligible relative to the SMTP handshake itself, and reusing a long-lived client across sends would require additional state management that the v1 single-node workload does not justify. The previous wording of this L3 included a "connection pooling is on the ROADMAP pending profiling" speculative deferral mirroring the pre-Increment-27 SQLite-pool drift; that wording was removed in Increment 31f because it pre-committed an architectural decision (pooling) without a concrete need. If a future deployment surfaces a real bottleneck, that motivation can drive a fresh design discussion — not a speculative SHALL.
 
 **L3-MAIL-002** · Parent: L2-MAIL-002 · Verification: T
 `mail.smtp.host` is a string; `port` is an int [1, 65535]; `username` and `password` are optional strings (password supports `${env:...}`).

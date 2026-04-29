@@ -73,6 +73,39 @@ class TemplateRepository(ABC):
         """
 
     @abstractmethod
+    def resolve_latest(self, name: str) -> TemplateRef:
+        """Return the highest-version :class:`TemplateRef` for ``name``.
+
+        Used by :class:`BeginRunUseCase` to translate a request's
+        literal `"latest"` sentinel into a concrete pinned version
+        BEFORE the Run aggregate is constructed and persisted. After
+        resolution the caller stores the returned :class:`TemplateRef`
+        on the aggregate; subsequent manifest updates SHALL NOT
+        retroactively affect already-initiated runs (L3-TMPL-009 +
+        L3-TMPL-011 freeze the resolution at BeginRun time).
+
+        Implementations SHALL compare candidate versions using
+        :class:`packaging.version.Version` (per L2-TMPL-004) so
+        pre-release semantics are honored — ``"1.0.0rc1"`` orders
+        below ``"1.0.0"`` even though both are valid manifest
+        entries. The returned version SHALL be the canonical
+        ``str(Version(...))`` form per L3-TMPL-009.
+
+        Args:
+            name: The template name to resolve. Comparison is exact
+                string match against
+                :attr:`TemplateMetadata.name`; case-sensitive.
+
+        Returns:
+            A :class:`TemplateRef` with the highest-semver version
+            among manifest entries sharing ``name``.
+
+        Raises:
+            UnknownTemplateError: No manifest entry matches the
+                ``name``. ``details`` includes ``template_name``.
+        """
+
+    @abstractmethod
     def list_by_kind(self, kind: TemplateKind) -> Sequence[TemplateMetadata]:
         """List every registered template of the given kind.
 

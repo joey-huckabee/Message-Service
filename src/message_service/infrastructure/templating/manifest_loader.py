@@ -36,6 +36,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from packaging.version import InvalidVersion, Version
+
 from message_service.application.ports.template_repository import TemplateRepository
 from message_service.domain.aggregates.template_metadata import (
     TemplateKind,
@@ -89,6 +91,32 @@ class InMemoryTemplateRepository(TemplateRepository):
 
     def exists(self, ref: TemplateRef) -> bool:  # noqa: D102
         return (ref.name, ref.version) in self._entries
+
+    def resolve_latest(self, name: str) -> TemplateRef:  # noqa: D102
+        # Per L3-TMPL-009/010: gather every manifest entry sharing
+        # ``name``, parse versions via packaging.version.Version (so
+        # pre-release semantics are honored), pick the highest, return
+        # a TemplateRef with the canonical str(Version(...)) form.
+        candidates: list[Version] = []
+        for entry_name, entry_version in self._entries:
+            if entry_name != name:
+                continue
+            try:
+                candidates.append(Version(entry_version))
+            except InvalidVersion:
+                # A manifest entry that fails packaging.version parsing
+                # would be a manifest-loader bug — entries are validated
+                # at load time. Defensively skip rather than raise here:
+                # an unparseable version cannot win the max() comparison
+                # so excluding it preserves correctness.
+                continue
+        if not candidates:
+            raise UnknownTemplateError(
+                f"no manifest entry for template name {name!r}",
+                details={"template_name": name},
+            )
+        highest = max(candidates)
+        return TemplateRef(name=name, version=str(highest))
 
     def list_by_kind(self, kind: TemplateKind) -> Sequence[TemplateMetadata]:  # noqa: D102
         return self._by_kind.get(kind, ())

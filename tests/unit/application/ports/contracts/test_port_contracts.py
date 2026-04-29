@@ -103,7 +103,7 @@ def test_stage_repository_exposes_expected_methods() -> None:
 
 @pytest.mark.requirement("L2-PERS-008")
 def test_template_repository_exposes_expected_methods() -> None:
-    expected = {"get", "exists", "list_by_kind", "list_all"}
+    expected = {"get", "exists", "resolve_latest", "list_by_kind", "list_all"}
     assert expected == TemplateRepository.__abstractmethods__
 
 

@@ -284,16 +284,16 @@ Version parsing SHALL use `packaging.version.Version`; `"latest"` is special-cas
 Versions comparing equal via `packaging.version.Version` (e.g., `1.0` vs `1.0.0`) SHALL be treated as the same; the manifest loader rejects such equivalences as duplicates.
 
 **L3-TMPL-009** · Parent: L2-TMPL-005 · Verification: T
-`"latest"` resolution SHALL occur exactly once per run at `BeginRun` time; the resolved `Version` SHALL be serialized back to canonical string form before persisting.
+`"latest"` resolution SHALL occur exactly once per run at `BeginRun` time. The literal sentinel string `"latest"` (case-sensitive, lowercase) SHALL be recognized by the resolution helper; any other value SHALL be treated as an explicit version. Comparison and ordering of candidate versions SHALL use `packaging.version.Version` from the `packaging` library (per L2-TMPL-004), and the resolved Version SHALL be serialized back to its canonical string form (`str(Version(...))`) before being stored on the Run aggregate.
 
 **L3-TMPL-010** · Parent: L2-TMPL-005 · Verification: T
-If a template name has no manifest entries, `"latest"` resolution SHALL raise `UnknownTemplate`; otherwise it picks the highest `Version`.
+If a template name has no manifest entries, `"latest"` resolution SHALL raise `UnknownTemplateError` with `details = {"template_name": <name>}`; otherwise the resolution SHALL pick the highest `packaging.version.Version`-comparable version among entries sharing the requested name. Pre-release versions (e.g., `1.0.0rc1`) SHALL be ordered below the corresponding final per `packaging` semantics.
 
 **L3-TMPL-011** · Parent: L2-TMPL-006 · Verification: T
-The resolved version SHALL be persisted to `runs.resolved_templates_json` (a JSON map `name -> version`) at `BeginRun` time.
+Resolved versions SHALL be persisted directly into the existing `TemplateRef` fields on the `Run` aggregate (`Run.aggregation_template_ref.version` for the aggregation template; `DeclaredStage.report_template_ref.version` per stage). The Run aggregate is the snapshot — no separate `resolved_templates_json` column is required because the Run already carries every template reference in its persisted shape, and BeginRun resolves `"latest"` before constructing the aggregate. Subsequent manifest updates SHALL NOT mutate already-persisted Run rows; the resolution is frozen at BeginRun time.
 
 **L3-TMPL-012** · Parent: L2-TMPL-006 · Verification: T
-Audit records of rendered reports SHALL include the `resolved_templates_json` snapshot taken at run initiation; subsequent manifest updates SHALL NOT affect already-initiated runs.
+The `BEGIN_RUN` audit row SHALL record the resolved versions in its `details` payload (the declared-stages list + aggregation template ref are already serialized into `details` per L3-OBS-013; resolved versions naturally land there because BeginRun resolves before audit + persist). A request submitting `version="latest"` SHALL produce an audit row whose `details` carries the resolved canonical version string, NOT the literal `"latest"` sentinel — operators reading the audit log see the authoritative version that was used.
 
 **L3-TMPL-013** · Parent: L2-TMPL-007 · Verification: T, I
 The `SandboxedEnvironment` SHALL be constructed with `autoescape=True`, `undefined=StrictUndefined`, and `loader=FileSystemLoader` restricted to manifest source directories.

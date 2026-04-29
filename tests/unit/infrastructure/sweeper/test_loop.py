@@ -139,6 +139,7 @@ async def test_start_is_idempotent(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-002")
 async def test_stop_exits_loop_cleanly_during_sleep(
     stub_use_case: _StubUseCase,
     stub_dispatcher: _StubDispatcher,
@@ -175,6 +176,7 @@ async def test_stop_exits_loop_cleanly_during_sleep(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-003")
 async def test_loop_ticks_multiple_times_with_short_interval(
     stub_use_case: _StubUseCase,
     stub_dispatcher: _StubDispatcher,
@@ -252,6 +254,7 @@ def _counter_value(outcome: str) -> float:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-003")
+@pytest.mark.requirement("L3-SWEEP-005")
 async def test_no_orphans_tick_increments_correct_label(
     stub_use_case: _StubUseCase,
     stub_dispatcher: _StubDispatcher,
@@ -276,6 +279,7 @@ async def test_no_orphans_tick_increments_correct_label(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-003")
+@pytest.mark.requirement("L3-SWEEP-005")
 async def test_orphans_detected_tick_increments_correct_label(
     stub_use_case: _StubUseCase,
     stub_dispatcher: _StubDispatcher,
@@ -300,6 +304,8 @@ async def test_orphans_detected_tick_increments_correct_label(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-003")
+@pytest.mark.requirement("L3-SWEEP-005")
+@pytest.mark.requirement("L3-SWEEP-016")
 async def test_sweeper_error_tick_increments_correct_label(
     stub_use_case: _StubUseCase,
     stub_dispatcher: _StubDispatcher,

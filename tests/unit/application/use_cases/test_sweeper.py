@@ -311,6 +311,7 @@ async def test_tick_records_sweep_orphan_audit_event(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-STAGE-012")
 @pytest.mark.requirement("L3-STAGE-013")
 async def test_audit_records_pending_stage_ids_when_present(
     uow_factory: SqliteUnitOfWorkFactory,
@@ -484,6 +485,7 @@ async def test_handlers_are_not_invoked_in_tick(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-006")
+@pytest.mark.requirement("L3-SWEEP-009")
 async def test_failed_enqueue_rolls_back_orphan_transition(
     uow_factory: SqliteUnitOfWorkFactory,
     sqlite_conn: aiosqlite.Connection,

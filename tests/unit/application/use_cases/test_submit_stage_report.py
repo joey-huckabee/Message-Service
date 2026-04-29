@@ -285,6 +285,7 @@ async def test_retry_overwrites_prior_content(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-STAGE-005")
+@pytest.mark.requirement("L3-STAGE-008")
 async def test_omitting_email_body_on_retry_clears_it(
     use_case: SubmitStageReportUseCase,
     uow_bundle: tuple[MagicMock, Any, AsyncMock, AsyncMock, Any],
@@ -351,6 +352,7 @@ async def test_both_contexts_omitted_stored_as_null(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-STAGE-009")
+@pytest.mark.requirement("L3-STAGE-016")
 async def test_run_not_found_raises_before_stage_check(
     use_case: SubmitStageReportUseCase,
     uow_bundle: tuple[MagicMock, Any, AsyncMock, AsyncMock, Any],
@@ -369,6 +371,8 @@ async def test_run_not_found_raises_before_stage_check(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-STAGE-008")
+@pytest.mark.requirement("L3-STAGE-014")
+@pytest.mark.requirement("L3-STAGE-015")
 async def test_unknown_stage_raises_after_run_lookup(
     use_case: SubmitStageReportUseCase,
     uow_bundle: tuple[MagicMock, Any, AsyncMock, AsyncMock, Any],
@@ -379,10 +383,14 @@ async def test_unknown_stage_raises_after_run_lookup(
     with pytest.raises(UnknownStageError) as exc_info:
         await use_case.execute(_valid_cmd(stage_id=_SID_UNKNOWN))
 
+    # L3-STAGE-015: details SHALL include `stage_id` (offending) and
+    # `declared_stages` (the run's declared stage ids).
     details = exc_info.value.details
     assert details["stage_id"] == _SID_UNKNOWN
     assert set(details["declared_stages"]) == {_SID_EXTRACT, _SID_TRANSFORM}
-    # Stage repo was not queried for the unknown stage_id.
+    # L3-STAGE-014: declared-stage lookup uses the run aggregate's
+    # `declared_stage_ids` property (sourced from `declared_stages_json`);
+    # the stage repo SHALL NOT be queried for unknown stage_ids.
     stage_repo.get.assert_not_called()
 
 

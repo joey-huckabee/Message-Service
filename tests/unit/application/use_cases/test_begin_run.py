@@ -549,6 +549,7 @@ async def test_persisted_run_carries_resolved_version_not_sentinel(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-019")
+@pytest.mark.requirement("L3-AGGR-015")
 async def test_single_aggregated_without_template_raises() -> None:
     """Error details echo the attachment_mode per L3-RUN-019."""
     registry = frozenset({"etl-nightly"})

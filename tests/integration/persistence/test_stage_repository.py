@@ -171,6 +171,8 @@ async def test_get_on_wrong_run_id_raises(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-STAGE-005")
+@pytest.mark.requirement("L3-STAGE-006")
 async def test_retry_overwrites_prior_content_in_place(
     repo: SqliteStageRepository, conn: aiosqlite.Connection
 ) -> None:

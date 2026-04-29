@@ -306,6 +306,7 @@ async def test_list_in_states_empty_input_returns_empty(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-004")
+@pytest.mark.requirement("L3-SWEEP-006")
 async def test_list_expired_returns_runs_older_than_cutoff_in_active_states(
     repo: SqliteRunRepository, conn: aiosqlite.Connection
 ) -> None:
@@ -343,6 +344,7 @@ async def test_list_expired_returns_runs_older_than_cutoff_in_active_states(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SWEEP-004")
+@pytest.mark.requirement("L3-SWEEP-006")
 async def test_list_expired_uses_updated_at_not_created_at(
     repo: SqliteRunRepository, conn: aiosqlite.Connection
 ) -> None:

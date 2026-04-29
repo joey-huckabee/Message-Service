@@ -395,6 +395,7 @@ async def test_happy_path_outbound_email_has_correct_shape(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AGGR-005")
+@pytest.mark.requirement("L3-AGGR-009")
 async def test_per_stage_produces_one_attachment_per_non_empty_stage(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
@@ -535,6 +536,7 @@ async def test_pending_stages_excluded_from_assembly(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AGGR-007")
+@pytest.mark.requirement("L3-AGGR-012")
 async def test_stages_rendered_in_stage_order_not_submission_order(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],

@@ -205,16 +205,16 @@ Every transition into `FAILED` from the assembly + delivery pipeline SHALL recor
 `StageState` SHALL be a Python `enum.StrEnum` in `domain/state_machines/stage_states.py`.
 
 **L3-STAGE-002** · Parent: L2-STAGE-001 · Verification: T
-Stage records SHALL be stored in table `stage_state` with primary key `(run_id, stage_id)` and a foreign key on `run_id` referencing `runs`.
+Stage records SHALL be stored in table `stages` with primary key `(run_id, stage_id)` and a foreign key on `run_id` referencing `runs(run_id)` with `ON DELETE CASCADE`. The PRIMARY KEY's implicit unique index satisfies the dedup contract referenced by `L3-STAGE-005`.
 
 **L3-STAGE-003** · Parent: L2-STAGE-002 · Verification: T, A
 The permitted-stage-transition table SHALL live in the same module as `StageState`; a unit test SHALL assert `IN_PROGRESS` has no inbound edges in v1.
 
 **L3-STAGE-004** · Parent: L2-STAGE-002 · Verification: T
-The transition function SHALL accept an optional `caller_context` string for audit; when omitted, the caller's module name SHALL be captured via stack inspection.
+Stage state transitions are driven from the use case responsible for each transition (`BeginRunUseCase` constructs PENDING; `SubmitStageReportUseCase` drives PENDING/SUBMITTED→SUBMITTED/RETRIED; `SweeperUseCase` drives any non-terminal→TIMEOUT or →FAILED). The transition function (`transition` in `domain/state_machines/stage_states.py`) takes `(from_state, to_state, run_id, stage_id)` and validates the edge; it does NOT take a `caller_context` parameter. Earlier drafts mandated a `caller_context` string captured via stack inspection; v1 dropped it because (a) v1 has only three call sites, all auditable via `git grep`, and (b) stack-frame introspection is brittle under asyncio task-boundary reorganization.
 
 **L3-STAGE-005** · Parent: L2-STAGE-003 · Verification: T
-The `stage_state` table SHALL have a unique index on `(run_id, stage_id)`; duplicate INSERTs raise `aiosqlite.IntegrityError`, handled by the idempotent-update path.
+The `stages` table's primary key on `(run_id, stage_id)` (per `L3-STAGE-002`) provides the unique-row guarantee; raw duplicate INSERTs would raise `aiosqlite.IntegrityError`, but the implementation uses `INSERT ... ON CONFLICT(run_id, stage_id) DO UPDATE` (per `L3-STAGE-006`) so the integrity error is consumed by the upsert and not surfaced to callers.
 
 **L3-STAGE-006** · Parent: L2-STAGE-004 · Verification: T
 SubmitStageReport SHALL use `INSERT ... ON CONFLICT(run_id, stage_id) DO UPDATE` in a single SQL statement for atomicity.
@@ -241,16 +241,16 @@ The sweeper SHALL classify stages by reading `stage_state` and checking equality
 A run with any stage in `PENDING` at orphan-timeout evaluation SHALL have that stage's id included in the `SWEEP_ORPHAN` audit record under the `pending_stage_ids` field. The list SHALL be sorted ASCII-ascending so a given orphan's audit record is byte-identical across replays. An empty list (no PENDING stages — orphan caused by AGGREGATING/READY/SENDING staying past timeout) is permitted.
 
 **L3-STAGE-014** · Parent: L2-STAGE-008 · Verification: T
-Declared-stage lookup SHALL use `runs.declared_stage_ids_json` parsed once per request; the resulting set is used for membership check.
+Declared-stage lookup SHALL use the run's `declared_stages_json` column (parsed once when the `Run` aggregate is reconstituted by `RunRepository.get`); the resulting `frozenset` of `stage_id` strings backs the membership check via the aggregate's `declared_stage_ids` property.
 
 **L3-STAGE-015** · Parent: L2-STAGE-008 · Verification: T
-`UnknownStage.details` SHALL include `submitted_stage_id` and `declared_stage_ids` (sorted).
+`UnknownStageError.details` SHALL include `stage_id` (the offending submitted stage_id) and `declared_stages` (the run's declared stage ids; ordering is not normative — callers consume as a set). Earlier drafts proposed `submitted_stage_id` and a sorted `declared_stage_ids`; v1 dropped both renames and the sort because the existing keys carry the same semantic content and callers treat the list as a set.
 
 **L3-STAGE-016** · Parent: L2-STAGE-009 · Verification: T
 Run existence check SHALL precede stage membership check in code order; a test SHALL exercise "unknown run + unknown stage" and assert `RunNotFound` is raised, not `UnknownStage`.
 
 **L3-STAGE-017** · Parent: L2-STAGE-001 · Verification: T
-Stage records SHALL store `last_transition_at`; the sweeper uses run's `last_transition_at`, not any stage's.
+The sweeper SHALL drive orphan classification from the run's last-transition timestamp (the `runs.updated_at` column, per `L3-RUN-024`), not from any per-stage timestamp. The `stages` table accordingly does NOT carry a `last_transition_at` column; only `submitted_at` is stored, recording when the stage left `PENDING`. Earlier drafts of this requirement mandated a per-stage `last_transition_at`; v1 dropped that column because the run-level timestamp is sufficient for orphan disposition and avoids duplicating per-stage state-machine timestamps that no consumer needed.
 
 **L3-STAGE-018** · Parent: L2-STAGE-002 · Verification: A
 A static check SHALL confirm no production code path references `StageState.IN_PROGRESS` as a transition target; grep results limited to test fixtures and a reserved-for-future-use comment.

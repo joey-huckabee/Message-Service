@@ -47,6 +47,7 @@ def ruff_lint_config() -> dict[str, Any]:
 
 
 @pytest.mark.requirement("L3-DEP-003")
+@pytest.mark.requirement("L3-PERS-012")
 def test_ruff_pth_ruleset_enabled(ruff_lint_config: dict[str, Any]) -> None:
     """L3-DEP-003: the ruff ``PTH`` ruleset SHALL be in ``[tool.ruff.lint] select``.
 

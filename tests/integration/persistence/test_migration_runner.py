@@ -36,6 +36,7 @@ async def _applied_versions(conn: aiosqlite.Connection) -> list[int]:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-PERS-003")
+@pytest.mark.requirement("L3-PERS-020")
 async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> None:
     db = tmp_path / "test.db"
     conn = await open_connection(db)

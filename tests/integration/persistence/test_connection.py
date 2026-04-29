@@ -24,6 +24,7 @@ async def _read_pragma(conn: aiosqlite.Connection, pragma: str) -> int | str | N
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-PERS-002")
+@pytest.mark.requirement("L3-PERS-003")
 async def test_wal_journal_mode_set_on_disk_db(tmp_path: Path) -> None:
     db = tmp_path / "test.db"
     conn = await open_connection(db)

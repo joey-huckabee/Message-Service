@@ -50,6 +50,7 @@ def store(tmp_path: Path) -> FilesystemReportStore:
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-PERS-022")
 @pytest.mark.requirement("L3-PERS-025")
 def test_save_email_body_writes_to_run_id_email_html(
     store: FilesystemReportStore, tmp_path: Path
@@ -61,6 +62,7 @@ def test_save_email_body_writes_to_run_id_email_html(
     assert expected.read_text(encoding="utf-8") == "<html>body</html>"
 
 
+@pytest.mark.requirement("L3-PERS-022")
 @pytest.mark.requirement("L3-PERS-025")
 def test_save_fragment_writes_to_run_id_fragments_stage_id_html(
     store: FilesystemReportStore, tmp_path: Path
@@ -99,6 +101,7 @@ def test_multiple_fragments_share_one_run_directory(
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-PERS-008")
 @pytest.mark.requirement("L3-PERS-026")
 def test_save_email_body_uses_tmp_then_replace_and_leaves_no_tmp(
     store: FilesystemReportStore, tmp_path: Path
@@ -121,6 +124,7 @@ def test_save_email_body_overwrites_existing_atomically(
     assert final.read_text(encoding="utf-8") == "second"
 
 
+@pytest.mark.requirement("L3-PERS-009")
 @pytest.mark.requirement("L3-PERS-026")
 def test_interrupted_write_leaves_final_file_absent(
     store: FilesystemReportStore, tmp_path: Path

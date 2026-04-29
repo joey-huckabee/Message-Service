@@ -199,6 +199,49 @@ def test_grpc_config_defaults_when_keys_missing() -> None:
     assert cfg.port == 50_051
 
 
+@pytest.mark.requirement("L3-PERS-027")
+def test_filesystem_persistence_report_retention_days_default_is_90() -> None:
+    """L3-PERS-027: ``report_retention_days`` default SHALL be 90; ge=1."""
+    cfg = FilesystemPersistenceConfig.model_validate({"report_directory": "/tmp/x"})
+    assert cfg.report_retention_days == 90
+
+
+@pytest.mark.requirement("L3-PERS-027")
+def test_filesystem_persistence_report_retention_days_rejects_zero() -> None:
+    """L3-PERS-027: ``report_retention_days`` SHALL reject 0 / negative."""
+    with pytest.raises(ValidationError):
+        FilesystemPersistenceConfig.model_validate(
+            {"report_directory": "/tmp/x", "report_retention_days": 0}
+        )
+
+
+@pytest.mark.requirement("L3-PERS-029")
+def test_filesystem_persistence_prune_interval_default_is_86400() -> None:
+    """L3-PERS-029: ``prune_interval_seconds`` default SHALL be 86400."""
+    cfg = FilesystemPersistenceConfig.model_validate({"report_directory": "/tmp/x"})
+    assert cfg.prune_interval_seconds == 86_400
+
+
+@pytest.mark.requirement("L3-PERS-029")
+def test_filesystem_persistence_max_prunes_per_iteration_default_is_1000() -> None:
+    """L3-PERS-029: ``max_prunes_per_iteration`` default SHALL be 1000."""
+    cfg = FilesystemPersistenceConfig.model_validate({"report_directory": "/tmp/x"})
+    assert cfg.max_prunes_per_iteration == 1_000
+
+
+@pytest.mark.requirement("L3-PERS-029")
+def test_filesystem_persistence_pruner_intervals_reject_zero() -> None:
+    """L3-PERS-029: prune_interval_seconds + max_prunes_per_iteration SHALL be ge=1."""
+    with pytest.raises(ValidationError):
+        FilesystemPersistenceConfig.model_validate(
+            {"report_directory": "/tmp/x", "prune_interval_seconds": 0}
+        )
+    with pytest.raises(ValidationError):
+        FilesystemPersistenceConfig.model_validate(
+            {"report_directory": "/tmp/x", "max_prunes_per_iteration": 0}
+        )
+
+
 @pytest.mark.requirement("L3-DASH-003")
 def test_dashboard_config_defaults_when_keys_missing() -> None:
     """L3-DASH-003: ``dashboard`` section with no host/port SHALL use

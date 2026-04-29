@@ -44,7 +44,7 @@ import aiosmtplib
 import structlog
 
 from message_service.application.ports.mailer import Mailer, OutboundEmail
-from message_service.domain.errors import EmailDeliveryError
+from message_service.domain.errors import EmailDeliveryError, EmailSizeExceededError
 
 _log = structlog.get_logger(__name__)
 
@@ -255,7 +255,12 @@ class AiosmtplibMailer(Mailer):
         size_bytes = len(raw)
 
         if size_bytes > self._max_email_size_bytes:
-            raise EmailDeliveryError(
+            # L3-MAIL-014 details schema; EmailSizeExceededError is a
+            # subclass of EmailDeliveryError so existing generic
+            # ``except EmailDeliveryError`` handlers continue to work,
+            # while the L3-MAIL-030 admin-notification path catches
+            # this subtype first.
+            raise EmailSizeExceededError(
                 f"encoded email size {size_bytes} bytes exceeds limit "
                 f"{self._max_email_size_bytes} bytes",
                 details={

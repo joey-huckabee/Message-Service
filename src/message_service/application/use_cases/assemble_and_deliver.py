@@ -79,12 +79,14 @@ L3-RUN-026 (audit before state change)
 
 from __future__ import annotations
 
+import importlib.resources
 import json
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
+import jinja2
 import structlog
 
 from message_service.application.ports.clock import Clock, iso_z
@@ -111,6 +113,7 @@ from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
     ContextSizeExceededError,
     EmailDeliveryError,
+    EmailSizeExceededError,
     PersistenceError,
     RenderedSizeExceededError,
     TemplateRenderError,
@@ -257,6 +260,31 @@ _REASON_TEMPLATE_RENDER = "TEMPLATE_RENDER"
 _REASON_RENDERED_SIZE_EXCEEDED = "RENDERED_SIZE_EXCEEDED"
 _REASON_CONTEXT_SIZE_EXCEEDED = "CONTEXT_SIZE_EXCEEDED"
 _REASON_EMAIL_DELIVERY = "EMAIL_DELIVERY"
+_REASON_EMAIL_SIZE_EXCEEDED = "EMAIL_SIZE_EXCEEDED"
+
+
+# Admin-notification template (L3-MAIL-015). Loaded once at module
+# import via importlib.resources from src/message_service/templates/
+# email/admin_notification.j2. The template is compiled in a Jinja2
+# Environment with autoescape=True per L3-MAIL-016 to neutralize any
+# unexpected metacharacter in the run_id parameter.
+#
+# Distinct from the user-template renderer's SandboxedEnvironment
+# because this template is service-internal and rendered with
+# operator-trusted variables only (run_id, failure_reason, timestamp).
+def _load_admin_notification_template() -> jinja2.Template:
+    """Load + compile the admin-notification template at module import."""
+    template_text = (
+        importlib.resources.files("message_service.templates.email")
+        .joinpath("admin_notification.j2")
+        .read_text(encoding="utf-8")
+    )
+    env = jinja2.Environment(autoescape=True, undefined=jinja2.StrictUndefined)
+    return env.from_string(template_text)
+
+
+_ADMIN_NOTIFICATION_TEMPLATE: Final[jinja2.Template] = _load_admin_notification_template()
+_ADMIN_NOTIFICATION_SUBJECT: Final[str] = "Message Service: EMAIL_SIZE_EXCEEDED for run {run_id}"
 
 
 # -----------------------------------------------------------------------------
@@ -294,6 +322,7 @@ class AssembleAndDeliverUseCase:
         mailer: Mailer,
         from_address: str,
         email_body_template_ref: TemplateRef,
+        admin_recipients: tuple[str, ...] = (),
         metrics_recorder: MetricsRecorder | None = None,
         report_store: ReportStore | None = None,
     ) -> None:
@@ -306,6 +335,12 @@ class AssembleAndDeliverUseCase:
             mailer: Mailer port.
             from_address: Configured sender address.
             email_body_template_ref: Configured email body template.
+            admin_recipients: Configured ``mail.admin_recipients``
+                tuple. Drives the L3-MAIL-031 admin notification on
+                EMAIL_SIZE_EXCEEDED. Defaults to empty tuple for
+                tests; an empty list at runtime causes the admin
+                notification to be skipped with a WARNING log per
+                L3-MAIL-031.
             metrics_recorder: L1-OBS-002 metrics port (run state
                 transitions, email delivery outcome, email size,
                 run duration). Defaults to a NoOp instance for tests.
@@ -323,6 +358,7 @@ class AssembleAndDeliverUseCase:
         self._mailer = mailer
         self._from_address = from_address
         self._email_body_template_ref = email_body_template_ref
+        self._admin_recipients = admin_recipients
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
         self._report_store = report_store or NoOpReportStore()
 
@@ -437,6 +473,36 @@ class AssembleAndDeliverUseCase:
 
         try:
             await self._mailer.send(outbound)
+        except EmailSizeExceededError as exc:
+            # L3-MAIL-030 four-step sequence:
+            # (1) persist the rendered email body so the dashboard
+            #     resend interface can locate it (L3-MAIL-017 +
+            #     L3-MAIL-024 — same path as a successful report).
+            # (2) audit + transition in a single UoW; audit-first
+            #     ordering per L3-RUN-026.
+            # (3) send admin notification AFTER the UoW commits;
+            #     failures here are logged but do NOT roll back.
+            # (4) SMTP delivery of the failing email is NOT
+            #     retried — the size check is L2-MAIL-008's
+            #     pre-transmission gate, exceeded means permanent.
+            self._save_email_body(run_id, email_body_html)
+            await self._finalize_failed(
+                run_id=run_id,
+                reason=_FailureReason(
+                    code=_REASON_EMAIL_SIZE_EXCEEDED,
+                    details={
+                        "message": str(exc),
+                        "recipient_count": len(recipients),
+                        **(exc.details or {}),
+                    },
+                ),
+            )
+            await self._send_admin_notification_for_size_exceeded(
+                run_id=run_id,
+                exc=exc,
+            )
+            self._metrics.record_email_delivery_outcome("permanent_failure")
+            return
         except EmailDeliveryError as exc:
             await self._finalize_failed(
                 run_id=run_id,
@@ -700,6 +766,64 @@ class AssembleAndDeliverUseCase:
                     error=str(exc),
                     details=exc.details,
                 )
+
+    async def _send_admin_notification_for_size_exceeded(
+        self,
+        *,
+        run_id: RunId,
+        exc: EmailSizeExceededError,
+    ) -> None:
+        """Send the L3-MAIL-015 admin notification email after a size-exceeded failure.
+
+        Called AFTER the audit + state-transition UoW commits per
+        L3-MAIL-030 step 3. Failures here log at ERROR but do NOT
+        roll back — the run is already FAILED, the audit row is
+        already written, the rendered report is already persisted.
+
+        When ``admin_recipients`` is empty (per L3-MAIL-031), the
+        notification is skipped with a WARNING log and the method
+        returns normally.
+        """
+        if not self._admin_recipients:
+            _log.warning(
+                "admin_notification_skipped_no_recipients",
+                run_id=str(run_id),
+                failure_reason=_REASON_EMAIL_SIZE_EXCEEDED,
+            )
+            return
+
+        timestamp = self._clock.now()
+        body = _ADMIN_NOTIFICATION_TEMPLATE.render(
+            run_id=str(run_id),
+            failure_reason=_REASON_EMAIL_SIZE_EXCEEDED,
+            timestamp=iso_z(timestamp),
+        )
+        notification = OutboundEmail(
+            recipients=frozenset(self._admin_recipients),
+            subject=_ADMIN_NOTIFICATION_SUBJECT.format(run_id=str(run_id)),
+            body_html=body,
+            from_address=self._from_address,
+            attachments=(),
+        )
+        try:
+            await self._mailer.send(notification)
+        except EmailDeliveryError as send_exc:
+            _log.error(
+                "admin_notification_send_failed",
+                run_id=str(run_id),
+                failure_reason=_REASON_EMAIL_SIZE_EXCEEDED,
+                error_message=str(send_exc),
+                details=send_exc.details,
+            )
+            return
+        _log.info(
+            "admin_notification_sent",
+            run_id=str(run_id),
+            failure_reason=_REASON_EMAIL_SIZE_EXCEEDED,
+            recipient_count=len(self._admin_recipients),
+            measured_bytes=(exc.details or {}).get("measured_bytes"),
+            limit_bytes=(exc.details or {}).get("limit_bytes"),
+        )
 
     def _save_email_body(self, run_id: RunId, html: str) -> None:
         """Persist the assembled email body to the report store.

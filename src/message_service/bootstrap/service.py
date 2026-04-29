@@ -401,6 +401,7 @@ async def build_service(config: Config) -> Service:
         mailer=mailer,
         from_address=config.mail.from_address,
         email_body_template_ref=email_body_ref,
+        admin_recipients=tuple(str(addr) for addr in config.mail.admin_recipients),
         metrics_recorder=metrics_recorder,
         report_store=report_store,
     )

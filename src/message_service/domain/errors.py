@@ -353,6 +353,21 @@ class EmailDeliveryError(InfrastructureError):
     """SMTP delivery failed. Detail ``retriable`` (bool) is set by the retry logic."""
 
 
+class EmailSizeExceededError(EmailDeliveryError):
+    """The MIME-encoded email exceeded ``mail.max_email_size_bytes``.
+
+    Raised by the mailer's pre-transmission size check (L2-MAIL-008)
+    before any SMTP traffic is emitted. Subclassing
+    :class:`EmailDeliveryError` keeps the existing generic
+    ``except EmailDeliveryError`` handlers working while letting
+    callers that care about size-exceeded specifically (e.g.,
+    :class:`AssembleAndDeliverUseCase`'s L3-MAIL-030 admin-notification
+    path) catch this subtype first. ``details`` carries
+    ``failure_reason="EMAIL_SIZE_EXCEEDED"``, ``measured_bytes``,
+    ``limit_bytes``, and ``recipient_count`` per L3-MAIL-014.
+    """
+
+
 class ConfigurationError(MessageServiceError):
     """Configuration could not be loaded or validated. See L2-CFG-005.
 
@@ -491,6 +506,7 @@ __all__ = [  # noqa: RUF022 — grouped by exception category, mirrors hierarchy
     "PersistenceError",
     "TemplateRenderError",
     "EmailDeliveryError",
+    "EmailSizeExceededError",
     # Configuration
     "ConfigurationError",
     # Self-check helpers (L3-ERR-008, L3-ERR-009)

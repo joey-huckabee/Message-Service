@@ -1,0 +1,34 @@
+{# Admin notification email template (L3-MAIL-015 / L3-MAIL-016).
+
+   Rendered when an outbound email exceeds `mail.max_email_size_bytes`
+   (per L3-MAIL-030 step 3). The template SHALL accept ONLY these three
+   variables and SHALL NOT interpolate any user-supplied content from
+   the failing run — `run_id` is the canonical UUID4 mint per
+   `domain.ids.new_run_id` (no template metacharacters), `failure_reason`
+   is the literal `"EMAIL_SIZE_EXCEEDED"` enum value (operator-controlled
+   string), and `timestamp` is the ISO-8601-Z formatted clock reading.
+
+   Autoescape is enforced by the rendering Environment to neutralize
+   any unexpected metacharacter in `run_id` (per L3-MAIL-016). The
+   Subject line above body text uses `{{ run_id }}` with the same
+   discipline.
+
+   This is a plain-text email (no HTML); operators reading via SMTP
+   capture / local mail clients see the same format regardless of
+   user-agent.
+#}
+Message-Service operational alert.
+
+A run could not be delivered because the rendered email exceeded the
+configured maximum size.
+
+  Run ID:        {{ run_id }}
+  Failure:       {{ failure_reason }}
+  Timestamp:     {{ timestamp }}
+
+The rendered report has been persisted and is available through the
+dashboard's resend interface for review or manual delivery.
+
+This is an automated notification from the Message Service. No reply
+is expected; please consult the service log for the structured
+"admin_notification_sent" event keyed by run_id for further detail.

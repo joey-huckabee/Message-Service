@@ -761,10 +761,10 @@ Template inspection routes accept only GET; POST/PATCH/DELETE against `/template
 Template listing SHALL expose `name`, `version`, repo-relative `schema_path` and `source_path`, and schema contents; it SHALL NOT expose rendered contents of any past report.
 
 **L3-DASH-016** · Parent: L2-DASH-010 · Verification: T
-The metrics dashboard page SHALL fetch `/metrics` via same-origin `fetch()`; CORS SHALL NOT be relaxed for this path.
+*(Deferred to v2 — see ROADMAP `R-DASH-004`.)* The embedded Chart.js metrics dashboard page is the visualization half of `L1-DASH-004`; v1 ships only the scrape-endpoint half (`GET /metrics` per `L3-OBS-007`). The dashboard page (server-side fetch, Chart.js wiring, Playwright e2e tests) is deferred until the test-harness infrastructure for browser-based UI testing exists.
 
 **L3-DASH-017** · Parent: L2-DASH-011 · Verification: I
-Chart.js SHALL be bundled at a pinned version in `static/js/chart.min.js` with its license notice.
+*(Deferred to v2 — see ROADMAP `R-DASH-004`.)* Chart.js bundling lands as part of the embedded-dashboard work in `L3-DASH-016`'s deferral; v1 has no Chart.js dependency.
 
 **L3-DASH-018** · Parent: L2-DASH-001 · Verification: T
 CSRF protection SHALL apply to POST/PATCH/DELETE via double-submit cookie or equivalent; a test verifies a POST without the CSRF token returns HTTP 403.
@@ -875,14 +875,14 @@ A static check SHALL assert that `domain/` and `application/` (excluding `applic
 **L3-PERS-017** · Parent: L2-PERS-010 · Verification: A
 The dependency-direction check SHALL run in CI; violations SHALL fail the build.
 
-**L3-PERS-018** · Parent: L2-PERS-001 · Verification: T
-The SQLite database file SHALL have permissions 0600 on Linux (the service account owns it); Windows uses the equivalent NTFS ACL.
+**L3-PERS-018** · Parent: L2-PERS-001 · Verification: I
+v1 does NOT explicitly set the SQLite database file's permissions in code — the file inherits the service account's umask (typically 0644 on Linux, default ACL on Windows). Operators deploying to a multi-user host SHALL set the umask via the systemd unit's `UMask=0077` directive (per `L3-DEP-006`'s deployment-artifact contract) or via the equivalent NSSM environment-variable mechanism on Windows. Earlier drafts mandated explicit `os.chmod(0o600)` after database creation; v1 dropped that because (a) the umask-based approach delegates the security choice to the deployment layer where it belongs, and (b) explicit chmod creates a TOCTOU window between WAL-file creation and the chmod call that the umask approach avoids.
 
-**L3-PERS-019** · Parent: L2-PERS-002 · Verification: T
-Service shutdown SHALL issue `PRAGMA wal_checkpoint(TRUNCATE)` before closing the last connection to compact the WAL.
+**L3-PERS-019** · Parent: L2-PERS-002 · Verification: I
+v1's shutdown path closes the SQLite connection cleanly via `aiosqlite.Connection.close()` which lets SQLite handle WAL checkpointing per its built-in policy. v1 does NOT issue an explicit `PRAGMA wal_checkpoint(TRUNCATE)` before close because (a) SQLite's automatic checkpointing under WAL-mode handles compaction adequately for the v1 single-tenant write volume, and (b) an explicit TRUNCATE checkpoint requires no other readers — a constraint v1's shutdown ordering does not guarantee. Earlier drafts mandated the explicit checkpoint; v1 dropped it because the operational benefit is small and the correctness risk on busy databases is real.
 
 **L3-PERS-020** · Parent: L2-PERS-003 · Verification: T
-Migrations SHALL be applied one per transaction; a migration failure rolls back only that migration, leaving prior migrations applied.
+The migration runner (`migration_runner.py`) SHALL apply each migration in its own SQLite transaction (BEGIN/COMMIT bracketing each `.sql` file's contents), so a failure mid-migration rolls back only that migration's statements; prior migrations stay applied. The `_migrations(version, name, applied_at)` row is inserted in the same transaction as the migration's DDL, so a failure leaves no orphan tracking row.
 
 **L3-PERS-021** · Parent: L2-PERS-004 · Verification: T
 A concurrency test SHALL verify the serialization contract: two coroutines simultaneously open a UoW against a real migrated database via the same factory, each performs a non-trivial write (e.g., a row insert into a real table), and both UoWs exit cleanly. The test SHALL assert (a) no `PersistenceError` is raised by either coroutine, (b) both transactions commit, and (c) both written rows are observable on a fresh read after the contention completes. The assertion is sufficient on its own to verify the lock — without the lock, the second coroutine's BEGIN raises `cannot start a transaction within a transaction` and the test fails naturally; no manufactured proof-of-effectiveness step (e.g., temporary lock removal) is required.
@@ -891,7 +891,7 @@ A concurrency test SHALL verify the serialization contract: two coroutines simul
 Report filenames SHALL be derived from deterministic identifiers — `run_id` for the email body, `run_id` + `stage_id` for per-stage fragments (see L3-PERS-025 for the on-disk layout). No timestamp, sequence number, or other non-identity-derived variable component SHALL appear in the filename.
 
 **L3-PERS-023** · Parent: L2-PERS-007 · Verification: I
-Any new filesystem access point SHALL be added to the approved list in `docs/reviews/filesystem-access-points.md` with a pathlib-based implementation reference.
+v1 does not maintain a `docs/reviews/filesystem-access-points.md` registry; instead, the architecture-conformance test (`tests/conformance/test_pathlib_enforcement.py`) plus the `L3-PERS-035` sole-deleter conformance pin every filesystem-access decision in code-as-spec form. Earlier drafts mandated a separate prose registry; v1 chose code-enforced conformance because the registry would inevitably drift from the actual call sites the conformance test scans.
 
 **L3-PERS-024** · Parent: L2-PERS-008 · Verification: T
 The `ReportStore` port SHALL be defined in `application/ports/report_store.py` as an `abc.ABC` exposing four abstract methods: `save_email_body(run_id, html: str) -> None`, `read_email_body(run_id) -> str | None`, `save_fragment(run_id, stage_id, html: str) -> None`, `read_fragment(run_id, stage_id) -> str | None`. Read methods SHALL return `None` for absent runs / stages rather than raise.
@@ -940,10 +940,10 @@ structlog SHALL be configured in `src/message_service/observability/logging_setu
 The JSON renderer SHALL emit records with at minimum `timestamp`, `level`, `logger`, `event`, plus any structured fields supplied by the call site.
 
 **L3-OBS-003** · Parent: L2-OBS-002 · Verification: T
-Each inbound gRPC method SHALL call `bind_request_context(correlation_id=..., run_id=... if known)` at entry and `clear_request_context()` in a `finally` block.
+*(Deferred to v2 — see ROADMAP `R-API-001`.)* v1 emits `correlation_id` only on the unexpected-error path (per `L3-ERR-017` / `L3-API-014`); the per-RPC structlog interceptor that would bind a correlation id at every RPC entry is deferred. Same compromise as `L3-API-002`.
 
 **L3-OBS-004** · Parent: L2-OBS-002 · Verification: T
-Each FastAPI route SHALL apply the same pattern via a middleware or dependency; a test SHALL emit a log from a route handler and assert the record carries the request correlation_id.
+*(Deferred to v2 — see ROADMAP `R-API-001`.)* v1's FastAPI routes emit logs without an automatically-bound `correlation_id`; a per-request middleware that binds one is deferred alongside `L3-OBS-003`.
 
 **L3-OBS-005** · Parent: L2-OBS-003 · Verification: T
 The sensitive-field list SHALL include at minimum: `password`, `passwd`, `password_hash`, `pwd`, `secret`, `smtp_password`, `session_token`, `cookie`, `authorization`, `email_body`, `rendered_output`, `template_context`.

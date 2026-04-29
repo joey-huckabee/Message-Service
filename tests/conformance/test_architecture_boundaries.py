@@ -98,6 +98,7 @@ def _iter_imports(tree: ast.AST) -> list[tuple[int, str]]:
 
 
 @pytest.mark.requirement("L3-PERS-016")
+@pytest.mark.requirement("L3-PERS-017")
 def test_domain_does_not_import_infrastructure_or_interfaces() -> None:
     """L3-PERS-016: domain/ SHALL NOT import infrastructure/ or interfaces/."""
     violations: list[str] = []
@@ -110,7 +111,9 @@ def test_domain_does_not_import_infrastructure_or_interfaces() -> None:
     assert not violations, "\n".join(violations)
 
 
+@pytest.mark.requirement("L3-PERS-015")
 @pytest.mark.requirement("L3-PERS-016")
+@pytest.mark.requirement("L3-PERS-017")
 def test_application_does_not_import_infrastructure_or_interfaces() -> None:
     """L3-PERS-016: application/ SHALL NOT import infrastructure/ or interfaces/."""
     violations: list[str] = []

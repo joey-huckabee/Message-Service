@@ -199,6 +199,16 @@ def test_grpc_config_defaults_when_keys_missing() -> None:
     assert cfg.port == 50_051
 
 
+@pytest.mark.requirement("L3-DASH-003")
+def test_dashboard_config_defaults_when_keys_missing() -> None:
+    """L3-DASH-003: ``dashboard`` section with no host/port SHALL use
+    defaults: host = "0.0.0.0"; port = 8080.
+    """
+    cfg = DashboardConfig.model_validate({})
+    assert cfg.host == "0.0.0.0"
+    assert cfg.port == 8080
+
+
 @pytest.mark.requirement("L3-API-001")
 def test_grpc_config_max_concurrent_rpcs_default_is_100() -> None:
     """L3-API-001: ``max_concurrent_rpcs`` default SHALL be 100."""

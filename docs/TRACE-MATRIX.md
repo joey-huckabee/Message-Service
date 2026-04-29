@@ -273,9 +273,9 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-DASH-001 | L2-DASH-001, L2-DASH-002, L2-DASH-003 | Partially Implemented |
-| L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Partially Implemented |
-| L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009, L2-DASH-012, L2-DASH-013, L2-DASH-014 | Partially Implemented |
+| L1-DASH-001 | L2-DASH-001, L2-DASH-002, L2-DASH-003 | Implemented |
+| L1-DASH-002 | L2-DASH-004, L2-DASH-005, L2-DASH-006 | Implemented |
+| L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009, L2-DASH-012, L2-DASH-013, L2-DASH-014 | Implemented |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Draft |
 | L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Implemented |
 
@@ -283,14 +283,14 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/integration/rest/test_runs.py::test_resend_blocked_without_csrf_header`<br>`tests/integration/rest/test_subscriptions.py::test_post_without_csrf_token_returns_403`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Partially Implemented |
-| L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | `tests/integration/rest/test_subscriptions.py::test_delete_with_non_integer_path_returns_422`<br>`tests/integration/rest/test_subscriptions.py::test_delete_with_zero_path_returns_422`<br>`tests/unit/config/test_dashboard_port_collision.py::test_collision_raises_validation_error`<br>`tests/unit/config/test_dashboard_port_collision.py::test_distinct_ports_validate` | Partially Implemented |
-| L2-DASH-003 | L3-DASH-005, L3-DASH-006, L3-DASH-020 | _(TBD)_ | Draft |
+| L2-DASH-001 | L3-DASH-001, L3-DASH-002, L3-DASH-018 | `tests/integration/rest/test_app.py::test_csrf_middleware_blocks_logout_without_header`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_blocks_mismatched_token`<br>`tests/integration/rest/test_app.py::test_csrf_middleware_exempts_login`<br>`tests/integration/rest/test_runs.py::test_resend_blocked_without_csrf_header`<br>`tests/integration/rest/test_subscriptions.py::test_post_without_csrf_token_returns_403`<br>`tests/unit/interfaces/rest/test_app_factory_shape.py::test_create_app_function_exists_and_is_factory_shaped`<br>`tests/unit/interfaces/rest/test_app_factory_shape.py::test_create_app_registers_lifespan_handler`<br>`tests/unit/interfaces/rest/test_app_factory_shape.py::test_create_app_uses_include_router_for_router_attachment`<br>`tests/unit/interfaces/rest/test_app_factory_shape.py::test_no_module_level_app_global`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_csrf_cookie_is_not_httponly` | Implemented |
+| L2-DASH-002 | L3-DASH-003, L3-DASH-004, L3-DASH-019 | `tests/integration/rest/test_subscriptions.py::test_delete_with_non_integer_path_returns_422`<br>`tests/integration/rest/test_subscriptions.py::test_delete_with_zero_path_returns_422`<br>`tests/unit/config/test_dashboard_port_collision.py::test_collision_raises_validation_error`<br>`tests/unit/config/test_dashboard_port_collision.py::test_distinct_ports_validate`<br>`tests/unit/config/test_schema.py::test_dashboard_config_defaults_when_keys_missing` | Implemented |
+| L2-DASH-003 | L3-DASH-005, L3-DASH-006, L3-DASH-020 | `tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_no_fonts_shipped_in_v1`<br>`tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_no_html_templates_with_external_http_refs_in_v1`<br>`tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_no_static_assets_directory_in_v1` | Implemented |
 | L2-DASH-004 | L3-DASH-007, L3-DASH-008 | `tests/integration/rest/test_subscriptions.py::test_delete_on_other_users_subscription_returns_403`<br>`tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_list_subscriptions_returns_only_session_user_rows`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
 | L2-DASH-005 | L3-DASH-009 | `tests/integration/rest/test_subscriptions.py::test_post_rejects_extra_user_id_field`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_global_with_null_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_pipeline_with_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_unknown_granularity`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_user_id_in_body` | Implemented |
-| L2-DASH-006 | L3-DASH-010 | _(TBD)_ | Draft |
+| L2-DASH-006 | L3-DASH-010 | `tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_subscription_creation_is_rest_only_no_html_form_in_v1` | Implemented |
 | L2-DASH-007 | L3-DASH-011, L3-DASH-021 | `tests/integration/rest/test_templates.py::test_admin_gate_rechecks_is_admin_per_request`<br>`tests/integration/rest/test_templates.py::test_get_templates_non_admin_returns_403` | Implemented |
-| L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | `tests/e2e/resend/test_admin_triggered_resend.py::test_admin_resend_emits_second_email_and_audit`<br>`tests/integration/rest/test_runs.py::test_resend_returns_409_for_non_resendable_state`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_emits_audit_with_required_fields`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_permitted_for_sent_or_failed`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_rejects_non_resendable_states`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_uses_current_subscriber_set_not_original` | Partially Implemented |
+| L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | `tests/e2e/resend/test_admin_triggered_resend.py::test_admin_resend_emits_second_email_and_audit`<br>`tests/integration/rest/test_runs.py::test_resend_returns_409_for_non_resendable_state`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_emits_audit_with_required_fields`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_permitted_for_sent_or_failed`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_rejects_non_resendable_states`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_uses_current_subscriber_set_not_original` | Implemented |
 | L2-DASH-009 | L3-DASH-014, L3-DASH-015, L3-DASH-031, L3-DASH-032 | `tests/integration/rest/test_templates.py::test_delete_template_detail_returns_405`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_returns_single_object`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_unknown_returns_404`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_unknown_version_returns_404`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_includes_parsed_schema_when_present`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_ordered_by_name_version_ascending`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_returns_all_with_full_projection`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_returns_null_schema_when_absent`<br>`tests/integration/rest/test_templates.py::test_patch_template_detail_returns_405`<br>`tests/integration/rest/test_templates.py::test_post_templates_returns_405` | Implemented |
 | L2-DASH-010 | L3-DASH-016 | _(TBD)_ | Draft |
 | L2-DASH-011 | L3-DASH-017 | _(TBD)_ | Draft |
@@ -485,16 +485,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 3 | 9 | 17 | 5 | 17 |
 | MAIL | 5 | 14 | 31 | 7 | 31 |
-| DASH | 5 | 16 | 35 | 1 | 25 |
+| DASH | 5 | 16 | 35 | 1 | 33 |
 | PERS | 4 | 13 | 35 | 4 | 22 |
 | OBS | 4 | 18 | 40 | 3 | 21 |
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **393** | **65** | **331** |
+| **Total** | **67** | **192** | **393** | **65** | **339** |
 
-**Requirements verified by at least one test**: 396 of 585 (67.7%).
+**Requirements verified by at least one test**: 404 of 585 (69.1%).
 
 ### Orphan check
 

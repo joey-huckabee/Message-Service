@@ -330,6 +330,7 @@ async def test_resend_emits_audit_with_required_fields(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-DASH-012")
+@pytest.mark.requirement("L3-DASH-027")
 async def test_resend_uses_current_subscriber_set_not_original(
     uow_factory: SqliteUnitOfWorkFactory, clock: _FixedClock
 ) -> None:

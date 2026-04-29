@@ -737,10 +737,10 @@ The factory SHALL register startup and shutdown handlers via `@app.on_event(...)
 Startup SHALL raise `ConfigurationError` if `dashboard.port == grpc.port`.
 
 **L3-DASH-005** · Parent: L2-DASH-003 · Verification: I
-Static assets live in `src/message_service/interfaces/rest/html/static/`, mounted via FastAPI `StaticFiles` at `/static`.
+v1 ships no HTML frontend — the dashboard surfaces as REST/JSON endpoints (per `L1-DASH-002`/`L1-DASH-003`/`L1-DASH-005`) returning JSON projections. The `src/message_service/interfaces/rest/html/` package contains only `__init__.py`; no `static/` subdirectory exists because no CSS/JS/font assets are shipped. When the HTML dashboard frontend lands (alongside R-DASH-004's embedded Chart.js work, or a separate frontend deferral), assets SHALL be packaged at this path and mounted via FastAPI `StaticFiles` at `/static`. The L2-DASH-003 air-gap constraint is vacuously satisfied today.
 
 **L3-DASH-006** · Parent: L2-DASH-003 · Verification: A
-A grep-based CI check SHALL fail if any HTML template references `https://` or `http://` to external hosts (allowlist: none).
+v1 ships no Jinja2 HTML templates for dashboard rendering (only the email-body / per-stage-fragment / admin-notification templates which are operator-controlled and not user-facing); no `https://` or `http://` external-CDN references can exist because no HTML templates exist to scan. The L3-DASH-006 grep check is vacuously passing. When HTML dashboard templates are added, the check SHALL be wired in via a `tests/conformance/` test (the same pattern Cluster 26's CICD requirements use for inspection).
 
 **L3-DASH-007** · Parent: L2-DASH-004 · Verification: T
 Subscription CRUD SHALL filter all SQL by session `user_id`; a test attempts PATCH on another user's subscription and asserts HTTP 403.
@@ -751,8 +751,8 @@ Subscription routes: `GET /subscriptions`, `POST /subscriptions`, `DELETE /subsc
 **L3-DASH-009** · Parent: L2-DASH-005 · Verification: T
 The subscription POST body Pydantic model SHALL define only `granularity` and `target_value`; extras are rejected via `model_config = ConfigDict(extra='forbid')`.
 
-**L3-DASH-010** · Parent: L2-DASH-006 · Verification: T, D
-The tag-selection UI SHALL render a `<select>` populated from the vocabulary at page render; `value` attributes match the exact validated strings.
+**L3-DASH-010** · Parent: L2-DASH-006 · Verification: I
+*(Deferred to v2 — pairs with `R-DASH-004` and the HTML-frontend deferral.)* v1 ships no HTML subscription-creation UI; subscription creation is REST-only via `POST /subscriptions` (per `L3-DASH-008`). Tag validation at the application layer (`L3-SUB-014` rejects unknown tags with HTTP 422) provides the same correctness guarantee the UI-level `<select>` constraint would provide; the only thing the deferred UI would add is a usability improvement (operator can see the available tag set without trial-and-error). Future work, alongside the HTML frontend deferral, will populate the `<select>` from the same `TagVocabulary` port that backs `L3-SUB-014`'s server-side check.
 
 **L3-DASH-011** · Parent: L2-DASH-007 · Verification: T
 The `require_admin` FastAPI dependency SHALL verify `is_admin` on every request; non-admin encountering admin route returns HTTP 403.
@@ -782,7 +782,7 @@ CSRF protection SHALL apply to POST/PATCH/DELETE via double-submit cookie or equ
 Subscription IDs SHALL be positive integers (minted by the SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` column on the `subscriptions` table); route validators SHALL reject non-integer or non-positive values with HTTP 422. Promotion to UUID4 is a deferred-from-v1 item; see ROADMAP Part 2 ("Subscription identifier promotion to UUID4").
 
 **L3-DASH-020** · Parent: L2-DASH-003 · Verification: I
-Fonts SHALL be system fonts (via `font-family` stack only) or WOFF2 files shipped in the static directory.
+v1 ships no fonts because no HTML frontend exists (per `L3-DASH-005`'s reword). When the frontend lands, fonts SHALL be system fonts (via `font-family` stack only) or WOFF2 files shipped in `static/`. The L2-DASH-003 air-gap constraint is vacuously satisfied today.
 
 **L3-DASH-021** · Parent: L2-DASH-007 · Verification: T
 The admin gate SHALL re-check `is_admin` on every request (not cache in the session) so role changes take effect immediately.

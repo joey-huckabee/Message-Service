@@ -575,6 +575,8 @@ async def test_stages_rendered_in_stage_order_not_submission_order(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-SUB-004")
+@pytest.mark.requirement("L3-SUB-015")
+@pytest.mark.requirement("L3-SUB-016")
 @pytest.mark.requirement("L3-OBS-037")
 async def test_zero_recipients_finalizes_sent_without_mailer_call(
     use_case: AssembleAndDeliverUseCase,
@@ -604,6 +606,7 @@ async def test_zero_recipients_finalizes_sent_without_mailer_call(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-SUB-004")
+@pytest.mark.requirement("L3-SUB-016")
 async def test_zero_recipients_still_transitions_to_sent(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],

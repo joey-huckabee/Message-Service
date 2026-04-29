@@ -304,6 +304,7 @@ async def test_login_with_valid_credentials_sets_session_and_csrf_cookies(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-012")
 @pytest.mark.requirement("L3-AUTH-013")
 async def test_login_with_unknown_email_returns_401_with_realm(
     http_client: httpx.AsyncClient,

@@ -92,6 +92,7 @@ async def test_get_by_token_hash_returns_none_when_absent(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AUTH-006")
+@pytest.mark.requirement("L3-AUTH-010")
 async def test_touch_updates_last_activity_at(
     session_repo: SqliteSessionRepository, user_id: int
 ) -> None:
@@ -134,6 +135,7 @@ async def test_delete_by_token_hash_is_idempotent(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AUTH-006")
+@pytest.mark.requirement("L3-AUTH-011")
 async def test_delete_expired_only_removes_below_threshold(
     session_repo: SqliteSessionRepository, user_id: int
 ) -> None:

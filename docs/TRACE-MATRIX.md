@@ -192,25 +192,25 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Partially Implemented |
-| L1-SUB-002 | L2-SUB-004, L2-SUB-005 | Draft |
-| L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Partially Implemented |
-| L1-SUB-004 | L2-SUB-009, L2-SUB-010 | Partially Implemented |
+| L1-SUB-001 | L2-SUB-001, L2-SUB-002, L2-SUB-003 | Implemented |
+| L1-SUB-002 | L2-SUB-004, L2-SUB-005 | Implemented |
+| L1-SUB-003 | L2-SUB-006, L2-SUB-007, L2-SUB-008 | Implemented |
+| L1-SUB-004 | L2-SUB-009, L2-SUB-010 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | `tests/integration/persistence/test_subscription_repository.py::test_duplicate_global_subscription_rejected`<br>`tests/integration/persistence/test_subscription_repository.py::test_duplicate_pipeline_subscription_rejected`<br>`tests/unit/domain/aggregates/test_subscription.py::test_rejects_naive_created_at` | Partially Implemented |
-| L2-SUB-002 | L3-SUB-003, L3-SUB-004 | `tests/integration/persistence/test_subscription_repository.py::test_add_global_subscription_persists`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_rejects_non_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_subscription_constructs_with_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_empty_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_pipeline_subscription_requires_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_subscription_is_frozen`<br>`tests/unit/domain/aggregates/test_subscription.py::test_tag_subscription_requires_target` | Partially Implemented |
-| L2-SUB-003 | L3-SUB-005, L3-SUB-006, L3-SUB-020 | _(TBD)_ | Draft |
-| L2-SUB-004 | L3-SUB-007 | _(TBD)_ | Draft |
-| L2-SUB-005 | L3-SUB-008 | _(TBD)_ | Draft |
+| L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | `tests/integration/persistence/test_subscription_repository.py::test_duplicate_global_subscription_rejected`<br>`tests/integration/persistence/test_subscription_repository.py::test_duplicate_pipeline_subscription_rejected`<br>`tests/unit/domain/aggregates/test_subscription.py::test_rejects_naive_created_at`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_subscriptions_granularity_check_constraint`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_subscriptions_partial_unique_indexes` | Implemented |
+| L2-SUB-002 | L3-SUB-003, L3-SUB-004 | `tests/integration/persistence/test_subscription_repository.py::test_add_global_subscription_persists`<br>`tests/integration/persistence/test_subscription_repository.py::test_add_global_with_target_value_rejected`<br>`tests/integration/persistence/test_subscription_repository.py::test_add_pipeline_without_target_rejected`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_rejects_non_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_subscription_constructs_with_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_empty_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_pipeline_subscription_requires_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_subscription_is_frozen`<br>`tests/unit/domain/aggregates/test_subscription.py::test_tag_subscription_requires_target` | Implemented |
+| L2-SUB-003 | L3-SUB-005, L3-SUB-006, L3-SUB-020 | `tests/integration/persistence/test_subscription_repository.py::test_empty_tags_does_not_break_query`<br>`tests/integration/persistence/test_subscription_repository.py::test_global_subscription_matches_every_run`<br>`tests/integration/persistence/test_subscription_repository.py::test_pipeline_subscription_matches_matching_pipeline_only`<br>`tests/integration/persistence/test_subscription_repository.py::test_tag_subscription_matches_matching_tag` | Implemented |
+| L2-SUB-004 | L3-SUB-007 | `tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201` | Implemented |
+| L2-SUB-005 | L3-SUB-008 | `tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201` | Implemented |
 | L2-SUB-006 | L3-SUB-009, L3-SUB-010 | `tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_all_tags_returns_frozenset`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_contains_is_case_sensitive`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_accepts_empty_vocabulary`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_accepts_well_formed_tag_names`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_raises_on_malformed_toml`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_raises_when_file_missing`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_reads_multiple_tags`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_duplicate_tag_names`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_malformed_tag_name`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_tag_without_name`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_unknown_tag_key`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_unknown_top_level_key` | Implemented |
-| L2-SUB-007 | L3-SUB-011, L3-SUB-012 | _(TBD)_ | Draft |
-| L2-SUB-008 | L3-SUB-013, L3-SUB-014 | _(TBD)_ | Draft |
-| L2-SUB-009 | L3-SUB-015, L3-SUB-016 | _(TBD)_ | Draft |
-| L2-SUB-010 | L3-SUB-017, L3-SUB-018 | `tests/integration/persistence/test_subscription_repository.py::test_disabled_user_excluded_from_recipients` | Partially Implemented |
+| L2-SUB-007 | L3-SUB-011, L3-SUB-012 | `tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_no_sighup_handler_registered_for_tag_vocabulary_reload`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_all_tags_returns_frozenset` | Implemented |
+| L2-SUB-008 | L3-SUB-013, L3-SUB-014 | `tests/integration/rest/test_subscriptions.py::test_post_unknown_tag_returns_422`<br>`tests/unit/application/use_cases/test_begin_run.py::test_multiple_unknown_tags_all_reported` | Implemented |
+| L2-SUB-009 | L3-SUB-015, L3-SUB-016 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_zero_recipients_finalizes_sent_without_mailer_call`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_zero_recipients_still_transitions_to_sent` | Implemented |
+| L2-SUB-010 | L3-SUB-017, L3-SUB-018 | `tests/integration/persistence/test_subscription_repository.py::test_disabled_user_excluded_from_recipients`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_users_disabled_column_shape` | Implemented |
 
 ### L1-AUTH: Authentication
 
@@ -218,20 +218,20 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Partially Implemented |
-| L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Partially Implemented |
+| L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Implemented |
+| L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Implemented |
 | L1-AUTH-003 | L2-AUTH-007, L2-AUTH-008, L2-AUTH-009 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | `tests/integration/rest/test_app.py::test_login_with_bad_password_returns_401`<br>`tests/integration/rest/test_app.py::test_login_with_unknown_email_returns_401_with_realm`<br>`tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Partially Implemented |
-| L2-AUTH-002 | L3-AUTH-002, L3-AUTH-003 | `tests/unit/infrastructure/auth/test_argon2_hasher.py::test_cost_parameters_are_honoured` | Partially Implemented |
-| L2-AUTH-003 | L3-AUTH-004, L3-AUTH-005 | `tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_matches_for_same_value`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_rejects_different_values`<br>`tests/unit/domain/aggregates/test_password.py::test_repr_does_not_leak_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_reveal_returns_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_str_does_not_leak_plaintext` | Partially Implemented |
-| L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_deterministic`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_sha256_hex` | Implemented |
+| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | `tests/integration/rest/test_app.py::test_login_with_bad_password_returns_401`<br>`tests/integration/rest/test_app.py::test_login_with_unknown_email_returns_401_with_realm`<br>`tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Implemented |
+| L2-AUTH-002 | L3-AUTH-002, L3-AUTH-003 | `tests/unit/infrastructure/auth/test_argon2_hasher.py::test_cost_parameters_are_honoured`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_default_argon2_parameters_match_spec` | Implemented |
+| L2-AUTH-003 | L3-AUTH-004, L3-AUTH-005 | `tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_matches_for_same_value`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_rejects_different_values`<br>`tests/unit/domain/aggregates/test_password.py::test_repr_does_not_leak_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_reveal_returns_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_str_does_not_leak_plaintext`<br>`tests/unit/observability/test_redaction_list.py::test_redact_does_not_mutate_input`<br>`tests/unit/observability/test_redaction_list.py::test_redact_handles_each_required_key`<br>`tests/unit/observability/test_redaction_list.py::test_redact_replaces_password_value_with_placeholder`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
+| L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_login_use_case_uses_secrets_token_urlsafe_32`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_sessions_table_does_not_store_plaintext_token`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_sessions_table_has_required_columns`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_deterministic`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_sha256_hex` | Implemented |
 | L2-AUTH-005 | L3-AUTH-008, L3-AUTH-009 | `tests/unit/interfaces/rest/test_app_unit.py::test_set_session_cookie_drops_secure_when_https_only_false`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_set_session_cookie_uses_named_constants_and_safe_attrs` | Implemented |
-| L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | `tests/integration/persistence/test_session_repository.py::test_delete_expired_only_removes_below_threshold`<br>`tests/integration/persistence/test_session_repository.py::test_touch_updates_last_activity_at`<br>`tests/integration/rest/test_app.py::test_expired_session_is_deleted_on_first_request_past_threshold`<br>`tests/integration/rest/test_app.py::test_session_touch_updates_last_activity_on_each_request` | Partially Implemented |
+| L2-AUTH-006 | L3-AUTH-010, L3-AUTH-011, L3-AUTH-012 | `tests/integration/persistence/test_session_repository.py::test_delete_expired_only_removes_below_threshold`<br>`tests/integration/persistence/test_session_repository.py::test_touch_updates_last_activity_at`<br>`tests/integration/rest/test_app.py::test_expired_session_is_deleted_on_first_request_past_threshold`<br>`tests/integration/rest/test_app.py::test_login_with_unknown_email_returns_401_with_realm`<br>`tests/integration/rest/test_app.py::test_session_touch_updates_last_activity_on_each_request` | Implemented |
 | L2-AUTH-007 | L3-AUTH-014, L3-AUTH-015 | `tests/integration/rest/test_admin_users.py::test_create_user_duplicate_email_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_create_user_extra_fields_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201`<br>`tests/integration/rest/test_admin_users.py::test_create_user_invalid_email_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_non_admin_returns_403`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_does_not_accept_email_field`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_empty_body_is_no_op_success`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_non_positive_id_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_single_field_mutation`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_unknown_id_returns_404`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_happy_path_returns_204`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_unknown_user_returns_404` | Implemented |
 | L2-AUTH-008 | L3-AUTH-016 | `tests/integration/rest/test_admin_users.py::test_create_user_persists_argon2id_hash`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_login_succeeds_with_new_password`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_persists_new_argon2id_hash` | Implemented |
 | L2-AUTH-009 | L3-AUTH-017 | `tests/integration/rest/test_admin_users.py::test_create_user_emits_create_user_audit`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_multi_field_mutated_fields_sorted`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_deadmin_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_disable_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_emits_update_user_audit_with_password_hash_field` | Implemented |
@@ -482,8 +482,8 @@ the single source of truth.
 | TMPL | 5 | 14 | 32 | 8 | 14 |
 | AGGR | 4 | 10 | 20 | 4 | 8 |
 | SWEEP | 3 | 10 | 21 | 6 | 17 |
-| SUB | 4 | 10 | 20 | 2 | 6 |
-| AUTH | 3 | 9 | 17 | 5 | 12 |
+| SUB | 4 | 10 | 20 | 2 | 20 |
+| AUTH | 3 | 9 | 17 | 5 | 17 |
 | MAIL | 5 | 14 | 31 | 7 | 16 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
 | PERS | 4 | 13 | 35 | 4 | 20 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **390** | **65** | **261** |
+| **Total** | **67** | **192** | **390** | **65** | **280** |
 
-**Requirements verified by at least one test**: 326 of 582 (56.0%).
+**Requirements verified by at least one test**: 345 of 582 (59.3%).
 
 ### Orphan check
 

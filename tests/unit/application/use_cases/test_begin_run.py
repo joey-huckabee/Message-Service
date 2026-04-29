@@ -259,6 +259,7 @@ async def test_unknown_pipeline_does_not_touch_persistence(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-013")
+@pytest.mark.requirement("L3-SUB-013")
 async def test_multiple_unknown_tags_all_reported(use_case: BeginRunUseCase) -> None:
     """All invalid tags SHALL appear in details['invalid_tags'], not just the first."""
     with pytest.raises(UnknownTagError) as exc_info:

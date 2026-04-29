@@ -25,10 +25,13 @@ def test_contains_is_case_sensitive() -> None:
 
 
 @pytest.mark.requirement("L2-SUB-006")
+@pytest.mark.requirement("L3-SUB-011")
 def test_all_tags_returns_frozenset() -> None:
+    """L3-SUB-011: ``all_tags()`` returns ``frozenset[str]`` for O(1) membership."""
     original = frozenset({"a", "b", "c"})
     vocab = InMemoryTagVocabulary(original)
     assert vocab.all_tags() == original
+    assert isinstance(vocab.all_tags(), frozenset)
 
 
 # -----------------------------------------------------------------------------

@@ -338,12 +338,15 @@ async def test_post_rejects_extra_user_id_field(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SUB-014")
 async def test_post_unknown_tag_returns_422(
     http_client: httpx.AsyncClient,
     uow_factory: SqliteUnitOfWorkFactory,
     hasher: Argon2PasswordHasher,
 ) -> None:
-    """An unknown TAG target SHALL bubble up as 422."""
+    """L3-SUB-014: subscription creation SHALL validate tag against the
+    configured vocabulary; unknown tags surface as 422.
+    """
     _user, csrf = await _login_as(http_client, uow_factory, hasher, email="alice@example.com")
     response = await http_client.post(
         "/subscriptions",

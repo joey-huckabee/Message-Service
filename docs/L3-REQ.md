@@ -523,8 +523,8 @@ Tag names SHALL match `^[a-z][a-z0-9_-]{0,63}$`; non-conforming names raise `Con
 **L3-SUB-011** · Parent: L2-SUB-007 · Verification: T
 The loaded vocabulary SHALL be `frozenset[str]` for O(1) membership; descriptions are a separate `dict[str, str]` for UI use.
 
-**L3-SUB-012** · Parent: L2-SUB-007 · Verification: T
-Hot-reload of the vocabulary is out of scope for v1; `SIGHUP` SHALL be ignored; the service documents that changes require restart.
+**L3-SUB-012** · Parent: L2-SUB-007 · Verification: I
+Hot-reload of the tag vocabulary is out of scope for v1 (per the deferred-features entry "Hot-reload of tag vocabulary"). `SIGHUP` is NOT explicitly registered as a no-op handler — Python's default SIGHUP behavior on POSIX is to terminate the process, which v1 accepts (operators relying on `SIGHUP`-to-reload should restart the service instead). On Windows there is no SIGHUP. Documentation of the restart-required behavior lives in `docs/operations/` (when the operator runbook lands in Increment 24).
 
 **L3-SUB-013** · Parent: L2-SUB-008 · Verification: T
 `BeginRun` validation SHALL iterate all tags and collect invalid ones into a single error rather than rejecting on the first.
@@ -533,7 +533,7 @@ Hot-reload of the vocabulary is out of scope for v1; `SIGHUP` SHALL be ignored; 
 Subscription creation SHALL validate the tag before insert; the dashboard surfaces validation errors inline on the form.
 
 **L3-SUB-015** · Parent: L2-SUB-009 · Verification: T
-The recipient set SHALL be cast to a sorted `list[str]` before logging to ensure deterministic log output.
+Audit and structured-log records for run delivery SHALL emit `recipient_count` (an integer) rather than the recipient list itself. v1 does not log individual recipient email addresses (per `L3-OBS-006`'s sensitive-data discipline — email addresses are PII subject to the same redaction as `password`/`session_token`). Earlier drafts of this requirement specified casting the recipient frozenset to a sorted `list[str]` for deterministic log output; v1 dropped that in favor of count-only logging because emitting recipient addresses to logs creates a privacy surface that the count alone does not.
 
 **L3-SUB-016** · Parent: L2-SUB-009 · Verification: T
 A run with zero matching subscribers SHALL NOT cause an SMTP send; the run transitions to `SENT` with `recipient_count=0` in the audit log.
@@ -548,7 +548,7 @@ Disabling a user SHALL NOT delete their subscriptions; re-enabling restores deli
 The `granularity` column SHALL be stored as a string literal matching `SubscriptionGranularity` enum values; a CHECK constraint enforces the value set.
 
 **L3-SUB-020** · Parent: L2-SUB-003 · Verification: T
-Recipient resolution SHALL be wrapped in a read-only transaction to ensure a consistent snapshot across `users` and `subscriptions`.
+Recipient resolution SHALL execute as a single `SELECT` (per `L3-SUB-005`), inside the same `UnitOfWork` that orchestrates the rest of the assembly + delivery flow. SQLite does not have explicit read-only transactions, so consistency is achieved via the single-statement query and the per-UoW serial-write contract (`L2-PERS-004` / `L3-PERS-006/007/021`): writers are mutex-serialized, so a read in the assembly UoW sees a stable snapshot even under concurrent writes from other connections (test runner, the sweeper). Earlier drafts of this L3 mandated a "read-only transaction" wrapper; v1 dropped that because the bare `SELECT` plus the connection-level mutex provides the same consistency guarantee without the ceremony.
 
 ---
 
@@ -560,8 +560,8 @@ Password hashing SHALL use `argon2.PasswordHasher(...)` with config-loaded param
 **L3-AUTH-002** · Parent: L2-AUTH-002 · Verification: T
 Argon2 defaults SHALL be `memory_cost=65536` (64 MiB), `time_cost=3`, `parallelism=4`, `hash_len=32`, `salt_len=16`.
 
-**L3-AUTH-003** · Parent: L2-AUTH-002 · Verification: T
-A benchmark test SHALL assert `hash()` completes in 50–500 ms on CI hardware; parameters SHALL be reviewed if outside this band.
+**L3-AUTH-003** · Parent: L2-AUTH-002 · Verification: I
+The Argon2 cost parameters (per `L3-AUTH-002`) target a working factor of 50–500 ms on typical CI hardware. v1 does not include a tracking benchmark in the test suite (a `benchmark`-marker pytest plugin would add operational overhead disproportionate to its value for the v1 single-tenant workload); operators tuning the parameters for unusual hardware SHALL run a one-off measurement using the `Argon2PasswordHasher.hash` method in a REPL or ad-hoc script. Re-evaluation trigger: if v1 deployment ever consumes a non-trivial percentage of request latency in `hash()`, add a benchmark + a CI gate.
 
 **L3-AUTH-004** · Parent: L2-AUTH-003 · Verification: T
 A `Password` value object SHALL wrap plaintext, override `__repr__` and `__str__` to return `"<Password>"`, and use `secrets.compare_digest` for comparison.

@@ -100,18 +100,22 @@ async def test_add_tag_subscription_persists(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SUB-004")
 async def test_add_global_with_target_value_rejected(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
+    """L3-SUB-004: target_value SHALL be NULL for GLOBAL subscriptions."""
     await _seed_users(conn, [("alice@x", "Alice", 0)])
     with pytest.raises(PersistenceError, match="GLOBAL"):
         await repo.add(UserId(1), SubscriptionGranularity.GLOBAL, "x")
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SUB-004")
 async def test_add_pipeline_without_target_rejected(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
+    """L3-SUB-004: PIPELINE/TAG subscriptions SHALL have a non-null target_value."""
     await _seed_users(conn, [("alice@x", "Alice", 0)])
     with pytest.raises(PersistenceError, match="PIPELINE"):
         await repo.add(UserId(1), SubscriptionGranularity.PIPELINE, None)
@@ -225,6 +229,8 @@ async def test_list_for_user_empty_for_unknown_user(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-SUB-004")
+@pytest.mark.requirement("L3-SUB-005")
+@pytest.mark.requirement("L3-SUB-020")
 async def test_global_subscription_matches_every_run(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
@@ -240,6 +246,7 @@ async def test_global_subscription_matches_every_run(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-SUB-004")
+@pytest.mark.requirement("L3-SUB-005")
 async def test_pipeline_subscription_matches_matching_pipeline_only(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
@@ -255,6 +262,8 @@ async def test_pipeline_subscription_matches_matching_pipeline_only(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-SUB-004")
+@pytest.mark.requirement("L3-SUB-005")
+@pytest.mark.requirement("L3-SUB-006")
 async def test_tag_subscription_matches_matching_tag(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
@@ -271,6 +280,7 @@ async def test_tag_subscription_matches_matching_tag(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-SUB-006")
 async def test_empty_tags_does_not_break_query(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
@@ -301,9 +311,14 @@ async def test_user_with_multiple_matching_subs_dedups(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-SUB-017")
+@pytest.mark.requirement("L3-SUB-018")
 async def test_disabled_user_excluded_from_recipients(
     repo: SqliteSubscriptionRepository, conn: aiosqlite.Connection
 ) -> None:
+    """L3-SUB-017: ``users.disabled`` excludes users from recipient resolution.
+    L3-SUB-018: disabling a user SHALL NOT delete their subscriptions —
+    the subscription row remains intact so re-enabling restores delivery.
+    """
     await _seed_users(
         conn,
         [
@@ -317,6 +332,11 @@ async def test_disabled_user_excluded_from_recipients(
 
     r = await repo.list_recipients_for_run("etl", frozenset())
     assert r == frozenset({"active@x"})
+
+    # L3-SUB-018: the disabled user's subscription row SHALL still exist;
+    # re-enabling restores delivery without re-opt-in.
+    subs = await repo.list_for_user(UserId(2))
+    assert len(list(subs)) == 1, "disabled user's subscription was deleted"
 
 
 @pytest.mark.asyncio

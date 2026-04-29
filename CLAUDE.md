@@ -126,5 +126,5 @@ Do **not** add `Co-Authored-By: Claude ...` trailers to commit messages on this 
 - `docs/L1-REQ.md` / `L2-REQ.md` / `L3-REQ.md` — authoritative SHALL statements (67 / 192 / 393 reqs across 16 categories).
 - `docs/TRACE-MATRIX.md` — which tests verify which requirements.
 - `docs/LOGGING-AND-EXCEPTIONS.md` — exception hierarchy and logging conventions.
-- `tests/README.md` — test-tier layout and fixture-scoping conventions.
+- `docs/test-strategy.md` — formal test-tier definitions, fixture-scoping conventions, I/O guard, SMTP capture, Windows event-loop quirks, and the `@pytest.mark.requirement` workflow. (`tests/README.md` is now a brief pointer to this doc.)
 - `ROADMAP.md` — deferred items; scope decisions that deliberately live outside v1.

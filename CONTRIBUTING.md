@@ -449,5 +449,5 @@ Conventions established by prior increments; keep new code consistent.
 - `docs/L1-REQ.md`, `L2-REQ.md`, `L3-REQ.md` — the authoritative requirement statements
 - `docs/LOGGING-AND-EXCEPTIONS.md` — exception and logging philosophy
 - `docs/TRACE-MATRIX.md` — which tests verify which requirements
-- `tests/README.md` — test tree layout and fixture conventions
+- `docs/test-strategy.md` — formal test strategy: tier definitions, fixture scoping, the `@pytest.mark.requirement` workflow, I/O guard, SMTP capture, Windows event-loop quirks (`tests/README.md` is a brief pointer to this doc)
 - `ROADMAP.md` — deferred items; if you find yourself wanting to implement one, mention it

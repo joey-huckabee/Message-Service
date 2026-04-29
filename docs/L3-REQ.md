@@ -33,7 +33,7 @@ of truth for live status; this file holds only the spec content above.
 | `SWEEP`   | 10       | 21       |
 | `SUB`     | 10       | 20       |
 | `AUTH`    | 9        | 13       |
-| `MAIL`    | 14       | 26       |
+| `MAIL`    | 14       | 28       |
 | `DASH`    | 16       | 30       |
 | `PERS`    | 13       | 35       |
 | `OBS`     | 18       | 40       |
@@ -41,7 +41,7 @@ of truth for live status; this file holds only the spec content above.
 | `CFG`     | 8        | 16       |
 | `DEP`     | 9        | 18       |
 | `CICD`    | 15       | 17       |
-| **Total** | **192**  | **384**  |
+| **Total** | **192**  | **386**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -692,6 +692,12 @@ Subject construction SHALL apply the `L3-AGGR-010` sanitization regex to `pipeli
 
 **L3-MAIL-029** · Parent: L2-MAIL-014 · Verification: T
 A test SHALL exercise a `pipeline_type` containing CR (`\r`), LF (`\n`), and at least one other control character, and assert that (a) the produced subject contains none of those characters (each replaced with `_`), and (b) `OutboundEmail` instantiation succeeds (the boundary's CR/LF assertion does not need to fire because sanitization neutralized the payload upstream).
+
+**L3-MAIL-030** · Parent: L2-MAIL-009 · Verification: T
+When `AssembleAndDeliverUseCase` catches `EmailSizeExceededError` from the mailer's pre-send size check (per `L2-MAIL-008`), the use case SHALL execute the following ordered sequence: (1) **persist** the rendered email body to the report store under `<run_id>/email.html` per `L3-PERS-025` using the `L3-MAIL-017` atomic-rename mechanic; (2) **audit and transition** in a single UoW — insert the `EMAIL_SIZE_EXCEEDED` audit row (`L3-MAIL-014` schema: `measured_bytes`, `limit_bytes`, `recipient_count`) BEFORE the state transition (audit-first per `L3-RUN-026`), then transition the run to `FAILED` with reason `EMAIL_SIZE_EXCEEDED`; (3) **notify administrators** via the configured `Mailer` using the `L3-MAIL-015` admin-notification template with `L3-MAIL-031` recipients. Step 3 SHALL execute AFTER the UoW commits — if the admin notification's SMTP send fails, the audit row and state transition remain committed, the failure is logged at ERROR with structured fields (`event=admin_notification_send_failed`, `run_id`, `error_message`), and the use case returns normally. SMTP delivery of the **failing** email SHALL NOT be attempted (the size check is L2-MAIL-008's pre-transmission gate). Step 1 (filesystem persist) failure SHALL be logged at WARNING with `event=oversized_report_persist_failed` but SHALL NOT abort the sequence — the audit row in step 2 records the size violation regardless of whether the operator can later resend the report.
+
+**L3-MAIL-031** · Parent: L2-MAIL-010 · Verification: T
+The admin-notification recipient list SHALL be sourced from `config.mail.admin_recipients`. The same configuration key drives the `NotifyAdminsHandler` orphan-disposition path (per `L1-SWEEP-003`), satisfying `L1-MAIL-004`'s "via the same channel used for orphan administrator notifications" obligation. When `admin_recipients` is empty, the use case SHALL log at WARNING (`event=admin_notification_skipped_no_recipients`, `run_id`, `failure_reason`) and skip the notification send — the rest of the failure-handling sequence (persist + audit + state transition per `L3-MAIL-030`) proceeds normally because admin notification is a side-channel, not a precondition for honoring the L1-MAIL-004 obligations toward the run state.
 
 ---
 

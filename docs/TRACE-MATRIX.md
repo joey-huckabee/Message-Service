@@ -260,8 +260,8 @@ the single source of truth.
 | L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_capped_at_max_interval`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_schedule_follows_exponential_formula`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_exhausts_retries`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_retries_then_succeeds` | Partially Implemented |
 | L2-MAIL-007 | L3-MAIL-012, L3-MAIL-021 | _(TBD)_ | Draft |
 | L2-MAIL-008 | L3-MAIL-013 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_oversize_email_raises_before_smtp_traffic` | Partially Implemented |
-| L2-MAIL-009 | L3-MAIL-014 | _(TBD)_ | Draft |
-| L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016 | _(TBD)_ | Draft |
+| L2-MAIL-009 | L3-MAIL-014, L3-MAIL-030 | _(TBD)_ | Draft |
+| L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016, L3-MAIL-031 | _(TBD)_ | Draft |
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
 | L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Partially Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | _(TBD)_ | Draft |
@@ -484,7 +484,7 @@ the single source of truth.
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 3 | 9 | 17 | 5 | 12 |
-| MAIL | 5 | 14 | 29 | 5 | 9 |
+| MAIL | 5 | 14 | 31 | 5 | 9 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
 | PERS | 4 | 13 | 35 | 4 | 20 |
 | OBS | 4 | 18 | 40 | 3 | 21 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **384** | **62** | **204** |
+| **Total** | **67** | **192** | **386** | **62** | **204** |
 
-**Requirements verified by at least one test**: 266 of 576 (46.2%).
+**Requirements verified by at least one test**: 266 of 578 (46.0%).
 
 ### Orphan check
 

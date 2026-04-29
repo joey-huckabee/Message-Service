@@ -17,8 +17,11 @@ def test_system_clock_is_instance_of_clock() -> None:
 
 
 @pytest.mark.requirement("L2-RUN-014")
+@pytest.mark.requirement("L3-RUN-032")
 def test_system_clock_returns_timezone_aware_utc() -> None:
-    """``SystemClock.now`` SHALL return a tz-aware UTC datetime."""
+    """L3-RUN-032: ``SystemClock.now`` SHALL return a tz-aware UTC datetime
+    (the only legitimate `datetime.now(tz=UTC)` call site in production).
+    """
     result = SystemClock().now()
     assert result.tzinfo is not None
     assert result.utcoffset() == timedelta(0)

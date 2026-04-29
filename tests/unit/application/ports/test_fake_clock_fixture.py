@@ -19,11 +19,16 @@ from tests.fixtures.clocks import FakeClock
 
 
 @pytest.mark.requirement("L3-RUN-024")
+@pytest.mark.requirement("L3-RUN-033")
 def test_fake_clock_is_a_clock() -> None:
+    """L3-RUN-024 / L3-RUN-033: FakeClock SHALL implement the Clock port,
+    serving as the substitution mechanism the chokepoint enables.
+    """
     assert isinstance(FakeClock(), Clock)
 
 
 @pytest.mark.requirement("L3-RUN-024")
+@pytest.mark.requirement("L3-RUN-033")
 def test_fake_clock_now_returns_tz_aware_utc() -> None:
     result = FakeClock().now()
     assert result.tzinfo is not None

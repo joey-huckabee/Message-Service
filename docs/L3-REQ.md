@@ -197,6 +197,15 @@ Every transition into `FAILED` from the assembly + delivery pipeline SHALL recor
 **L3-RUN-030** · Parent: L2-RUN-002 · Verification: T
 `RunState` SHALL be a Python `enum.StrEnum` in `domain/state_machines/run_states.py`; comparisons use identity (`is`) in domain code.
 
+**L3-RUN-031** · Parent: L2-RUN-016 · Verification: I
+The `Clock` port (`application/ports/clock.py`) SHALL be the chokepoint for reading the host wall-clock for run-state-machine timestamps. No domain or application code path SHALL invoke `datetime.now`, `datetime.utcnow`, `time.time`, or any other clock-reading primitive directly. Two infrastructure-layer modules are permitted exceptions: (1) `infrastructure/time/system_clock.py` is the `Clock` port's production adapter and must call `datetime.now(tz=UTC)` to satisfy the contract; (2) `infrastructure/persistence/migration_runner.py` records `applied_at` timestamps in the `_migrations` table at one-shot startup migration time, which is outside the run-state-machine's domain and runs before the `Service` (and thus before the `Clock` port) is constructed. Conformance is enforced by `tests/conformance/test_clock_chokepoint.py` AST-scanning `src/message_service/` and asserting these are the only two modules that contain direct calls.
+
+**L3-RUN-032** · Parent: L2-RUN-016 · Verification: I
+The `SystemClock` adapter (`infrastructure/time/system_clock.py`) SHALL implement `Clock.now()` as `datetime.now(tz=UTC)`, returning a timezone-aware UTC datetime. v1 does NOT layer any anomaly detection — backward host-clock corrections (NTP step, VM pause, manual `date` change) propagate through `SystemClock.now()` to `last_transition_at` updates, audit-log `timestamp` writes, sweeper cutoff arithmetic, and retention-pruner cutoffs without warning. The expected operational consequence on a host that experiences a backward correction is: (a) a small number of audit-log rows whose `timestamp` precedes the `timestamp` of an earlier-inserted row (audit ordering uses `audit_id` per `L3-DASH-034`, which is monotonic, so dashboard pagination remains correct); (b) sweeper / pruner cutoff arithmetic temporarily underestimates "elapsed time since transition" until wall-clock catches up; (c) no run-state corruption (state machine is event-driven, not time-driven). Forward-correction handling for backward jumps is captured in the ROADMAP "Host-clock validity hardening" deferred-features entry.
+
+**L3-RUN-033** · Parent: L2-RUN-016 · Verification: T
+A `FakeClock` test fixture SHALL implement the `Clock` port with operator-controlled `set(target_dt)` and `advance(delta)` methods, allowing deterministic timestamp behavior in tests. Every test that depends on time arithmetic (sweeper cutoffs, retention pruner cutoffs, audit-log ordering) SHALL receive `FakeClock` instances rather than `SystemClock`. The fixture lives in `tests/unit/application/ports/test_fake_clock_fixture.py` and is re-exported for test composition; production code SHALL never import from `tests/`. This is the dual to L3-RUN-031: the chokepoint exists so it can be substituted at the boundary, and `FakeClock` is the substitution mechanism.
+
 ---
 
 ## L3-STAGE: Stage lifecycle and idempotency
@@ -1297,3 +1306,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 | 2026-04-18 | Joey   | Initial L3 draft; 287 statements across 14 cats.          |
 | 2026-04-19 | Joey   | Added L3-ERR (22 stmts) and L3-OBS-019..024 (6 stmts).    |
 | 2026-04-27 | Joey   | Refined L3-TMPL-018; added L3-TMPL-029..032 (4 stmts) for L1-TMPL-004 (timing/optionality/load-time/JSON Pointer). Total: 390. |
+| 2026-04-28 | Joey   | Increment 32h: added L3-RUN-031..033 (3 stmts) under L2-RUN-016 (Clock chokepoint, SystemClock impl, FakeClock substitution); closes L1-RUN-005. Total: 393. |

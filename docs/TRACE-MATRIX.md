@@ -245,7 +245,7 @@ the single source of truth.
 | L1-MAIL-001 | L2-MAIL-001, L2-MAIL-002, L2-MAIL-003, L2-MAIL-014 | Partially Implemented |
 | L1-MAIL-002 | L2-MAIL-004, L2-MAIL-005, L2-MAIL-006 | Partially Implemented |
 | L1-MAIL-003 | L2-MAIL-007, L2-MAIL-008 | Partially Implemented |
-| L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Draft |
+| L1-MAIL-004 | L2-MAIL-009, L2-MAIL-010, L2-MAIL-011 | Implemented |
 | L1-MAIL-005 | L2-MAIL-012, L2-MAIL-013 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -260,9 +260,9 @@ the single source of truth.
 | L2-MAIL-006 | L3-MAIL-009, L3-MAIL-010, L3-MAIL-011 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_capped_at_max_interval`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_backoff_schedule_follows_exponential_formula`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_exhausts_retries`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_transient_failure_retries_then_succeeds` | Partially Implemented |
 | L2-MAIL-007 | L3-MAIL-012, L3-MAIL-021 | _(TBD)_ | Draft |
 | L2-MAIL-008 | L3-MAIL-013 | `tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_oversize_email_raises_before_smtp_traffic` | Partially Implemented |
-| L2-MAIL-009 | L3-MAIL-014, L3-MAIL-030 | _(TBD)_ | Draft |
-| L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016, L3-MAIL-031 | _(TBD)_ | Draft |
-| L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | _(TBD)_ | Draft |
+| L2-MAIL-009 | L3-MAIL-014, L3-MAIL-030 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_admin_notification_smtp_failure_does_not_roll_back_audit_or_state`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_does_not_retry_the_failing_email`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_persists_oversized_report_to_report_store`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_transitions_to_failed_with_l3_mail_014_audit_details` | Implemented |
+| L2-MAIL-010 | L3-MAIL-015, L3-MAIL-016, L3-MAIL-031 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_admin_notification_template_autoescapes_variable_interpolation`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_sends_admin_notification_to_configured_recipients`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_skips_admin_notification_when_recipients_empty` | Implemented |
+| L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_persists_oversized_report_to_report_store` | Implemented |
 | L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Partially Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | _(TBD)_ | Draft |
 | L2-MAIL-014 | L3-MAIL-027, L3-MAIL-028, L3-MAIL-029 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_applies_l3_aggr_010_sanitization_to_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_literal_format_for_benign_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_neutralizes_cr_lf_and_control_chars` | Implemented |
@@ -484,7 +484,7 @@ the single source of truth.
 | SWEEP | 3 | 10 | 21 | 6 | 11 |
 | SUB | 4 | 10 | 20 | 2 | 6 |
 | AUTH | 3 | 9 | 17 | 5 | 12 |
-| MAIL | 5 | 14 | 31 | 5 | 9 |
+| MAIL | 5 | 14 | 31 | 7 | 16 |
 | DASH | 5 | 16 | 35 | 1 | 25 |
 | PERS | 4 | 13 | 35 | 4 | 20 |
 | OBS | 4 | 18 | 40 | 3 | 21 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **386** | **62** | **204** |
+| **Total** | **67** | **192** | **386** | **64** | **211** |
 
-**Requirements verified by at least one test**: 266 of 578 (46.0%).
+**Requirements verified by at least one test**: 275 of 578 (47.6%).
 
 ### Orphan check
 

@@ -48,6 +48,7 @@ from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
     ContextSizeExceededError,
     EmailDeliveryError,
+    EmailSizeExceededError,
     PersistenceError,
     RenderedSizeExceededError,
     TemplateRenderError,
@@ -745,6 +746,302 @@ async def test_email_delivery_error_transitions_to_failed(
     assert len(failure_events) == 1
     assert failure_events[0].details["failure_reason"] == "EMAIL_DELIVERY"
     assert failure_events[0].details["recipient_count"] == 1
+
+
+# -----------------------------------------------------------------------------
+# Error handling: EmailSizeExceededError -> FAILED + admin notification
+# (L1-MAIL-004, L2-MAIL-009/010/011, L3-MAIL-014/015/016/017/030/031)
+# -----------------------------------------------------------------------------
+
+
+_ADMIN = ("ops@example.com", "alerts@example.com")
+
+
+def _build_use_case_with_admin_recipients(
+    *,
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    factory: MagicMock,
+    admin_recipients: tuple[str, ...] = _ADMIN,
+    report_store: MagicMock | None = None,
+) -> AssembleAndDeliverUseCase:
+    """Build a use case with non-empty admin_recipients for the EMAIL_SIZE_EXCEEDED path."""
+    kwargs: dict[str, Any] = {
+        "uow_factory": factory,
+        "clock": clock,
+        "template_renderer": renderer,
+        "mailer": mailer,
+        "from_address": _FROM,
+        "email_body_template_ref": _TPL_BODY,
+        "admin_recipients": admin_recipients,
+    }
+    if report_store is not None:
+        kwargs["report_store"] = report_store
+    return AssembleAndDeliverUseCase(**kwargs)
+
+
+def _size_exceeded_error(
+    *,
+    measured_bytes: int = 2048,
+    limit_bytes: int = 1024,
+    recipient_count: int = 1,
+) -> EmailSizeExceededError:
+    return EmailSizeExceededError(
+        f"encoded email size {measured_bytes} bytes exceeds limit {limit_bytes} bytes",
+        details={
+            "failure_reason": "EMAIL_SIZE_EXCEEDED",
+            "measured_bytes": measured_bytes,
+            "limit_bytes": limit_bytes,
+            "recipient_count": recipient_count,
+        },
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L1-MAIL-004")
+@pytest.mark.requirement("L2-MAIL-009")
+@pytest.mark.requirement("L3-MAIL-014")
+@pytest.mark.requirement("L3-MAIL-030")
+async def test_size_exceeded_transitions_to_failed_with_l3_mail_014_audit_details(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """EmailSizeExceededError SHALL transition to FAILED with the L3-MAIL-014 details shape."""
+    factory, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    # The first .send() call raises EmailSizeExceededError; the second
+    # (admin notification) is allowed to succeed.
+    mailer.send.side_effect = [_size_exceeded_error(measured_bytes=4096, limit_bytes=2048), None]
+
+    use_case = _build_use_case_with_admin_recipients(
+        clock=clock, renderer=renderer, mailer=mailer, factory=factory
+    )
+    await use_case.execute(_RID)
+
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.FAILED in transitions
+    failure_events = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].outcome == AuditOutcome.FAILURE
+    ]
+    assert len(failure_events) == 1
+    details = failure_events[0].details
+    assert details["failure_reason"] == "EMAIL_SIZE_EXCEEDED"
+    assert details["measured_bytes"] == 4096
+    assert details["limit_bytes"] == 2048
+    assert details["recipient_count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-017")
+@pytest.mark.requirement("L3-MAIL-024")
+@pytest.mark.requirement("L3-MAIL-030")
+async def test_size_exceeded_persists_oversized_report_to_report_store(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-MAIL-030 step 1: the rendered body SHALL be persisted (same path as success)."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    mailer.send.side_effect = [_size_exceeded_error(), None]
+
+    store = MagicMock(spec=ReportStore)
+    use_case = _build_use_case_with_admin_recipients(
+        clock=clock, renderer=renderer, mailer=mailer, factory=factory, report_store=store
+    )
+    await use_case.execute(_RID)
+
+    store.save_email_body.assert_called_once()
+    saved_run_id, saved_html = store.save_email_body.call_args.args
+    assert saved_run_id == _RID
+    assert saved_html.startswith("<html>")
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L1-MAIL-004")
+@pytest.mark.requirement("L2-MAIL-010")
+@pytest.mark.requirement("L3-MAIL-015")
+@pytest.mark.requirement("L3-MAIL-031")
+async def test_size_exceeded_sends_admin_notification_to_configured_recipients(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-MAIL-031: admin notification SHALL be sent to config.mail.admin_recipients."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    # First send (the original email) fails with size-exceeded; second
+    # send (the admin notification) succeeds.
+    mailer.send.side_effect = [_size_exceeded_error(), None]
+
+    use_case = _build_use_case_with_admin_recipients(
+        clock=clock, renderer=renderer, mailer=mailer, factory=factory
+    )
+    await use_case.execute(_RID)
+
+    # mailer.send called twice: once for the failing email, once for
+    # the admin notification.
+    assert mailer.send.await_count == 2
+
+    # Inspect the admin-notification call (the second send).
+    admin_call = mailer.send.await_args_list[1]
+    admin_email: OutboundEmail = admin_call.args[0]
+    assert admin_email.recipients == frozenset(_ADMIN)
+    assert admin_email.from_address == _FROM
+    assert admin_email.attachments == ()
+    # Subject identifies the run + the failure reason per
+    # _ADMIN_NOTIFICATION_SUBJECT format string.
+    assert "EMAIL_SIZE_EXCEEDED" in admin_email.subject
+    assert str(_RID) in admin_email.subject
+    # Body is the rendered admin_notification.j2 with the three
+    # L3-MAIL-015 variables substituted.
+    assert "EMAIL_SIZE_EXCEEDED" in admin_email.body_html
+    assert str(_RID) in admin_email.body_html
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-031")
+async def test_size_exceeded_skips_admin_notification_when_recipients_empty(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-MAIL-031: empty admin_recipients SHALL skip the notification (WARNING log)."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    mailer.send.side_effect = [_size_exceeded_error()]
+
+    use_case = _build_use_case_with_admin_recipients(
+        clock=clock,
+        renderer=renderer,
+        mailer=mailer,
+        factory=factory,
+        admin_recipients=(),  # empty — admin notification SHALL be skipped
+    )
+    await use_case.execute(_RID)
+
+    # Only the original send was attempted; no admin notification.
+    assert mailer.send.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-030")
+async def test_admin_notification_smtp_failure_does_not_roll_back_audit_or_state(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-MAIL-030 step 3: admin SMTP failure SHALL NOT undo the committed audit + state."""
+    factory, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    # First .send() (the failing email) raises size-exceeded; second
+    # .send() (admin notification) ALSO fails with a generic SMTP error.
+    mailer.send.side_effect = [
+        _size_exceeded_error(),
+        EmailDeliveryError("admin SMTP unreachable", details={"retriable": False}),
+    ]
+
+    use_case = _build_use_case_with_admin_recipients(
+        clock=clock, renderer=renderer, mailer=mailer, factory=factory
+    )
+    await use_case.execute(_RID)
+
+    # Run still transitioned to FAILED; the EMAIL_SIZE_EXCEEDED audit
+    # row was still written. The admin SMTP failure is logged but
+    # does not roll back.
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.FAILED in transitions
+    failure_events = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].outcome == AuditOutcome.FAILURE
+    ]
+    assert any(e.details["failure_reason"] == "EMAIL_SIZE_EXCEEDED" for e in failure_events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-030")
+async def test_size_exceeded_does_not_retry_the_failing_email(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-MAIL-030 step 4: SMTP delivery of the failing email SHALL NOT be retried."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    mailer.send.side_effect = [_size_exceeded_error(), None]
+
+    use_case = _build_use_case_with_admin_recipients(
+        clock=clock, renderer=renderer, mailer=mailer, factory=factory
+    )
+    await use_case.execute(_RID)
+
+    # Two send calls total (one failing original, one admin
+    # notification). Critically, the failing original is NOT retried —
+    # if it were, .await_count would exceed 2.
+    assert mailer.send.await_count == 2
+    # Inspect each call: the recipients of call 0 (original) are the
+    # subscriber set; call 1 (admin) targets _ADMIN.
+    original_call: OutboundEmail = mailer.send.await_args_list[0].args[0]
+    admin_call: OutboundEmail = mailer.send.await_args_list[1].args[0]
+    assert original_call.recipients == frozenset({"a@x"})
+    assert admin_call.recipients == frozenset(_ADMIN)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-016")
+async def test_admin_notification_template_autoescapes_variable_interpolation(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+) -> None:
+    """L3-MAIL-016: admin notification template's autoescape SHALL neutralize metacharacters.
+
+    The use case feeds run_id as ``str(run_id)`` from the canonical UUID4
+    mint, which structurally cannot contain metacharacters. The
+    autoescape policy is a defense-in-depth backstop. We verify it here
+    by rendering the template directly with a deliberately injection-
+    flavored run_id and asserting Jinja2 expressions in the input are
+    rendered literally.
+    """
+    from message_service.application.use_cases.assemble_and_deliver import (
+        _ADMIN_NOTIFICATION_TEMPLATE,
+    )
+
+    rendered = _ADMIN_NOTIFICATION_TEMPLATE.render(
+        run_id="{{ run_id }}<script>alert(1)</script>",
+        failure_reason="EMAIL_SIZE_EXCEEDED",
+        timestamp="2026-04-27T12:00:00Z",
+    )
+    # The literal Jinja2 expression survives in the output (escaped),
+    # not interpreted as a template directive.
+    assert "{{ run_id }}" in rendered or "&#34;" in rendered or "&lt;" in rendered
+    # The HTML tag opening character is escaped (autoescape produces
+    # &lt; for <).
+    assert "<script>" not in rendered
 
 
 # -----------------------------------------------------------------------------

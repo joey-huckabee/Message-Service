@@ -39,7 +39,7 @@ Done:
 Still open:
 
 A 2026-04-27 audit (post-27) categorized the remaining v1 closure work. Three implementation drifts (similar shape to the connection-pool drift Increment 27 fixed; **29 + 30 closed the first two**), one feature gap discovered while categorizing the 5 Draft L1s, one architectural-pattern increment for L1-TMPL-002, and a large but mechanical trace-matrix coverage pass for 41 of 44 Partial L1s where code already exists. Increments 24 + 28 (previously thought to be the last work) are now the *final* gating steps after the new increments land.
-- **Increment 31** — L1-MAIL-004 admin notification + spec inconsistencies. EMAIL_SIZE_EXCEEDED admin-notification path missing in `assemble_and_deliver.py`. Plus three small spec-cleanup items: L2-OBS-018 dangles cross-references to non-existent L3-OBS-037/038; L2-OBS-007 verification-method mismatch with its L3 child; L3-MAIL-001 "no SMTP pooling" speculation mirrors the pre-27 pool drift wording. Sub-steps 31a–31g. Promotes L1-MAIL-004 Draft → Implemented.
+- **Increment 31** — L1-MAIL-004 admin notification + spec inconsistencies. EMAIL_SIZE_EXCEEDED admin-notification path missing in `assemble_and_deliver.py`. Plus two small spec-cleanup items: L2-OBS-007 verification-method mismatch with its L3 child; L3-MAIL-001 "no SMTP pooling" speculation mirrors the pre-27 pool drift wording. (The originally-listed L2-OBS-018 dangling-cross-references item was found to be a false alarm during Increment 30a — L3-OBS-037 / L3-OBS-038 already exist and are properly authored.) Sub-steps 31a–31g. Promotes L1-MAIL-004 Draft → Implemented.
 - **Increment 33** — L1-TMPL-002 "latest" version resolution. The audit found that the string `"latest"` appears in L1/L2/L3 + one diagram but is **absent from every Python source file and every test**. No code path implements the sentinel. Sub-steps 33a–33e author L3s, implement `resolve_latest`, wire BeginRun, tests. Promotes L1-TMPL-002 Partially → Implemented.
 - **Increment 34** — L1-TMPL-004 JSON Schema context validation. Audit found `Jinja2SandboxedTemplateRenderer.render()` performs size checks but never validates context against the manifest's declared JSON Schema; `jsonschema` library is not even imported. Sub-steps 34a–34e author L3s, add Poetry dep, wire validation, tests. Promotes L1-TMPL-004 Draft → Implemented.
 - **Increment 32** — Trace-matrix coverage pass (the "Category C" cleanup). 41 of 44 Partial L1s + 4 of the 5 Draft L1s have code that already implements the requirement; the matrix shows them Partial only because L3 statements / test markers / small inspection tests are missing. Sub-steps 32a–32f follow the audit chunk structure (32a API+RUN, 32b STAGE+SWEEP+AGGR, 32c SUB+AUTH, 32d MAIL+TMPL, 32e DASH+PERS+OBS+ERR+CFG, 32f matrix regen + AUTH-session-memo correction + done). Promotes ~41 + 4 L1s to Implemented in one increment.
@@ -881,7 +881,7 @@ Two adjacent gaps surfaced in the 2026-04-27 audit:
 1. **L1-MAIL-004 (Draft)**: When a composed email exceeds `max_email_size_bytes`, the spec says the run SHALL transition to FAILED *and* the service SHALL persist the rendered report *and* SHALL notify administrators "via the same channel used for orphan administrator notifications." Code state: `assemble_and_deliver.py` does the FAILED transition and the size-check, but the admin-notification path is missing. The L2-MAIL-009 / L2-MAIL-010 / L2-MAIL-011 derivations describe the notification template + persistence semantics but no L3 verification artifacts exist for them.
 
 2. **Spec inconsistencies** flagged in the requirements consistency audit (sub-agent 1, 2026-04-27):
-   - **L2-OBS-018** references `L3-OBS-037` and `L3-OBS-038` for `SEND_REPORT` and `DISPATCHER_ACTION_ABANDONED` audit-row format obligations. Those L3 IDs don't exist in `docs/L3-REQ.md`. Either author them or rework L2-OBS-018 to inline the format obligations.
+   - **L2-OBS-018** was originally flagged as referencing non-existent L3-OBS-037 / L3-OBS-038. Inspection during Increment 30a confirmed the audit was wrong: both L3-OBS-037 (SEND_REPORT audit row shape) and L3-OBS-038 (DISPATCHER_ACTION_ABANDONED audit row shape) exist and are properly authored. **No action needed for this item; sub-step 31d removed.**
    - **L2-OBS-007** declares "Verification: Inspection (I)" only, but its L3 child L3-OBS-012 declares "Verification: T". Either add T to L2-OBS-007 or re-parent L3-OBS-012.
    - **L3-MAIL-001** hard-codes the "no SMTP pooling" position with deferred-pool wording mirroring the pre-27 pool drift; reword to describe the actual mechanism (instantiate-per-send) without the speculative deferral.
 
@@ -893,7 +893,7 @@ Two adjacent gaps surfaced in the 2026-04-27 audit:
 
 **31c — Tests** *(code)*. Integration test in `tests/integration/test_full_pipeline.py` (or dedicated file): drive a run with intentionally oversized templates against `max_email_size_bytes=1024`; assert admin notification captured by SMTP harness with sanitized subject + measured size in body; assert run state == FAILED with `EMAIL_SIZE_EXCEEDED` reason; assert rendered report is at `<run_id>/email.html`.
 
-**31d — Resolve L2-OBS-018 dangling cross-references** *(spec)*. Two options: author L3-OBS-037 / L3-OBS-038 statements pinning `SEND_REPORT` / `DISPATCHER_ACTION_ABANDONED` audit row formats, OR rewrite L2-OBS-018 to inline the obligations and drop the cross-reference. Lean toward authoring the L3s for symmetry with sibling L3-OBS-* entries that pin per-action shapes.
+**31d — REMOVED.** Originally "Resolve L2-OBS-018 dangling cross-references." Increment 30a verified that L3-OBS-037 and L3-OBS-038 already exist and are properly authored; the audit-1 finding was incorrect. No work needed; the sub-step letter is reserved (not re-used) so the 31a–31g letter sequence remains stable for cross-references in commit messages.
 
 **31e — Resolve L2-OBS-007 verification-method mismatch** *(spec)*. L2-OBS-007 has `Verification: I`; L3-OBS-012 (its child) has `Verification: T`. Either add T to L2-OBS-007's verification methods or re-parent L3-OBS-012 if appropriate. Decision likely: add T (the L3 is correctly testable; the L2 was overly conservative).
 
@@ -901,7 +901,7 @@ Two adjacent gaps surfaced in the 2026-04-27 audit:
 
 **31g — Pre-commit + status snapshot + ✅ done** *(closeout)*. Full pre-commit pipeline. L1-MAIL-004 promotes Draft → Implemented. Spec inconsistencies removed; trace matrix re-checked.
 
-**Trace impact**: L2-MAIL-009 / L2-MAIL-010 / L2-MAIL-011 promote Draft → Implemented; L1-MAIL-004 promotes Draft → Implemented; L2-OBS-018 / L2-OBS-007 spec wording corrected (no status change); L3-MAIL-001 optionally reworded (no status change).
+**Trace impact**: L2-MAIL-009 / L2-MAIL-010 / L2-MAIL-011 promote Draft → Implemented; L1-MAIL-004 promotes Draft → Implemented; L2-OBS-007 verification-method updated (no status change); L3-MAIL-001 optionally reworded (no status change). L2-OBS-018 unchanged (the audit-1 finding was incorrect; verified during 30a).
 
 **Sequencing**: Independent of 29 / 30; can land in parallel. Recommended after 30 because both touch audit-row authoring patterns.
 

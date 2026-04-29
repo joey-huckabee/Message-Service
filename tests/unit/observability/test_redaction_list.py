@@ -16,11 +16,31 @@ from message_service.observability.logging_setup import (
 
 
 @pytest.mark.requirement("L3-AUTH-005")
+@pytest.mark.requirement("L3-OBS-005")
+@pytest.mark.requirement("L3-OBS-018")
 def test_redaction_list_includes_required_keys() -> None:
-    """L3-AUTH-005: the redaction list SHALL include `password`, `passwd`,
-    `password_hash`, and `pwd`. v1's list is a superset.
+    """L3-AUTH-005 + L3-OBS-005: the redaction list SHALL include the full
+    sensitive-field set: ``password``, ``passwd``, ``password_hash``,
+    ``pwd``, ``secret``, ``smtp_password``, ``session_token``,
+    ``cookie``, ``authorization``, ``email_body``, ``rendered_output``,
+    ``template_context``.
     """
-    required = frozenset({"password", "passwd", "password_hash", "pwd"})
+    required = frozenset(
+        {
+            "password",
+            "passwd",
+            "password_hash",
+            "pwd",
+            "secret",
+            "smtp_password",
+            "session_token",
+            "cookie",
+            "authorization",
+            "email_body",
+            "rendered_output",
+            "template_context",
+        }
+    )
     missing = required - SENSITIVE_FIELD_NAMES
     assert missing == set(), f"redaction list missing required keys: {missing}"
 

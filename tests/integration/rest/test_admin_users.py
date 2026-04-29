@@ -369,6 +369,7 @@ async def test_create_user_persists_argon2id_hash(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-017")
+@pytest.mark.requirement("L3-OBS-035")
 async def test_create_user_emits_create_user_audit(
     http_client: httpx.AsyncClient,
     uow_factory: SqliteUnitOfWorkFactory,

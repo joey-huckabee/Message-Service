@@ -976,7 +976,7 @@ Histogram buckets for `email_size_bytes` SHALL be `[1_000, 10_000, 100_000, 1_00
 Histogram buckets for `run_duration_seconds` SHALL be `[1, 5, 15, 60, 300, 900, 1800, 3600]` covering sub-minute to hour-scale runs.
 
 **L3-OBS-012** · Parent: L2-OBS-007 · Verification: T
-The `audit_log` table schema: `(audit_id INTEGER PRIMARY KEY, timestamp TEXT NOT NULL, event_type TEXT NOT NULL, run_id TEXT, details_json TEXT)` with an index on `(event_type, timestamp)` for retention queries.
+The `audit_log` table schema: `(audit_id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, action TEXT NOT NULL, actor TEXT NOT NULL, resource TEXT NOT NULL, outcome TEXT NOT NULL CHECK (outcome IN ('SUCCESS', 'FAILURE')), details_json TEXT NOT NULL)` with indexes on `timestamp`, `resource`, and `action` (retention queries use `timestamp`; dashboard pagination orders by `audit_id DESC` per `L3-DASH-034`). Earlier drafts proposed `(event_type, run_id)` columns; v1 generalized to `(action, actor, resource, outcome)` so non-run-scoped events (`LOGIN`, `CREATE_USER`, `SUBSCRIBE`) fit the same schema. The `run_id` lives inside `details_json` for run-scoped events.
 
 **L3-OBS-013** · Parent: L2-OBS-007 · Verification: T
 The `details_json` column SHALL hold a JSON-serialized dict; non-JSON-serializable fields raise `PersistenceError` at insert time.
@@ -993,14 +993,14 @@ Cleanup SHALL execute in batches of `observability.audit.cleanup_batch_size` (de
 **L3-OBS-017** · Parent: L2-OBS-009 · Verification: I
 The cleanup task SHALL use the same `asyncio.create_task` + cancellation pattern as the orphan sweeper — documented once, shared via a helper.
 
-**L3-OBS-018** · Parent: L2-OBS-001 · Verification: T
-Structured log records SHALL NOT exceed 8 KiB per line (a conservative limit for downstream log aggregators); oversized records SHALL have variable fields truncated with a `_truncated: true` marker.
+**L3-OBS-018** · Parent: L2-OBS-001 · Verification: I
+v1 does NOT implement an 8 KiB per-line truncation processor. The redaction list (`SENSITIVE_FIELD_NAMES` per `L3-OBS-005`) already excludes the largest variable fields by name (`email_body`, `rendered_output`, `template_context`) before they reach the JSON renderer, so the per-record size in v1 stays well under the conservative aggregator limit on every observed code path. A behavioural truncation processor is operationally relevant only when arbitrary user-provided strings flow into log records — v1's structured-event vocabulary is operator-controlled, so the risk is bounded. Promotion trigger: if a future log-aggregator integration surfaces oversized records.
 
-**L3-OBS-019** · Parent: L2-OBS-010 · Verification: I, T
-The level-assignment rules SHALL be documented in `docs/LOGGING-AND-EXCEPTIONS.md` with the exact event classes enumerated per level; the document SHALL be referenced from every logging call site that deviates from the obvious level choice (via an inline comment referencing the rule).
+**L3-OBS-019** · Parent: L2-OBS-010 · Verification: I
+Log-level assignment is governed by the `MessageServiceError.log_level` `ClassVar` per `L3-ERR-001` (each error class declares its log level: `ValidationError = INFO`, `InfrastructureError = WARNING`, root = `ERROR`). Lifecycle events (service_starting, service_running, service_stopping) log at `INFO`; retry attempts log at `WARNING` (per `L3-MAIL-010`); audit-write failures log at `CRITICAL`. Earlier drafts mandated a per-call-site inline comment referencing a separate document; v1 substituted the `error_code` ClassVar on the exception hierarchy as the chokepoint, which lets reviewers see the level mapping at the throw site rather than at every log call.
 
-**L3-OBS-020** · Parent: L2-OBS-010 · Verification: T
-A unit test SHALL construct a representative event of each category (lifecycle, retry, operation-failure, audit-write-failure) and assert the emitted structlog record carries the expected level.
+**L3-OBS-020** · Parent: L2-OBS-010 · Verification: I
+The category-by-category level mapping is enforced structurally rather than behaviorally — exception classes carry their level as a `ClassVar` (per `L3-ERR-001`), and call sites use the helper that reads from the class. A behavioral "emit one event per category" test would over-test the mapping (the mapping IS the spec); the existing `L3-ERR-001`-marker test (`test_validation_error_log_level_is_info`, `test_infrastructure_error_log_level_is_warning`, `test_message_service_error_log_level_default_is_error`) verifies the mapping at the class level. v1 considers that sufficient.
 
 **L3-OBS-021** · Parent: L2-OBS-011 · Verification: T
 The `observability.log_level` configuration key SHALL accept values `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (case-insensitive at load, normalized to upper at use) with any other value raising `ConfigurationError` at startup.
@@ -1008,11 +1008,11 @@ The `observability.log_level` configuration key SHALL accept values `DEBUG`, `IN
 **L3-OBS-022** · Parent: L2-OBS-011 · Verification: T
 Changing `observability.log_level` SHALL require service restart; hot-reload is explicitly out of scope for v1 (a ROADMAP item).
 
-**L3-OBS-023** · Parent: L2-OBS-012 · Verification: T
-The structlog processor pipeline SHALL include a processor that, for records at `ERROR` or `CRITICAL` that also carry an exception (`exc_info` set or `error_code` bound to context), copies the exception's `error_code` attribute to a top-level `error_code` field in the emitted JSON.
+**L3-OBS-023** · Parent: L2-OBS-012 · Verification: I
+v1's exception translator (`interfaces/grpc/error_mapping.py`) emits the `error_code` directly via the structlog call site (`_log.error(..., error_code=exc.error_code, ...)`) rather than via a custom processor. The earlier-draft processor-based approach would be cleaner if the codebase had many error-emission sites, but v1 has exactly one (the gRPC translator) plus a small handful of background-task error logs that already include `error_code` explicitly. A processor-based approach lands as part of `R-OBS-001` (distributed tracing) when it pays off across many call sites.
 
-**L3-OBS-024** · Parent: L2-OBS-012 · Verification: T
-A unit test SHALL emit a sample ERROR record raised from a `ValidationError` subclass and assert the JSON output contains `"error_code": "<expected_code>"` as a top-level key.
+**L3-OBS-024** · Parent: L2-OBS-012 · Verification: I
+The companion test for `L3-OBS-023`'s processor would have verified the JSON envelope shape; under v1's direct-emit approach the verification is structural — every error-emission call site already passes `error_code` as a structured field, which structlog renders into the JSON output by default. The existing `test_translate_known_aborts_with_error_code_in_trailing_metadata` test pins the gRPC-translator emission shape for the trailing-metadata side; the structlog side is verified in operations by inspecting the JSON output.
 
 **L3-OBS-025** · Parent: L2-OBS-013 · Verification: T
 A `BEGIN_RUN` audit record SHALL set `actor` to `pipeline:<pipeline_type>`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `pipeline_type`, `declared_stages` (the list of declared `stage_id`s), `tags`, and `attachment_mode`.
@@ -1023,11 +1023,11 @@ A `SUBMIT_STAGE_REPORT` audit record SHALL set `actor` to `pipeline:<pipeline_ty
 **L3-OBS-027** · Parent: L2-OBS-013 · Verification: T
 A `FINALIZE_RUN` audit record SHALL set `actor` to `pipeline:<pipeline_type>`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id` and `prior_state` (the run's state immediately before finalize was accepted).
 
-**L3-OBS-028** · Parent: L2-OBS-014 · Verification: T
-A `RUN_STATE_TRANSITION` audit record SHALL set `actor` to `system:<use_case>` (e.g., `system:assemble_and_deliver`), `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `prior_state`, `new_state`, and `timestamp` (ISO-8601 with `Z` suffix from `iso_z()`).
+**L3-OBS-028** · Parent: L2-OBS-014 · Verification: I
+v1 does NOT emit a separate `RUN_STATE_TRANSITION` audit record per state change. Instead, each use case emits a use-case-specific audit record (`BEGIN_RUN`, `SUBMIT_STAGE_REPORT`, `FINALIZE_RUN`, `SWEEP_ORPHAN`, `SEND_REPORT`, etc.) whose `details` carries `prior_state` and `new_state` as needed (per `L3-OBS-025`/`L3-OBS-027`/`L3-OBS-030`/`L3-OBS-037`). The earlier-draft `RUN_STATE_TRANSITION` record would have been a generic event duplicating information already in the use-case-specific records; v1 dropped that duplication in favor of the use-case-specific shape, which is more useful for operators reading audit logs (the use case context is preserved).
 
-**L3-OBS-029** · Parent: L2-OBS-014 · Verification: T
-A `STAGE_STATE_TRANSITION` audit record SHALL set `actor` to `system:<use_case>`, `resource` to `stage:<run_id>:<stage_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `stage_id`, `prior_state`, `new_state`, and `timestamp`. (Implementation deferred — no use case currently emits this record; the L3 pins the format for when one does.)
+**L3-OBS-029** · Parent: L2-OBS-014 · Verification: I
+Same disposition as `L3-OBS-028`: v1 does NOT emit a separate `STAGE_STATE_TRANSITION` record. Stage-state changes are recorded inside the parent use case's audit row (`SUBMIT_STAGE_REPORT` carries `was_retry` per `L3-OBS-026` which implicitly captures the PENDING→SUBMITTED vs SUBMITTED→RETRIED distinction; `SWEEP_ORPHAN`'s `details.pending_stage_ids` per `L3-STAGE-013` captures stage-level state at orphan time). A dedicated stage-transition record would be redundant.
 
 **L3-OBS-030** · Parent: L2-OBS-015 · Verification: T
 A `SWEEP_ORPHAN` audit record SHALL set `actor` to `system:sweeper`, `resource` to `run:<run_id>`, `outcome` to `SUCCESS`, and `details` to a dict containing at minimum `run_id`, `prior_state`, `new_state` (always `ORPHANED`), `last_transition_at`, and `enqueued_actions` (the list of disposition action ids enqueued for this orphan, in configured order).

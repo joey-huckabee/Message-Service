@@ -168,6 +168,8 @@ def test_configuration_error_maps_to_internal() -> None:
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-015")
 @pytest.mark.requirement("L3-API-011")
+@pytest.mark.requirement("L3-OBS-023")
+@pytest.mark.requirement("L3-OBS-024")
 async def test_translate_known_aborts_with_error_code_in_trailing_metadata() -> None:
     """L3-ERR-015 (reworded): trailing metadata SHALL carry x-message-service-error-code."""
     ctx = _FakeServicerContext()
@@ -397,8 +399,12 @@ def test_message_service_error_has_required_classvars() -> None:
 
 
 @pytest.mark.requirement("L3-ERR-001")
+@pytest.mark.requirement("L3-OBS-019")
+@pytest.mark.requirement("L3-OBS-020")
 def test_message_service_error_log_level_default_is_error() -> None:
-    """L3-ERR-001: default log_level on the root SHALL be logging.ERROR."""
+    """L3-ERR-001 / L3-OBS-019/020: default log_level on the root SHALL
+    be logging.ERROR; the ClassVar mapping IS the level-assignment spec.
+    """
     assert MessageServiceError.log_level == logging.ERROR
 
 
@@ -583,11 +589,15 @@ def test_precondition_error_http_status_default_is_409() -> None:
 
 
 @pytest.mark.requirement("L3-ERR-001")
+@pytest.mark.requirement("L3-OBS-019")
+@pytest.mark.requirement("L3-OBS-020")
 def test_infrastructure_error_log_level_is_warning() -> None:
     assert InfrastructureError.log_level == logging.WARNING
 
 
 @pytest.mark.requirement("L3-ERR-001")
+@pytest.mark.requirement("L3-OBS-019")
+@pytest.mark.requirement("L3-OBS-020")
 def test_validation_error_log_level_is_info() -> None:
     assert ValidationError.log_level == logging.INFO
 

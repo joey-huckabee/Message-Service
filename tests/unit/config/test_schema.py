@@ -199,6 +199,20 @@ def test_grpc_config_defaults_when_keys_missing() -> None:
     assert cfg.port == 50_051
 
 
+@pytest.mark.requirement("L3-OBS-014")
+def test_audit_cleanup_interval_default_is_24_hours() -> None:
+    """L3-OBS-014: ``cleanup_interval_hours`` SHALL default to 24."""
+    cfg = AuditConfig.model_validate({})
+    assert cfg.cleanup_interval_hours == 24
+
+
+@pytest.mark.requirement("L3-OBS-014")
+def test_audit_cleanup_interval_rejects_zero() -> None:
+    """L3-OBS-014: ``cleanup_interval_hours`` SHALL be ge=1."""
+    with pytest.raises(ValidationError):
+        AuditConfig.model_validate({"cleanup_interval_hours": 0})
+
+
 @pytest.mark.requirement("L3-PERS-027")
 def test_filesystem_persistence_report_retention_days_default_is_90() -> None:
     """L3-PERS-027: ``report_retention_days`` default SHALL be 90; ge=1."""

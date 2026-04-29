@@ -167,6 +167,7 @@ async def _row_count(conn: aiosqlite.Connection) -> int:
 @pytest.mark.requirement("L1-OBS-003")
 @pytest.mark.requirement("L2-OBS-008")
 @pytest.mark.requirement("L3-OBS-015")
+@pytest.mark.requirement("L3-OBS-017")
 async def test_old_rows_are_deleted_recent_rows_preserved(
     pruner: AuditLogPrunerUseCase,
     uow_factory: SqliteUnitOfWorkFactory,

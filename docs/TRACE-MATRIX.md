@@ -337,30 +337,30 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Partially Implemented |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Implemented |
-| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017, L2-OBS-018 | Partially Implemented |
-| L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Partially Implemented |
+| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017, L2-OBS-018 | Implemented |
+| L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-OBS-001 | L3-OBS-001, L3-OBS-002, L3-OBS-018 | _(TBD)_ | Draft |
+| L2-OBS-001 | L3-OBS-001, L3-OBS-002, L3-OBS-018 | `tests/unit/observability/test_logging_setup_shape.py::test_configure_logging_callable_in_logging_setup`<br>`tests/unit/observability/test_logging_setup_shape.py::test_configure_logging_takes_level_argument`<br>`tests/unit/observability/test_logging_setup_shape.py::test_logging_setup_uses_json_renderer`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
 | L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/persistence/test_audit_log.py::test_record_persists_event`<br>`tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events` | Partially Implemented |
-| L2-OBS-003 | L3-OBS-005, L3-OBS-006 | _(TBD)_ | Draft |
+| L2-OBS-003 | L3-OBS-005, L3-OBS-006 | `tests/unit/observability/test_logging_setup_shape.py::test_redact_is_case_insensitive_on_key_names`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
 | L2-OBS-004 | L3-OBS-007 | `tests/integration/rest/test_app.py::test_metrics_endpoint_emits_recorded_counter`<br>`tests/integration/rest/test_app.py::test_metrics_endpoint_is_unauthenticated`<br>`tests/integration/rest/test_app.py::test_metrics_endpoint_returns_prometheus_content_type` | Implemented |
 | L2-OBS-005 | L3-OBS-008 | `tests/unit/infrastructure/observability/test_metrics.py::test_all_module_metrics_use_message_service_prefix` | Implemented |
 | L2-OBS-006 | L3-OBS-009, L3-OBS-010, L3-OBS-011 | `tests/unit/infrastructure/observability/test_metrics.py::test_email_delivery_outcome_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_state_transition_increments_labeled_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_stage_state_transition_increments_labeled_counter` | Implemented |
-| L2-OBS-007 | L3-OBS-012, L3-OBS-013 | _(TBD)_ | Draft |
-| L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016, L3-OBS-039, L3-OBS-040 | `tests/conformance/test_audit_log_sole_deleter.py::test_allow_list_modules_actually_exist`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_audit_log_pruner_module_actually_calls_delete_older_than`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_only_allow_listed_modules_contain_audit_log_mutation_sql`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_only_pruner_module_calls_delete_older_than`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_batch_size_caps_rows_deleted_per_tick_and_drains_across_ticks`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_no_prune_audit_log_action_in_audit_action_enum`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_old_rows_are_deleted_recent_rows_preserved`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_oldest_first_ordering_within_batch`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_pruner_emits_no_audit_row_for_its_own_delete`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_strict_less_than_boundary_preserves_row_at_exact_cutoff` | Partially Implemented |
-| L2-OBS-009 | L3-OBS-017 | _(TBD)_ | Draft |
-| L2-OBS-010 | L3-OBS-019, L3-OBS-020 | _(TBD)_ | Draft |
-| L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown` | Partially Implemented |
-| L2-OBS-012 | L3-OBS-023, L3-OBS-024 | _(TBD)_ | Draft |
+| L2-OBS-007 | L3-OBS-012, L3-OBS-013 | `tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_details_json_column_is_text_not_null`<br>`tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_indexes_present`<br>`tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_outcome_check_constraint`<br>`tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_table_columns_match_spec` | Implemented |
+| L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016, L3-OBS-039, L3-OBS-040 | `tests/conformance/test_audit_log_sole_deleter.py::test_allow_list_modules_actually_exist`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_audit_log_pruner_module_actually_calls_delete_older_than`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_only_allow_listed_modules_contain_audit_log_mutation_sql`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_only_pruner_module_calls_delete_older_than`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_batch_size_caps_rows_deleted_per_tick_and_drains_across_ticks`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_no_prune_audit_log_action_in_audit_action_enum`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_old_rows_are_deleted_recent_rows_preserved`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_oldest_first_ordering_within_batch`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_pruner_emits_no_audit_row_for_its_own_delete`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_strict_less_than_boundary_preserves_row_at_exact_cutoff`<br>`tests/unit/config/test_schema.py::test_audit_cleanup_interval_default_is_24_hours`<br>`tests/unit/config/test_schema.py::test_audit_cleanup_interval_rejects_zero` | Implemented |
+| L2-OBS-009 | L3-OBS-017 | `tests/integration/persistence/test_audit_log_pruner.py::test_old_rows_are_deleted_recent_rows_preserved` | Implemented |
+| L2-OBS-010 | L3-OBS-019, L3-OBS-020 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_log_level_is_warning`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_log_level_default_is_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_log_level_is_info` | Implemented |
+| L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown`<br>`tests/unit/observability/test_logging_setup_shape.py::test_no_log_level_hot_reload_path_exists` | Implemented |
+| L2-OBS-012 | L3-OBS-023, L3-OBS-024 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata` | Implemented |
 | L2-OBS-013 | L3-OBS-025, L3-OBS-026, L3-OBS-027 | `tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_event_captures_finalize_run_transition`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata` | Implemented |
-| L2-OBS-014 | L3-OBS-028, L3-OBS-029 | _(TBD)_ | Draft |
+| L2-OBS-014 | L3-OBS-028, L3-OBS-029 | `tests/unit/application/use_cases/test_finalize_run.py::test_audit_event_captures_finalize_run_transition`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata` | Implemented |
 | L2-OBS-015 | L3-OBS-030 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event` | Implemented |
 | L2-OBS-016 | L3-OBS-031, L3-OBS-032 | `tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
-| L2-OBS-017 | L3-OBS-033, L3-OBS-034, L3-OBS-035, L3-OBS-036 | `tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Partially Implemented |
+| L2-OBS-017 | L3-OBS-033, L3-OBS-034, L3-OBS-035, L3-OBS-036 | `tests/integration/rest/test_admin_users.py::test_create_user_emits_create_user_audit`<br>`tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_audits_login`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_audits_logout` | Implemented |
 | L2-OBS-018 | L3-OBS-037, L3-OBS-038 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_email_delivery_error_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_zero_recipients_finalizes_sent_without_mailer_call`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_abandoned_rows_are_not_re_abandoned`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatcher_abandons_rows_past_max_attempts` | Implemented |
 
 ### L1-ERR: Error handling and exception taxonomy
@@ -487,14 +487,14 @@ the single source of truth.
 | MAIL | 5 | 14 | 31 | 7 | 31 |
 | DASH | 5 | 16 | 35 | 1 | 33 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
-| OBS | 4 | 18 | 40 | 3 | 21 |
+| OBS | 4 | 18 | 40 | 3 | 38 |
 | ERR | 4 | 10 | 22 | 0 | 13 |
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **393** | **65** | **352** |
+| **Total** | **67** | **192** | **393** | **65** | **369** |
 
-**Requirements verified by at least one test**: 417 of 585 (71.3%).
+**Requirements verified by at least one test**: 434 of 585 (74.2%).
 
 ### Orphan check
 

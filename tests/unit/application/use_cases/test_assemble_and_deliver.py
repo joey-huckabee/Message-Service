@@ -341,6 +341,8 @@ def test_build_subject_neutralizes_cr_lf_and_control_chars() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AGGR-004")
+@pytest.mark.requirement("L3-AGGR-006")
+@pytest.mark.requirement("L3-AGGR-019")
 async def test_happy_path_single_aggregated_sends_one_attachment(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
@@ -537,6 +539,8 @@ async def test_pending_stages_excluded_from_assembly(
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-AGGR-007")
 @pytest.mark.requirement("L3-AGGR-012")
+@pytest.mark.requirement("L3-AGGR-013")
+@pytest.mark.requirement("L3-AGGR-014")
 async def test_stages_rendered_in_stage_order_not_submission_order(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],

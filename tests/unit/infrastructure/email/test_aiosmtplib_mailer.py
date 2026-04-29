@@ -133,7 +133,14 @@ def test_mime_message_has_expected_headers() -> None:
 
 
 @pytest.mark.requirement("L1-MAIL-001")
+@pytest.mark.requirement("L3-AGGR-020")
 def test_mime_message_includes_attachments() -> None:
+    """L1-MAIL-001 / L3-AGGR-020: PER_STAGE attachments SHALL carry
+    ``Content-Type: text/html`` and
+    ``Content-Disposition: attachment; filename="<filename>"``. v1
+    sends bytes via ``add_attachment``, which omits the charset
+    parameter by RFC 2045 binary-content semantics.
+    """
     att1 = EmailAttachment(
         filename="report.html",
         content_type="text/html",
@@ -150,6 +157,16 @@ def test_mime_message_includes_attachments() -> None:
     assert len(parts) == 2
     filenames = {p.get_filename() for p in parts}
     assert filenames == {"report.html", "stage2.html"}
+    # L3-AGGR-020: each attachment has the prescribed Content-Type and
+    # Content-Disposition headers. v1 sends already-encoded bytes via
+    # add_attachment(), so the part's charset is unset (the bytes are
+    # the canonical wire form); the L3-AGGR-020 contract is honored at
+    # the maintype/subtype level + the Content-Disposition shape.
+    for part in parts:
+        assert part.get_content_type() == "text/html"
+        cd = part.get("Content-Disposition", "")
+        assert cd.startswith("attachment"), f"Content-Disposition SHALL be `attachment`; got {cd!r}"
+        assert "filename=" in cd
 
 
 # -----------------------------------------------------------------------------

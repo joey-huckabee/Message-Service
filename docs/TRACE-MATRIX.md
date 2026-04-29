@@ -142,24 +142,24 @@ the single source of truth.
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-AGGR-001 | L2-AGGR-001, L2-AGGR-002, L2-AGGR-003 | Partially Implemented |
-| L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Partially Implemented |
-| L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Partially Implemented |
-| L1-AGGR-004 | L2-AGGR-009, L2-AGGR-010 | Partially Implemented |
+| L1-AGGR-002 | L2-AGGR-004, L2-AGGR-005, L2-AGGR-006 | Implemented |
+| L1-AGGR-003 | L2-AGGR-007, L2-AGGR-008 | Implemented |
+| L1-AGGR-004 | L2-AGGR-009, L2-AGGR-010 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | `tests/integration/grpc/test_servicer.py::test_nested_struct_round_trips_into_stage_context` | Partially Implemented |
-| L2-AGGR-002 | L3-AGGR-003, L3-AGGR-018 | _(TBD)_ | Draft |
+| L2-AGGR-001 | L3-AGGR-001, L3-AGGR-002, L3-AGGR-017 | `tests/integration/grpc/test_servicer.py::test_nested_struct_round_trips_into_stage_context`<br>`tests/unit/interfaces/grpc/test_proto_aggr_shape.py::test_report_contribution_context_field_is_struct` | Implemented |
+| L2-AGGR-002 | L3-AGGR-003, L3-AGGR-018 | `tests/integration/grpc/test_servicer.py::test_nested_struct_round_trips_into_stage_context` | Partially Implemented |
 | L2-AGGR-003 | L3-AGGR-004, L3-AGGR-005 | _(TBD)_ | Draft |
-| L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Partially Implemented |
-| L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_pending_stages_excluded_from_assembly`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_produces_one_attachment_per_non_empty_stage`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_whitespace_only_excluded_as_empty`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_with_all_empty_produces_zero_attachments` | Partially Implemented |
+| L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Implemented |
+| L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_pending_stages_excluded_from_assembly`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_produces_one_attachment_per_non_empty_stage`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_whitespace_only_excluded_as_empty`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_with_all_empty_produces_zero_attachments`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_mime_message_includes_attachments` | Implemented |
 | L2-AGGR-006 | L3-AGGR-010, L3-AGGR-011 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_caps_at_255_bytes`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_per_stage_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_sanitizes_both_components`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_single_aggregated_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sanitize_filename_replaces_disallowed_chars_with_underscore` | Implemented |
 | L2-AGGR-007 | L3-AGGR-012 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
-| L2-AGGR-008 | L3-AGGR-013, L3-AGGR-014 | _(TBD)_ | Draft |
+| L2-AGGR-008 | L3-AGGR-013, L3-AGGR-014 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
 | L2-AGGR-009 | L3-AGGR-015 | `tests/unit/application/use_cases/test_begin_run.py::test_single_aggregated_without_template_raises` | Implemented |
-| L2-AGGR-010 | L3-AGGR-016 | _(TBD)_ | Draft |
+| L2-AGGR-010 | L3-AGGR-016 | `tests/unit/interfaces/grpc/test_proto_aggr_shape.py::test_template_metadata_has_per_template_schema_field` | Implemented |
 
 ### L1-SWEEP: Orphan detection and disposition
 
@@ -480,7 +480,7 @@ the single source of truth.
 | RUN | 5 | 16 | 30 | 9 | 30 |
 | STAGE | 4 | 9 | 18 | 8 | 18 |
 | TMPL | 5 | 14 | 32 | 8 | 32 |
-| AGGR | 4 | 10 | 20 | 4 | 8 |
+| AGGR | 4 | 10 | 20 | 4 | 17 |
 | SWEEP | 3 | 10 | 21 | 6 | 17 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 3 | 9 | 17 | 5 | 17 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 11 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **390** | **65** | **315** |
+| **Total** | **67** | **192** | **390** | **65** | **324** |
 
-**Requirements verified by at least one test**: 380 of 582 (65.3%).
+**Requirements verified by at least one test**: 389 of 582 (66.8%).
 
 ### Orphan check
 

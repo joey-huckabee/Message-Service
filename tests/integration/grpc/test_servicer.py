@@ -675,6 +675,8 @@ async def test_unknown_tag_translates_to_invalid_argument(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AGGR-002")
+@pytest.mark.requirement("L3-AGGR-003")
+@pytest.mark.requirement("L3-AGGR-017")
 async def test_nested_struct_round_trips_into_stage_context(
     grpc_client: pb_grpc.MessageServiceStub,
     service: Service,

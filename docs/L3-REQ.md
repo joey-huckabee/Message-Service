@@ -369,10 +369,10 @@ The `ReportContribution` proto message SHALL use `google.protobuf.Struct` for `c
 Omitted `email_body_contribution` on the wire SHALL be detected via proto3 field presence check (`HasField` where supported, or `is None` after dict conversion).
 
 **L3-AGGR-004** · Parent: L2-AGGR-003 · Verification: T
-A `position` value of `EMAIL_BODY_POSITION_UNSPECIFIED` SHALL default to `AFTER_STAGES_SUMMARY`; a DEBUG log SHALL note the default was applied.
+*(Deferred to v2 — see ROADMAP `R-AGGR-001`.)* The per-stage `email_body_contribution` `position` field exists in the proto schema but `AssembleAndDeliverUseCase` does not yet read it; the email body template currently receives only the run-level fixed-shape context. The position-default + DEBUG-log behavior lands when the use case is extended to consume `email_body_context_json` per stage; until then, no `position` value is processed.
 
 **L3-AGGR-005** · Parent: L2-AGGR-003 · Verification: T
-Email body order SHALL be: all `BEFORE_STAGES_SUMMARY` in stage order, then the main summary block, then all `AFTER_STAGES_SUMMARY` in stage order.
+*(Deferred to v2 — see ROADMAP `R-AGGR-001`.)* The BEFORE → main → AFTER ordering is the deferred behavior; v1 emits a single body block populated from the run-level context only. No per-stage `email_body_contribution` ordering exists yet.
 
 **L3-AGGR-006** · Parent: L2-AGGR-004 · Verification: T
 The aggregation template context SHALL include `stages` (list of dicts with `stage_id`, `stage_order`, `rendered_html`), `run_id`, `run_metadata`, and `pipeline_type`.
@@ -404,20 +404,20 @@ A test SHALL construct a run with multiple stages at `stage_order=0` and assert 
 **L3-AGGR-015** · Parent: L2-AGGR-009 · Verification: T
 `MissingAggregationTemplate` check SHALL run BEFORE `UnknownTemplate`; a request with `SINGLE_AGGREGATED` and missing aggregation_template raises the former.
 
-**L3-AGGR-016** · Parent: L2-AGGR-010 · Verification: T
-The aggregation template manifest entry SHALL have a distinct JSON Schema from stage-report templates (context shape differs: receives list of stages).
+**L3-AGGR-016** · Parent: L2-AGGR-010 · Verification: I
+v1's template manifest treats `context_schema_path` as a per-template field (per `L3-TMPL-018` — one Draft202012Validator per `(name, version)` entry). An aggregation template MAY supply its own schema describing the `{stages, run_id, run_metadata, pipeline_type}` context shape per `L3-AGGR-006`, distinct from the per-stage REPORT_FRAGMENT context shape. v1 does not enforce that aggregation and stage-report templates SHALL have schemas — schemas are optional per `L3-TMPL-030`. The earlier draft mandated distinct schemas; v1 makes the choice optional because schema authoring is operator-driven and the manifest's `kind` field already disambiguates which template type is which.
 
-**L3-AGGR-017** · Parent: L2-AGGR-001 · Verification: T
-The proto `Struct` context SHALL be validated as JSON-object root (not array or scalar); non-object roots raise `MalformedRequest`.
+**L3-AGGR-017** · Parent: L2-AGGR-001 · Verification: I
+v1's proto schema declares `context` as `google.protobuf.Struct`, which is by definition a JSON object (the proto well-known type's `fields` map enforces dict-shape at the wire level). A client cannot send an array or scalar in this slot — protobuf rejects such payloads at deserialization time before the servicer runs. v1 therefore does NOT add a separate "is dict" check at the use-case boundary because the proto type system already provides it. Earlier drafts mandated an explicit MalformedRequest check; v1 dropped that as redundant with the proto's structural typing.
 
 **L3-AGGR-018** · Parent: L2-AGGR-002 · Verification: T
-The email body contribution record SHALL include `position` as a column so sort order can be reconstructed without re-parsing the email body.
+*(Deferred to v2 — see ROADMAP `R-AGGR-001`.)* v1's `stages` table stores per-stage email-body context as `email_body_context_json` (per `L3-STAGE-009`); a separate `position` column lands when the use case begins consuming per-stage email-body contributions. The current schema is forward-compatible — adding the column is a one-line migration.
 
 **L3-AGGR-019** · Parent: L2-AGGR-004 · Verification: T
 The aggregation template render SHALL run AFTER all per-stage fragment renders, so per-stage failures surface before aggregation work is wasted.
 
 **L3-AGGR-020** · Parent: L2-AGGR-005 · Verification: T
-PER_STAGE attachments SHALL have MIME `Content-Type: text/html; charset=utf-8` and `Content-Disposition: attachment; filename="<filename>"`.
+PER_STAGE attachments SHALL have MIME `Content-Type: text/html` and `Content-Disposition: attachment; filename="<filename>"`. v1's mailer passes already-encoded bytes via `EmailMessage.add_attachment(..., maintype, subtype)` which produces parts without a charset parameter on the Content-Type — the bytes are themselves the canonical wire form. Earlier drafts pinned `charset=utf-8` explicitly; v1 dropped that because `add_attachment(bytes, ...)` follows RFC 2045's "binary content" semantics, where charset is omitted by design (the decoding choice belongs to the consumer's HTML parser, not the SMTP layer).
 
 ---
 

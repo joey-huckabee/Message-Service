@@ -288,6 +288,7 @@ def test_sweeper_disposition_accepts_empty_list(tmp_path: Path) -> None:
 
 
 @pytest.mark.requirement("L2-MAIL-003")
+@pytest.mark.requirement("L3-MAIL-004")
 def test_invalid_from_address_rejected(tmp_path: Path) -> None:
     data = _minimal_valid_data(tmp_path)
     data["mail"]["from_address"] = "not an email"  # type: ignore[index]
@@ -296,6 +297,7 @@ def test_invalid_from_address_rejected(tmp_path: Path) -> None:
 
 
 @pytest.mark.requirement("L2-MAIL-003")
+@pytest.mark.requirement("L3-MAIL-004")
 def test_invalid_admin_recipient_rejected(tmp_path: Path) -> None:
     data = _minimal_valid_data(tmp_path)
     data["mail"]["admin_recipients"] = ["ops@example.com", "malformed"]  # type: ignore[index]

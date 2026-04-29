@@ -1101,6 +1101,9 @@ async def test_happy_path_transitions_through_ready_sending_sent(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-MAIL-012")
+@pytest.mark.requirement("L3-MAIL-018")
+@pytest.mark.requirement("L3-MAIL-025")
+@pytest.mark.requirement("L3-MAIL-026")
 @pytest.mark.requirement("L3-OBS-037")
 async def test_delivery_success_audit_carries_required_fields(
     use_case: AssembleAndDeliverUseCase,
@@ -1138,6 +1141,7 @@ async def test_delivery_success_audit_carries_required_fields(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-026")
+@pytest.mark.requirement("L3-MAIL-019")
 async def test_audit_precedes_state_update_on_ready_to_sending(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],

@@ -157,6 +157,7 @@ def test_template_without_schema_skips_validation(tmp_path: Path) -> None:
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-TMPL-005")
 @pytest.mark.requirement("L3-TMPL-031")
 def test_missing_schema_file_raises_configuration_error(tmp_path: Path) -> None:
     repo = _make_repo(_meta(tmp_path, schema_path=tmp_path / "missing.json"))

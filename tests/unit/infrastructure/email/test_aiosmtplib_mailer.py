@@ -159,6 +159,9 @@ def test_mime_message_includes_attachments() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-MAIL-008")
+@pytest.mark.requirement("L3-MAIL-012")
+@pytest.mark.requirement("L3-MAIL-013")
+@pytest.mark.requirement("L3-MAIL-021")
 async def test_oversize_email_raises_before_smtp_traffic(
     patched_smtp: tuple[MagicMock, AsyncMock],
 ) -> None:
@@ -301,6 +304,7 @@ def test_classify_authentication_error_is_permanent() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-MAIL-006")
+@pytest.mark.requirement("L3-MAIL-010")
 async def test_transient_failure_retries_then_succeeds(
     patched_smtp: tuple[MagicMock, AsyncMock],
 ) -> None:
@@ -324,6 +328,7 @@ async def test_transient_failure_retries_then_succeeds(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-MAIL-006")
+@pytest.mark.requirement("L3-MAIL-010")
 async def test_transient_failure_exhausts_retries(
     patched_smtp: tuple[MagicMock, AsyncMock],
 ) -> None:
@@ -347,6 +352,7 @@ async def test_transient_failure_exhausts_retries(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-MAIL-007")
+@pytest.mark.requirement("L3-MAIL-008")
 async def test_permanent_failure_does_not_retry(
     patched_smtp: tuple[MagicMock, AsyncMock],
 ) -> None:

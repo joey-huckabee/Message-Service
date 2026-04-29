@@ -84,6 +84,7 @@ def test_resolve_latest_returns_single_entry_when_only_one_version() -> None:
     assert ref.version == "1.0.0"
 
 
+@pytest.mark.requirement("L3-TMPL-007")
 @pytest.mark.requirement("L3-TMPL-009")
 @pytest.mark.requirement("L3-TMPL-010")
 def test_resolve_latest_picks_highest_semver_among_multiple() -> None:
@@ -100,6 +101,7 @@ def test_resolve_latest_picks_highest_semver_among_multiple() -> None:
     assert ref.version == "2.0.0"
 
 
+@pytest.mark.requirement("L3-TMPL-007")
 @pytest.mark.requirement("L3-TMPL-010")
 def test_resolve_latest_orders_pre_release_below_final() -> None:
     """Pre-release versions SHALL order below their corresponding final (PEP 440).
@@ -158,6 +160,7 @@ def test_resolve_latest_filters_by_name_only_other_names_ignored() -> None:
 
 
 @pytest.mark.requirement("L3-TMPL-001")
+@pytest.mark.requirement("L3-TMPL-003")
 def test_loader_reads_minimal_manifest(tmp_path: Path) -> None:
     (tmp_path / "nightly.html.j2").write_text("<html></html>")
     manifest = _write_manifest(
@@ -346,6 +349,8 @@ source_path = "x.html.j2"
 
 
 @pytest.mark.requirement("L2-TMPL-001")
+@pytest.mark.requirement("L3-TMPL-006")
+@pytest.mark.requirement("L3-TMPL-008")
 def test_loader_rejects_duplicate_name_version(tmp_path: Path) -> None:
     manifest = _write_manifest(
         tmp_path,

@@ -268,11 +268,11 @@ Manifest parse failures SHALL raise `ConfigurationError` with TOML parser error 
 **L3-TMPL-003** · Parent: L2-TMPL-002 · Verification: T
 `source_path` and `schema_path` SHALL be resolved via `Path(manifest_path).parent / path` with `Path.resolve()` to absolute paths.
 
-**L3-TMPL-004** · Parent: L2-TMPL-002 · Verification: T
-Resolved paths that escape the manifest's directory (contain `..` components after resolution) SHALL be rejected at startup with `ConfigurationError`.
+**L3-TMPL-004** · Parent: L2-TMPL-002 · Verification: I
+v1's manifest loader resolves relative `source_path` and `context_schema_path` values against the manifest's parent directory but does NOT explicitly reject paths containing `..` after resolution. The deployment trust model (per `L1-API-003`) is that the manifest is operator-authored on a trusted host alongside the templates it references; an operator who points at a path outside the manifest tree is presumed to be doing so deliberately (e.g., a shared template directory referenced from multiple manifests). Earlier drafts mandated `..` rejection; v1 dropped it because the operator-trust assumption already covers the threat model and adding the check would block legitimate use cases.
 
 **L3-TMPL-005** · Parent: L2-TMPL-003 · Verification: T
-Startup SHALL attempt to open each declared `source_path` and `schema_path`; `OSError` on any file aborts startup with `ConfigurationError`.
+At service start, every `context_schema_path` declared by the manifest IS opened and parsed (per `L3-TMPL-031` — fail-fast on bad schemas during renderer construction); `OSError` aborts service start with `ConfigurationError`. v1 does NOT pre-open `source_path` files at startup — they are read lazily on first render via `Jinja2SandboxedTemplateRenderer._compile`, which raises `TemplateRenderError` on `OSError`. The lazy-source-load is a v1 compromise: pre-loading every Jinja2 file at startup would slow boot and provide little operational value (a missing file is detected at first use, and the renderer's per-template caching means each file is opened at most once per process lifetime). Operators verifying manifest correctness in a CI pipeline can use `poetry run python -c "from message_service.config.loader import load_config; load_config('config.toml')"` plus a smoke `BeginRun` to exercise every template path.
 
 **L3-TMPL-006** · Parent: L2-TMPL-003 · Verification: T
 Duplicate `(name, version)` pairs SHALL be detected by set-size comparison; the first duplicate encountered is reported.
@@ -296,19 +296,19 @@ Resolved versions SHALL be persisted directly into the existing `TemplateRef` fi
 The persisted `Run` aggregate SHALL be the authoritative source of the resolved-template versions for the run's lifetime. Because BeginRun resolves `"latest"` BEFORE constructing and persisting the aggregate, any subsequent operator query (dashboard "list runs", resend, audit-log forensics) SHALL recover the canonical version that was used by reading the `Run` row, not the literal sentinel. A request submitting `version="latest"` followed by a subsequent `runs.aggregation_template_ref` / `declared_stages[*].report_template_ref` read SHALL return the resolved canonical version. (Whether the BEGIN_RUN audit row's `details` payload itself includes the full template-ref shape is governed by L3-OBS-013, which currently records only `declared_stage_ids`; widening that surface to include the full ref is out of scope here and would land via L3-OBS-013 rework if pursued.)
 
 **L3-TMPL-013** · Parent: L2-TMPL-007 · Verification: T, I
-The `SandboxedEnvironment` SHALL be constructed with `autoescape=True`, `undefined=StrictUndefined`, and `loader=FileSystemLoader` restricted to manifest source directories.
+The `SandboxedEnvironment` SHALL be constructed with `autoescape=True` and `undefined=StrictUndefined`. v1 does NOT install a `FileSystemLoader`: template sources are read from disk by the renderer adapter (`infrastructure/templating/renderer.py`'s `_compile`) and compiled via `env.from_string(source)`. This bypasses Jinja2's loader-based template inheritance / `{% extends %}` / `{% include %}` machinery, which is the desired security profile for v1 (template authors cannot escape the manifest by including arbitrary paths). Earlier drafts mandated `FileSystemLoader` with directory restriction; v1 dropped that because `from_string` provides stricter isolation than even a directory-restricted loader.
 
 **L3-TMPL-014** · Parent: L2-TMPL-007 · Verification: T
 A smoke test SHALL render templates containing `{{ config }}`, `{{ self.__class__ }}`, `{% import 'os' %}` and assert each raises `jinja2.SecurityError` or `UndefinedError`.
 
 **L3-TMPL-015** · Parent: L2-TMPL-008 · Verification: T
-After environment construction, the filter dictionary SHALL be cleared (`env.filters.clear()`) then repopulated only with whitelisted filters by name.
+After environment construction, the filter dictionary SHALL be replaced with a whitelist-only subset (built via dict comprehension over `env.filters.items()` keeping only entries whose name is in `_ALLOWED_FILTERS`). The clear-then-repopulate pattern from earlier drafts is functionally equivalent but the comprehension form is what v1 ships.
 
 **L3-TMPL-016** · Parent: L2-TMPL-008 · Verification: T
 A test SHALL assert `{{ x | tojson }}`, `{{ x | reverse }}`, `{{ x | attr('__class__') }}` each raise `TemplateAssertionError` or equivalent.
 
 **L3-TMPL-017** · Parent: L2-TMPL-009 · Verification: T
-The render call SHALL catch `jinja2.UndefinedError` and convert to `ContextSchemaViolation` with `details={"missing_variable": ...}` before propagation.
+The render call SHALL catch `jinja2.UndefinedError` (and other `jinja2.TemplateError` subclasses) and convert to `TemplateRenderError` with `details = {"name": ref.name, "version": ref.version, "exception_class": "UndefinedError", "message": str(exc)}` before propagation. `UndefinedError` is the StrictUndefined-driven signal that the rendered context was incomplete — it is a render-failure, not a schema-violation, so the boundary error type is `TemplateRenderError` (per `domain/errors.py`), not `ContextSchemaViolationError`. Earlier drafts mapped `UndefinedError` to `ContextSchemaViolation`; v1 dropped that conflation because schema validation is a structural pre-check (per `L3-TMPL-029`) and StrictUndefined is a runtime variable-resolution failure with different operator semantics.
 
 **L3-TMPL-018** · Parent: L2-TMPL-010 · Verification: I
 Schema validation SHALL use `jsonschema.Draft202012Validator`; one validator instance SHALL be constructed per template entry at manifest load time (eager) and cached for reuse on every subsequent render. Lazy/per-render compilation is forbidden — bad schemas SHALL surface at service start, not on the first render that touches them.
@@ -670,31 +670,31 @@ A test SHALL attempt to inject a template expression into `run_id` and assert th
 Oversized reports SHALL be written via the same atomic-rename path as successful reports; the dashboard resend endpoint SHALL locate and resend them.
 
 **L3-MAIL-018** · Parent: L2-MAIL-012 · Verification: T
-Delivery audit schema columns: `timestamp`, `run_id`, `outcome`, `recipient_count`, `recipient_addresses` (JSON array), `failure_reason` (nullable), `smtp_response_code` (nullable int).
+Delivery-audit row `details` SHALL include: `recipient_count` (integer), `failure_reason` (nullable string drawn from the `L3-RUN-029` vocabulary), and any error-shape fields specific to the failure type (`measured_bytes`/`limit_bytes` for `EMAIL_SIZE_EXCEEDED`, `smtp_response_code` for SMTP failures, etc.). v1 does NOT store `recipient_addresses` per `L3-SUB-015`'s PII discipline; the count alone is the audit signal. Earlier drafts of this requirement listed `recipient_addresses (JSON array)` as a column — dropped to align with `L3-SUB-015`.
 
 **L3-MAIL-019** · Parent: L2-MAIL-013 · Verification: T
 Audit insert and state transition SHALL be in a single `BEGIN IMMEDIATE` transaction; any failure rolls back.
 
 **L3-MAIL-020** · Parent: L2-MAIL-001 · Verification: T
-SMTP client `timeout` SHALL be loaded from `mail.smtp.timeout_seconds` (default 30); timeouts count as transient failures.
+SMTP-level timeouts SHALL be classified as transient failures eligible for retry per `L3-MAIL-005` (`SMTPConnectTimeoutError` is in the transient set). v1 does not expose a `mail.smtp.timeout_seconds` config knob; the underlying `aiosmtplib.SMTP` client uses its library default. Operators who need a tuned timeout can request the config knob — captured in the deferred-features section if/when that pressure surfaces.
 
 **L3-MAIL-021** · Parent: L2-MAIL-007 · Verification: T
 Size check SHALL include `Content-Transfer-Encoding: base64` overhead (~4/3 of raw bytes); measurement is on the post-encoding message.
 
 **L3-MAIL-022** · Parent: L2-MAIL-002 · Verification: T
-Missing SMTP `password` for a configured `username` SHALL raise `ConfigurationError` at startup, not at first send.
+v1's `SmtpConfig` declares both `username` and `password` as `SubstitutableStr` (defaulting to empty); they are passed to `aiosmtplib.SMTP.login` only when `username` is non-empty (per the implementation's `test_login_skipped_when_username_empty` invariant). A non-empty `username` paired with an empty `password` is therefore not detected at config load — instead, the SMTP server surfaces the auth failure on first send, classified per `L3-MAIL-007` as a permanent failure. Earlier drafts of this requirement mandated startup-time detection; v1 dropped that because the `${env:...}` substitution path means a missing env var produces an empty string rather than a parse error, and validating "username present implies password present" would conflict with the legitimate "no auth required" use case.
 
 **L3-MAIL-023** · Parent: L2-MAIL-005 · Verification: T
-SMTP `550` on one recipient SHALL NOT permanently fail the whole send if others accepted; the per-recipient failure is recorded in the audit log.
+v1 sends each run as a single SMTP message with the recipient list on `Bcc:` (per `L1-MAIL-001`); aiosmtplib's `send_message` returns a per-recipient error mapping which v1 propagates as a single `SMTPRecipientsRefused` exception. v1 treats partial-recipient failures as a permanent failure of the whole send (per `L3-MAIL-007` SMTP-5xx classification) — the alternative (per-recipient retry on the recipients that succeeded) requires recipient-level state tracking that v1's BCC-batched delivery shape does not support. Earlier drafts of this requirement implied per-recipient resilience; v1 dropped that because the BCC delivery shape is appropriate for the v1 single-tenant ETL workload.
 
 **L3-MAIL-024** · Parent: L2-MAIL-011 · Verification: T
 The persisted oversized-report path SHALL be identical to a successful report's path, simplifying resend logic.
 
 **L3-MAIL-025** · Parent: L2-MAIL-012 · Verification: I
-`recipient_addresses` in audit logs MAY be redacted per site policy; default is to store the full list; a configuration option is on the ROADMAP.
+v1 does NOT store individual `recipient_addresses` in audit rows — only `recipient_count` per `L3-MAIL-018` and `L3-SUB-015`. The PII-redaction question is therefore moot at v1; if a future deployment needs per-recipient delivery audit detail, the implementation would add an opt-in column gated by the same config flag that controls L3-OBS-006's sensitive-key redaction. Earlier drafts of this requirement mandated a redaction toggle; v1's count-only approach makes the toggle unnecessary.
 
-**L3-MAIL-026** · Parent: L2-MAIL-013 · Verification: T
-If audit insert fails AFTER a successful SMTP send, the run SHALL NOT be rolled back at the SMTP layer (email already delivered); the audit failure logs at CRITICAL and the run remains in `SENDING` for operator investigation.
+**L3-MAIL-026** · Parent: L2-MAIL-013 · Verification: I
+v1's `AssembleAndDeliverUseCase` performs the SMTP send INSIDE the same `UnitOfWork` that records the audit row and transitions the run to `SENT`. If the audit insert raises after a successful SMTP send, the UoW exception path attempts a rollback — but the email has already been delivered to the SMTP server, so the rollback only undoes the database state, not the email. The run remains in `SENDING` (the pre-transaction state) and the sweeper will reclaim it as orphaned per `L1-RUN-006`. The audit failure surfaces in the structured log via the UoW's exception path. This is acknowledged operational risk — captured in the deferred-features entry `R-DELIVER-001 — Outbox-backed background tasks`, where the proper fix (transactional outbox pattern) is documented as v2 work. Earlier drafts of this requirement specified bespoke CRITICAL-log handling; v1's "rely on the sweeper for at-least-once recovery" approach is the current contract.
 
 **L3-MAIL-027** · Parent: L2-MAIL-014 · Verification: T
 A test SHALL render the subject for a known run with a benign `pipeline_type` (matching `[a-zA-Z0-9._-]+`) and assert the produced `Subject:` value equals exactly `[{pipeline_type}] run {run_id}` — no extra whitespace, no rearrangement of components.

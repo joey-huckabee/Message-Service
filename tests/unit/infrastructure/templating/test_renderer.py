@@ -71,12 +71,14 @@ def renderer(repo: MagicMock) -> Jinja2SandboxedTemplateRenderer:
 
 
 @pytest.mark.requirement("L1-TMPL-002")
+@pytest.mark.requirement("L3-TMPL-013")
 def test_renders_simple_template(renderer: Jinja2SandboxedTemplateRenderer) -> None:
     result = renderer.render(_REF, {"name": "world"})
     assert "world" in result
 
 
 @pytest.mark.requirement("L1-TMPL-002")
+@pytest.mark.requirement("L3-TMPL-013")
 def test_autoescape_escapes_html(
     renderer: Jinja2SandboxedTemplateRenderer,
 ) -> None:
@@ -107,6 +109,7 @@ def test_rejects_non_positive_max_rendered_bytes(repo: MagicMock) -> None:
 
 
 @pytest.mark.requirement("L2-TMPL-009")
+@pytest.mark.requirement("L3-TMPL-017")
 def test_undefined_variable_raises_template_render_error(
     renderer: Jinja2SandboxedTemplateRenderer,
 ) -> None:
@@ -122,6 +125,7 @@ def test_undefined_variable_raises_template_render_error(
 
 
 @pytest.mark.requirement("L2-TMPL-014")
+@pytest.mark.requirement("L3-TMPL-021")
 def test_oversized_context_raises_before_template_invoked(
     repo: MagicMock,
 ) -> None:
@@ -152,6 +156,8 @@ def test_non_json_serializable_context_raises_template_render_error(
 
 
 @pytest.mark.requirement("L2-TMPL-014")
+@pytest.mark.requirement("L3-TMPL-023")
+@pytest.mark.requirement("L3-TMPL-024")
 def test_oversized_render_raises(repo: MagicMock, tmp_path: Path) -> None:
     # Template that emits 10_000 "X" characters.
     src = tmp_path / "big.html.j2"
@@ -185,6 +191,7 @@ def test_oversized_render_raises(repo: MagicMock, tmp_path: Path) -> None:
 
 
 @pytest.mark.requirement("L1-TMPL-002")
+@pytest.mark.requirement("L3-TMPL-014")
 def test_sandbox_blocks_class_attribute_access(repo: MagicMock, tmp_path: Path) -> None:
     """Template attempting to reach __class__ SHALL be rejected by sandbox."""
     src = tmp_path / "evil.html.j2"
@@ -205,6 +212,7 @@ def test_sandbox_blocks_class_attribute_access(repo: MagicMock, tmp_path: Path) 
 
 
 @pytest.mark.requirement("L2-TMPL-007")
+@pytest.mark.requirement("L3-TMPL-014")
 def test_sandbox_has_no_range_global(repo: MagicMock, tmp_path: Path) -> None:
     """Jinja2's default `range` global SHALL NOT be present (explicit empty globals)."""
     src = tmp_path / "uses_range.html.j2"
@@ -228,6 +236,7 @@ def test_sandbox_has_no_range_global(repo: MagicMock, tmp_path: Path) -> None:
 
 
 @pytest.mark.requirement("L2-TMPL-008")
+@pytest.mark.requirement("L3-TMPL-015")
 def test_allowed_filter_works(repo: MagicMock, tmp_path: Path) -> None:
     """The `upper` filter is on the whitelist and SHALL work."""
     src = tmp_path / "upper.html.j2"
@@ -246,6 +255,8 @@ def test_allowed_filter_works(repo: MagicMock, tmp_path: Path) -> None:
 
 
 @pytest.mark.requirement("L2-TMPL-008")
+@pytest.mark.requirement("L3-TMPL-015")
+@pytest.mark.requirement("L3-TMPL-016")
 def test_removed_filter_raises(repo: MagicMock, tmp_path: Path) -> None:
     """A non-whitelisted filter (e.g., `attr`) SHALL NOT resolve."""
     src = tmp_path / "attr_filter.html.j2"
@@ -283,10 +294,14 @@ def test_unknown_template_raises_unknown_template_error(
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-TMPL-027")
 def test_template_compiled_once_per_ref(
     renderer: Jinja2SandboxedTemplateRenderer, repo: MagicMock
 ) -> None:
-    """Subsequent renders of the same ref SHALL NOT re-read the source file."""
+    """L3-TMPL-027: the SandboxedEnvironment is a per-renderer singleton;
+    compiled templates are cached so subsequent renders of the same ref
+    SHALL NOT re-read the source file.
+    """
     renderer.render(_REF, {"name": "first"})
     renderer.render(_REF, {"name": "second"})
     renderer.render(_REF, {"name": "third"})

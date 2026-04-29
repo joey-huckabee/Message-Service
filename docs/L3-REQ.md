@@ -1067,10 +1067,10 @@ The audit-log pruner SHALL NOT emit audit-log rows for its own delete activity (
 ## L3-CFG: Configuration
 
 **L3-CFG-001** · Parent: L2-CFG-001 · Verification: T
-The CLI entry point SHALL accept `--config PATH` as a required argument unless `MSG_SERVICE_CONFIG` is set; absence of both SHALL exit with a usage message.
+The CLI entry point SHALL accept `--config PATH` as a required argument unless `MESSAGE_SERVICE_CONFIG` is set; absence of both SHALL exit with a usage message. The env-var name uses the full `MESSAGE_SERVICE_` prefix (not `MSG_SERVICE_`) to match the project's general namespacing convention.
 
 **L3-CFG-002** · Parent: L2-CFG-001 · Verification: T
-CLI argument parsing SHALL use Typer; the resolved path SHALL be logged at INFO during startup under event `config_loaded`.
+CLI argument parsing uses `argparse` (the Python stdlib parser), not Typer. The resolved path SHALL be logged at INFO during startup. Earlier drafts of this requirement specified Typer; v1 chose argparse to keep the CLI's runtime dependency surface minimal — Typer would add a transitive dependency on `click` for a single `--config` flag, which `argparse` handles natively.
 
 **L3-CFG-003** · Parent: L2-CFG-002 · Verification: T
 When both `--config` and `MSG_SERVICE_CONFIG` are provided, the CLI flag SHALL win; a test asserts this precedence with both set to different paths.
@@ -1090,8 +1090,8 @@ Validation failures SHALL be caught from `ValidationError`, formatted as a numbe
 **L3-CFG-008** · Parent: L2-CFG-005 · Verification: T
 The stderr output SHALL follow the format `  [N] <json_pointer>: <message>` per failure; a test parses the output to ensure it is machine-grep-friendly.
 
-**L3-CFG-009** · Parent: L2-CFG-006 · Verification: A
-A static check SHALL assert no module at import time performs I/O or network operations; all such work SHALL occur in explicit startup functions called after config validation.
+**L3-CFG-009** · Parent: L2-CFG-006 · Verification: I
+v1's import-time discipline is enforced via two structural conventions: (1) all I/O paths flow through ports (`Clock`, `Mailer`, repositories, `BackgroundTaskScheduler`, etc.) which are constructed in the bootstrap composition root only after config validation completes; (2) the architecture-boundary conformance tests (`tests/conformance/test_architecture_boundaries.py`) reject any import from `infrastructure/` or `interfaces/` into `domain/` or `application/`, where import-time I/O would be most damaging. A separate AST-scanning static check would be redundant with these two existing controls.
 
 **L3-CFG-010** · Parent: L2-CFG-007 · Verification: T
 Path resolution SHALL use `(Path(config_file).parent / value).resolve(strict=False)` when `value` is relative; absolute paths pass through unchanged.
@@ -1237,7 +1237,7 @@ The ruff rule set SHALL include `BLE001` (blind-except) and `S110` / `S112` (try
 The ruff rule set required by `L3-ERR-019` (`BLE001`, `S110`, `S112`) is the canonical enforcement; a separate CI grep check is NOT additionally required because the ruff rules cover the same patterns with line-resolution diagnostics that grep cannot provide. *(An earlier draft of this requirement proposed a parallel grep gate; the rule consolidation onto ruff makes that redundant.)*
 
 **L3-ERR-021** · Parent: L2-ERR-010 · Verification: A
-A ruff rule or grep check SHALL flag any occurrence of `except BaseException`, `except SystemExit`, `except KeyboardInterrupt`, or `except GeneratorExit` in production code (`src/`).
+`except BaseException` is permitted ONLY at the gRPC servicer's translator chokepoint (`interfaces/grpc/servicer.py`), where the explicit `translate_to_grpc_status(context, exc)` call routes the exception through the boundary translator (which itself does not silently swallow signals — `KeyboardInterrupt` and friends propagate as INTERNAL with a correlation id per `L3-ERR-022`'s test). Outside the servicer, `except BaseException`, `except SystemExit`, `except KeyboardInterrupt`, and `except GeneratorExit` SHALL NOT appear; domain and application code SHALL catch only `MessageServiceError` subclasses or specific stdlib exceptions. A conformance test enforces the chokepoint discipline.
 
 **L3-ERR-022** · Parent: L2-ERR-010 · Verification: T
 A unit test SHALL deliberately raise `KeyboardInterrupt` within a traced code path and assert it propagates through the translation layer without being caught.

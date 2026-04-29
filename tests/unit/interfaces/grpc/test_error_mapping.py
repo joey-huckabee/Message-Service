@@ -262,6 +262,7 @@ async def test_translate_known_does_not_mutate_original_details() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-017")
+@pytest.mark.requirement("L3-ERR-018")
 @pytest.mark.requirement("L3-API-014")
 @pytest.mark.requirement("L3-API-015")
 @pytest.mark.requirement("L3-API-016")
@@ -388,6 +389,7 @@ async def test_keyboard_interrupt_is_not_caught_by_translator() -> None:
 
 
 @pytest.mark.requirement("L3-ERR-001")
+@pytest.mark.requirement("L3-ERR-003")
 def test_message_service_error_has_required_classvars() -> None:
     """L3-ERR-001: root SHALL declare error_code + http_status + log_level."""
     assert hasattr(MessageServiceError, "error_code")

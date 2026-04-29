@@ -248,6 +248,7 @@ def test_substitution_does_not_apply_to_non_substitutable_field(
 # -----------------------------------------------------------------------------
 
 
+@pytest.mark.requirement("L3-CFG-007")
 @pytest.mark.requirement("L3-CFG-008")
 def test_format_validation_errors_produces_numbered_lines(tmp_path: Path) -> None:
     """Output SHALL match the '  [N] <json_pointer>: <message>' format."""
@@ -266,6 +267,7 @@ def test_format_validation_errors_produces_numbered_lines(tmp_path: Path) -> Non
         assert "] /" in line, f"line did not contain '] /': {line!r}"
 
 
+@pytest.mark.requirement("L3-CFG-007")
 @pytest.mark.requirement("L3-CFG-008")
 def test_format_validation_errors_numbering_starts_at_one(tmp_path: Path) -> None:
     body = _MINIMAL_TOML.replace("port = 50051", "port = 70000").replace(

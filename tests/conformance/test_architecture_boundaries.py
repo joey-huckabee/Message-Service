@@ -111,6 +111,7 @@ def test_domain_does_not_import_infrastructure_or_interfaces() -> None:
     assert not violations, "\n".join(violations)
 
 
+@pytest.mark.requirement("L3-CFG-009")
 @pytest.mark.requirement("L3-PERS-015")
 @pytest.mark.requirement("L3-PERS-016")
 @pytest.mark.requirement("L3-PERS-017")

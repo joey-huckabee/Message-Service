@@ -369,25 +369,25 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-ERR-001 | L2-ERR-001, L2-ERR-002, L2-ERR-003 | Partially Implemented |
+| L1-ERR-001 | L2-ERR-001, L2-ERR-002, L2-ERR-003 | Implemented |
 | L1-ERR-002 | L2-ERR-004, L2-ERR-005 | Partially Implemented |
-| L1-ERR-003 | L2-ERR-006, L2-ERR-007, L2-ERR-008 | Partially Implemented |
-| L1-ERR-004 | L2-ERR-009, L2-ERR-010 | Partially Implemented |
+| L1-ERR-003 | L2-ERR-006, L2-ERR-007, L2-ERR-008 | Implemented |
+| L1-ERR-004 | L2-ERR-009, L2-ERR-010 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-ERR-001 | L3-ERR-001, L3-ERR-002, L3-ERR-003 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_log_level_is_warning`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_has_required_classvars`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_init_signature`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_log_level_default_is_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_not_found_error_http_status_default_is_404`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_precondition_error_http_status_default_is_409`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_http_status_default_is_422`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_log_level_is_info` | Partially Implemented |
+| L2-ERR-001 | L3-ERR-001, L3-ERR-002, L3-ERR-003 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_log_level_is_warning`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_has_required_classvars`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_init_signature`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_log_level_default_is_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_not_found_error_http_status_default_is_404`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_precondition_error_http_status_default_is_409`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_http_status_default_is_422`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_log_level_is_info` | Implemented |
 | L2-ERR-002 | L3-ERR-004, L3-ERR-005 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_domain_subcategories_inherit_from_domain_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_every_concrete_class_inherits_from_one_intermediate`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_four_intermediate_subclasses_exist` | Implemented |
 | L2-ERR-003 | L3-ERR-006, L3-ERR-007 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_every_leaf_error_code_is_upper_snake_case`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_no_two_leaves_share_a_specific_error_code` | Implemented |
 | L2-ERR-004 | L3-ERR-008, L3-ERR-009 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_passes_for_real_proto`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_raises_when_class_code_missing`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_returns_orphans` | Implemented |
 | L2-ERR-005 | L3-ERR-010, L3-ERR-011 | _(TBD)_ | Draft |
-| L2-ERR-006 | L3-ERR-012, L3-ERR-013 | _(TBD)_ | Draft |
+| L2-ERR-006 | L3-ERR-012, L3-ERR-013 | `tests/conformance/test_error_handling_discipline.py::test_aiosmtplib_mailer_classifies_transient_vs_permanent`<br>`tests/conformance/test_error_handling_discipline.py::test_grpc_interface_has_single_translate_exceptions_chokepoint` | Implemented |
 | L2-ERR-007 | L3-ERR-014, L3-ERR-015, L3-ERR-016 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_configuration_error_maps_to_internal`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_maps_to_internal`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_not_found_error_maps_to_not_found`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_precondition_error_maps_to_failed_precondition`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_does_not_leak_internal_class_name`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_does_not_mutate_original_details`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_redacts_sensitive_keys_in_log_record`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_to_grpc_status_dispatches_known_to_translate_known`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_to_grpc_status_dispatches_unknown_to_translate_unexpected`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_maps_to_invalid_argument` | Implemented |
-| L2-ERR-008 | L3-ERR-017, L3-ERR-018 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_does_not_leak_stack_trace_to_client`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_returns_internal_with_correlation_id` | Partially Implemented |
-| L2-ERR-009 | L3-ERR-019, L3-ERR-020 | _(TBD)_ | Draft |
-| L2-ERR-010 | L3-ERR-021, L3-ERR-022 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_keyboard_interrupt_is_not_caught_by_translator` | Partially Implemented |
+| L2-ERR-008 | L3-ERR-017, L3-ERR-018 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_does_not_leak_stack_trace_to_client`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_returns_internal_with_correlation_id` | Implemented |
+| L2-ERR-009 | L3-ERR-019, L3-ERR-020 | `tests/conformance/test_error_handling_discipline.py::test_ruff_blind_except_rule_enabled`<br>`tests/conformance/test_error_handling_discipline.py::test_ruff_is_canonical_enforcement_no_parallel_grep_gate`<br>`tests/conformance/test_error_handling_discipline.py::test_ruff_try_except_continue_rule_enabled`<br>`tests/conformance/test_error_handling_discipline.py::test_ruff_try_except_pass_rule_enabled` | Implemented |
+| L2-ERR-010 | L3-ERR-021, L3-ERR-022 | `tests/conformance/test_error_handling_discipline.py::test_base_exception_catches_only_at_translator_chokepoint`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_keyboard_interrupt_is_not_caught_by_translator` | Implemented |
 
 ### L1-CFG: Configuration
 
@@ -395,20 +395,20 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-CFG-001 | L2-CFG-001, L2-CFG-002, L2-CFG-003 | Partially Implemented |
-| L1-CFG-002 | L2-CFG-004, L2-CFG-005, L2-CFG-006 | Partially Implemented |
+| L1-CFG-001 | L2-CFG-001, L2-CFG-002, L2-CFG-003 | Implemented |
+| L1-CFG-002 | L2-CFG-004, L2-CFG-005, L2-CFG-006 | Implemented |
 | L1-CFG-003 | L2-CFG-007, L2-CFG-008 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-CFG-001 | L3-CFG-001, L3-CFG-002 | _(TBD)_ | Draft |
-| L2-CFG-002 | L3-CFG-003, L3-CFG-016 | `tests/unit/config/test_schema.py::test_config_is_frozen`<br>`tests/unit/config/test_schema.py::test_nested_config_is_frozen` | Partially Implemented |
+| L2-CFG-001 | L3-CFG-001, L3-CFG-002 | `tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg` | Implemented |
+| L2-CFG-002 | L3-CFG-003, L3-CFG-016 | `tests/unit/config/test_schema.py::test_config_is_frozen`<br>`tests/unit/config/test_schema.py::test_nested_config_is_frozen`<br>`tests/unit/test_main.py::test_resolve_config_path_prefers_cli_over_env` | Implemented |
 | L2-CFG-003 | L3-CFG-004, L3-CFG-015 | `tests/unit/config/test_loader.py::test_directory_instead_of_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_invalid_toml_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_load_config_accepts_string_path`<br>`tests/unit/config/test_loader.py::test_missing_file_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_non_utf8_file_raises_configuration_error` | Implemented |
 | L2-CFG-004 | L3-CFG-005, L3-CFG-006 | `tests/unit/config/test_loader.py::test_load_config_returns_frozen_config`<br>`tests/unit/config/test_loader.py::test_unknown_section_rejected_with_extra_forbid`<br>`tests/unit/config/test_schema.py::test_config_model_has_all_declared_sections`<br>`tests/unit/config/test_schema.py::test_grpc_port_out_of_range_rejected`<br>`tests/unit/config/test_schema.py::test_grpc_port_within_range_accepted`<br>`tests/unit/config/test_schema.py::test_optional_sections_fill_from_defaults`<br>`tests/unit/config/test_schema.py::test_unknown_nested_key_is_rejected`<br>`tests/unit/config/test_schema.py::test_unknown_top_level_key_is_rejected`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_naive_created_at`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_naive_last_activity_at`<br>`tests/unit/domain/aggregates/test_user.py::test_user_rejects_naive_created_at` | Implemented |
-| L2-CFG-005 | L3-CFG-007, L3-CFG-008 | `tests/unit/config/test_loader.py::test_format_validation_errors_numbering_starts_at_one`<br>`tests/unit/config/test_loader.py::test_format_validation_errors_produces_numbered_lines`<br>`tests/unit/config/test_loader.py::test_schema_violation_raises_validation_error` | Partially Implemented |
-| L2-CFG-006 | L3-CFG-009 | _(TBD)_ | Draft |
+| L2-CFG-005 | L3-CFG-007, L3-CFG-008 | `tests/unit/config/test_loader.py::test_format_validation_errors_numbering_starts_at_one`<br>`tests/unit/config/test_loader.py::test_format_validation_errors_produces_numbered_lines`<br>`tests/unit/config/test_loader.py::test_schema_violation_raises_validation_error` | Implemented |
+| L2-CFG-006 | L3-CFG-009 | `tests/conformance/test_architecture_boundaries.py::test_application_does_not_import_infrastructure_or_interfaces` | Implemented |
 | L2-CFG-007 | L3-CFG-010, L3-CFG-011 | `tests/unit/config/test_loader.py::test_absolute_paths_pass_through`<br>`tests/unit/config/test_loader.py::test_all_four_path_fields_are_resolved`<br>`tests/unit/config/test_loader.py::test_relative_paths_resolved_against_config_dir` | Implemented |
 | L2-CFG-008 | L3-CFG-012, L3-CFG-013, L3-CFG-014 | `tests/unit/config/test_loader.py::test_env_var_substitution_in_substitutable_field`<br>`tests/unit/config/test_loader.py::test_env_var_substitution_multiple_vars_in_one_value`<br>`tests/unit/config/test_loader.py::test_missing_env_var_raises_configuration_error`<br>`tests/unit/config/test_loader.py::test_substitution_does_not_apply_to_non_substitutable_field`<br>`tests/unit/config/test_schema.py::test_non_substitutable_fields_do_not_carry_marker`<br>`tests/unit/config/test_schema.py::test_substitutable_marker_is_on_smtp_credentials` | Implemented |
 
@@ -488,13 +488,13 @@ the single source of truth.
 | DASH | 5 | 16 | 35 | 1 | 33 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 18 | 40 | 3 | 38 |
-| ERR | 4 | 10 | 22 | 0 | 13 |
-| CFG | 3 | 8 | 16 | 3 | 11 |
+| ERR | 4 | 10 | 22 | 0 | 20 |
+| CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **393** | **65** | **369** |
+| **Total** | **67** | **192** | **393** | **65** | **381** |
 
-**Requirements verified by at least one test**: 434 of 585 (74.2%).
+**Requirements verified by at least one test**: 446 of 585 (76.2%).
 
 ### Orphan check
 

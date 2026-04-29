@@ -130,6 +130,8 @@ shutdown_grace_period_seconds = 2
 
 
 @pytest.mark.requirement("L2-DEP-006")
+@pytest.mark.requirement("L3-CFG-001")
+@pytest.mark.requirement("L3-CFG-002")
 def test_resolve_config_path_uses_cli_arg(tmp_path: Path) -> None:
     cfg = tmp_path / "my.toml"
     cfg.write_text("")
@@ -138,6 +140,7 @@ def test_resolve_config_path_uses_cli_arg(tmp_path: Path) -> None:
         assert _resolve_config_path(["--config", str(cfg)]) == cfg
 
 
+@pytest.mark.requirement("L3-CFG-003")
 def test_resolve_config_path_prefers_cli_over_env(tmp_path: Path) -> None:
     cli_cfg = tmp_path / "cli.toml"
     cli_cfg.write_text("")

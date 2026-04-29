@@ -35,6 +35,7 @@ L3-RUN-001, L3-RUN-004, L3-RUN-013, L3-RUN-014, L3-RUN-016,
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 from message_service.application.ports.clock import Clock, iso_z
 from message_service.application.ports.metrics_recorder import (
@@ -53,6 +54,7 @@ from message_service.domain.aggregates.audit_event import (
 from message_service.domain.aggregates.declared_stage import DeclaredStage
 from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
+from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
     DuplicateStageIdError,
     MissingAggregationTemplateError,
@@ -63,6 +65,11 @@ from message_service.domain.errors import (
 from message_service.domain.ids import RunId, StageId, new_run_id
 from message_service.domain.state_machines.run_states import RunState
 from message_service.domain.state_machines.stage_states import StageState
+
+# L3-TMPL-009: the literal sentinel string `"latest"` (case-sensitive,
+# lowercase). Any other value is treated as an explicit version and is
+# passed through resolution unchanged.
+_LATEST_SENTINEL = "latest"
 
 
 class BeginRunUseCase:
@@ -115,6 +122,49 @@ class BeginRunUseCase:
         self._uow_factory = uow_factory
         self._clock = clock
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
+
+    def _maybe_resolve_latest(
+        self,
+        ref: TemplateRef | None,
+        *,
+        role: str,
+        stage_id: str | None = None,
+    ) -> TemplateRef | None:
+        """Resolve a `"latest"` sentinel to a pinned version, or pass through.
+
+        Per L3-TMPL-009/010: when ``ref.version`` is the literal
+        sentinel string ``"latest"``, call
+        :meth:`TemplateRepository.resolve_latest` to obtain a
+        :class:`TemplateRef` with the highest-semver canonical
+        version. Any other version is passed through unchanged
+        (validated separately by the existence check at step 5b).
+
+        ``None`` input passes through (the caller is iterating over
+        an optional aggregation_template_ref).
+
+        Failure path: ``resolve_latest`` raises
+        :class:`UnknownTemplateError` when no manifest entry matches
+        the ``name``. We catch and re-raise with the same role-aware
+        details shape the existence-check errors use, so callers see
+        a consistent error envelope across the two failure modes
+        (unknown name vs. unknown version).
+        """
+        if ref is None or ref.version != _LATEST_SENTINEL:
+            return ref
+        try:
+            return self._template_repo.resolve_latest(ref.name)
+        except UnknownTemplateError as exc:
+            details: dict[str, str] = {
+                "name": ref.name,
+                "version": ref.version,
+                "role": role,
+            }
+            if stage_id is not None:
+                details["stage_id"] = stage_id
+            raise UnknownTemplateError(
+                f"unknown {role}: no manifest entries for name {ref.name!r}",
+                details=details,
+            ) from exc
 
     async def execute(self, cmd: BeginRunCommand) -> RunId:
         """Validate, mint, persist, audit, and return the new ``RunId``.
@@ -186,30 +236,55 @@ class BeginRunUseCase:
             )
 
         # ---------------------------------------------------------------
-        # 5. Template existence (L2-RUN-010 / L3-RUN-016 / L3-RUN-017)
+        # 5a. Resolve any `"latest"` version sentinels (L3-TMPL-009/010 /
+        #     L3-TMPL-011). Resolution happens BEFORE the existence
+        #     check (5b) and BEFORE the aggregate is constructed (6),
+        #     so the Run aggregate carries pinned versions, not the
+        #     literal sentinel. Subsequent manifest updates SHALL NOT
+        #     mutate already-initiated runs (L3-TMPL-011 freeze).
+        # ---------------------------------------------------------------
+        resolved_aggregation_ref = self._maybe_resolve_latest(
+            cmd.aggregation_template_ref,
+            role="aggregation_template",
+        )
+        # _maybe_resolve_latest always returns a non-None TemplateRef when
+        # given a non-None input. The cast is purely for type-narrowing.
+        resolved_stage_refs: tuple[TemplateRef, ...] = tuple(
+            cast(
+                "TemplateRef",
+                self._maybe_resolve_latest(
+                    ds.report_template_ref,
+                    role="report_template",
+                    stage_id=ds.stage_id,
+                ),
+            )
+            for ds in cmd.declared_stages
+        )
+
+        # ---------------------------------------------------------------
+        # 5b. Template existence (L2-RUN-010 / L3-RUN-016 / L3-RUN-017)
         # ---------------------------------------------------------------
         # PER_STAGE silently ignores aggregation_template_ref per L3-RUN-018.
         if (
             cmd.attachment_mode is AttachmentMode.SINGLE_AGGREGATED
-            and cmd.aggregation_template_ref is not None
-            and not self._template_repo.exists(cmd.aggregation_template_ref)
+            and resolved_aggregation_ref is not None
+            and not self._template_repo.exists(resolved_aggregation_ref)
         ):
             raise UnknownTemplateError(
-                f"unknown aggregation_template: {cmd.aggregation_template_ref!r}",
+                f"unknown aggregation_template: {resolved_aggregation_ref!r}",
                 details={
-                    "name": cmd.aggregation_template_ref.name,
-                    "version": cmd.aggregation_template_ref.version,
+                    "name": resolved_aggregation_ref.name,
+                    "version": resolved_aggregation_ref.version,
                     "role": "aggregation_template",
                 },
             )
-        for ds in cmd.declared_stages:
-            if not self._template_repo.exists(ds.report_template_ref):
+        for ds, resolved_ref in zip(cmd.declared_stages, resolved_stage_refs, strict=True):
+            if not self._template_repo.exists(resolved_ref):
                 raise UnknownTemplateError(
-                    f"unknown report_template for stage {ds.stage_id!r}: "
-                    f"{ds.report_template_ref!r}",
+                    f"unknown report_template for stage {ds.stage_id!r}: {resolved_ref!r}",
                     details={
-                        "name": ds.report_template_ref.name,
-                        "version": ds.report_template_ref.version,
+                        "name": resolved_ref.name,
+                        "version": resolved_ref.version,
                         "role": "report_template",
                         "stage_id": ds.stage_id,
                     },
@@ -222,8 +297,10 @@ class BeginRunUseCase:
         now = self._clock.now()
 
         # PER_STAGE mode: silently drop any supplied aggregation_template_ref.
+        # Use the resolved ref so any `"latest"` from the request lands
+        # on the aggregate as the pinned canonical version.
         effective_aggregation_ref = (
-            cmd.aggregation_template_ref
+            resolved_aggregation_ref
             if cmd.attachment_mode is AttachmentMode.SINGLE_AGGREGATED
             else None
         )
@@ -232,9 +309,9 @@ class BeginRunUseCase:
             DeclaredStage(
                 stage_id=StageId(ds.stage_id),
                 stage_order=ds.stage_order,
-                report_template_ref=ds.report_template_ref,
+                report_template_ref=resolved_ref,
             )
-            for ds in cmd.declared_stages
+            for ds, resolved_ref in zip(cmd.declared_stages, resolved_stage_refs, strict=True)
         )
 
         run = Run(

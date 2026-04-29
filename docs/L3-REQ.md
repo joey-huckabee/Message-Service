@@ -53,13 +53,13 @@ The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statemen
 The gRPC server SHALL be instantiated with `maximum_concurrent_rpcs` loaded from configuration key `grpc.max_concurrent_rpcs` (default 100).
 
 **L3-API-002** · Parent: L2-API-001 · Verification: I
-The gRPC server SHALL register a logging interceptor that binds `correlation_id` to the structlog context at RPC entry and clears it in a `finally` block.
+*(Deferred to v2 — see ROADMAP `R-API-001`.)* v1 emits `correlation_id` only on the unexpected-error path (`L3-ERR-017` / `L3-API-014`); the per-RPC structlog interceptor that would bind a correlation id at RPC entry on every call (success and failure) is deferred. The current shape is sufficient for the v1 single-tenant ISOLAN deployment because failure paths are the ones operators trace; correlation across success paths becomes useful when the service participates in a larger distributed tracing context, paired with the `R-OBS-001` distributed-tracing item.
 
 **L3-API-003** · Parent: L2-API-002 · Verification: I
-The `pyproject.toml` dependency on `message-service-proto` SHALL pin to a specific git tag (not a branch) for production builds; the local-path variant is permitted only during development and SHALL NOT be committed to main.
+*(Deferred to v2 — see ROADMAP `R-API-001`.)* v1's `pyproject.toml` declares `message-service-proto` as a local-path develop dependency (`{ path = "../message-service-proto", develop = true }`) because the proto package has not yet been published to a release registry or git-tagged for external consumption. Until the proto package gains a published release cadence, pinning to a git tag would be ceremony without a stable artifact to pin to. Future work, paired with the proto-package release: switch to a tag-pinned dependency and gate `develop = true` to local development workflows only.
 
 **L3-API-004** · Parent: L2-API-002 · Verification: I
-A CI check SHALL fail the build if the installed `message_service_proto.__version__` differs from the version recorded in the Poetry lockfile.
+*(Deferred to v2 — see ROADMAP `R-API-001`.)* Companion to `L3-API-003`'s tag-pinning mechanic — the CI version-mismatch check is meaningful only once the proto dependency carries a versioned identifier (git tag or registry pin). Until then, the local-path develop dependency makes the lockfile and the installed `message_service_proto.__version__` definitionally consistent (Poetry resolves the local source on every `install`), so the check would tautologically pass.
 
 **L3-API-005** · Parent: L2-API-003 · Verification: T
 A unit test SHALL enumerate the registered servicer methods and assert the set equals `{"BeginRun", "SubmitStageReport", "FinalizeRun"}`.
@@ -165,16 +165,16 @@ When `attachment_mode` is `PER_STAGE`, a submitted `aggregation_template` SHALL 
 `MissingAggregationTemplate.details` SHALL include `attachment_mode` echoed back for clarity.
 
 **L3-RUN-020** · Parent: L2-RUN-012 · Verification: T
-`FinalizeRun` against a run not in `AGGREGATING` SHALL raise `InvalidRunState` with `details={"current_state": ..., "run_id": ...}`.
+`FinalizeRun` against a run not in `AGGREGATING` SHALL raise `InvalidRunStateError` with `details={"run_state": ..., "required_state": "AGGREGATING"}`. The `run_state` value is the `.value` of the offending `RunState` enum (e.g., `"INITIATED"`); `required_state` is the literal string `"AGGREGATING"`. The run_id is recoverable from the failed command and is not duplicated into the error details.
 
 **L3-RUN-021** · Parent: L2-RUN-012 · Verification: T
-`FinalizeRun` against a run in `INITIATED` SHALL be permitted only if `declared_stages` was empty; otherwise rejected.
+`FinalizeRun` against a run in `INITIATED` (or any non-`AGGREGATING` state) SHALL be rejected with `InvalidRunStateError` per `L3-RUN-020`. v1 does not implement an empty-`declared_stages` short-circuit at finalize time; instead, the empty-stages case is handled by the submission path (a run with zero declared stages cannot collect any submissions and therefore cannot reach `AGGREGATING`, which is correct — operators who want a no-op run should not call `FinalizeRun`). The earlier draft of this L3 permitted an INITIATED → READY shortcut for zero-stage runs; that complicated the state machine for negligible operator value and was dropped in favor of `L3-RUN-020`'s uniform rule.
 
 **L3-RUN-022** · Parent: L2-RUN-013 · Verification: T
 The assembly task SHALL be created via `asyncio.create_task()` and stored in a service-lifetime set to prevent garbage collection; `FinalizeRun` returns before the task completes.
 
 **L3-RUN-023** · Parent: L2-RUN-013 · Verification: T
-If the assembly task fails with an unhandled exception, the error SHALL be logged at ERROR and the run SHALL transition to `FAILED`; the original `FinalizeRun` response is unaffected.
+The assembly task is responsible for its own state-transition handling: if it raises a `MessageServiceError`-derived exception (template render, size violation, email delivery), `AssembleAndDeliverUseCase` SHALL transition the run to `FAILED` (recording a `failure_reason` per `L3-RUN-029`) and SHALL return without re-raising. If an unhandled non-`MessageServiceError` exception escapes the use case, `AsyncioScheduler` SHALL log the failure at ERROR and SHALL NOT propagate it to sibling tasks (the scheduler-suppression contract); in that case the run remains in `READY` and is reclaimed on the next sweeper tick. The original `FinalizeRun` response is unaffected by either path.
 
 **L3-RUN-024** · Parent: L2-RUN-014 · Verification: I, T
 The `Clock` port SHALL expose `now() -> datetime` returning a timezone-aware UTC `datetime`; implementations are `SystemClock` and `FakeClock`.
@@ -192,7 +192,7 @@ If the audit insert fails, the state update SHALL NOT be attempted; the transact
 Direct transitions from any non-terminal state to `FAILED` SHALL be permitted without intermediate steps, supporting abort-on-error paths.
 
 **L3-RUN-029** · Parent: L2-RUN-004 · Verification: T
-The `SENDING -> FAILED` transition SHALL record a `failure_reason` enum from `{EMAIL_SIZE_EXCEEDED, PERMANENT_SMTP_FAILURE, INTERNAL_ERROR}` in the audit record.
+Every transition into `FAILED` from the assembly + delivery pipeline SHALL record a `failure_reason` string in the audit row's `details`. The reason vocabulary is the closed set `{TEMPLATE_RENDER, RENDERED_SIZE_EXCEEDED, CONTEXT_SIZE_EXCEEDED, EMAIL_DELIVERY, EMAIL_SIZE_EXCEEDED}`, mapping one-to-one to the `MessageServiceError` subtype that triggered the transition. (Earlier drafts proposed a smaller set of `{EMAIL_SIZE_EXCEEDED, PERMANENT_SMTP_FAILURE, INTERNAL_ERROR}`; the implemented vocabulary is more granular and matches the exception hierarchy in `domain/errors.py`.) The `SENDING -> FAILED` edge specifically is reached on the `EMAIL_SIZE_EXCEEDED` (per `L3-MAIL-030`) and `EMAIL_DELIVERY` (retries-exhausted) paths.
 
 **L3-RUN-030** · Parent: L2-RUN-002 · Verification: T
 `RunState` SHALL be a Python `enum.StrEnum` in `domain/state_machines/run_states.py`; comparisons use identity (`is`) in domain code.

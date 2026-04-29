@@ -607,6 +607,8 @@ async def test_finalize_run_happy_path(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-API-008")
+@pytest.mark.requirement("L3-API-011")
+@pytest.mark.requirement("L3-API-012")
 async def test_unknown_pipeline_translates_to_invalid_argument(
     grpc_client: pb_grpc.MessageServiceStub,
 ) -> None:
@@ -625,6 +627,7 @@ async def test_unknown_pipeline_translates_to_invalid_argument(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-API-009")
+@pytest.mark.requirement("L3-API-013")
 async def test_submit_to_unknown_run_translates_to_not_found(
     grpc_client: pb_grpc.MessageServiceStub,
 ) -> None:

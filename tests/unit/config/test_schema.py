@@ -161,6 +161,7 @@ def test_non_substitutable_fields_do_not_carry_marker() -> None:
 
 
 @pytest.mark.requirement("L2-CFG-004")
+@pytest.mark.requirement("L3-API-010")
 @pytest.mark.parametrize("port", [0, -1, 65_536, 99_999])
 def test_grpc_port_out_of_range_rejected(tmp_path: Path, port: int) -> None:
     data = _minimal_valid_data(tmp_path)
@@ -170,6 +171,7 @@ def test_grpc_port_out_of_range_rejected(tmp_path: Path, port: int) -> None:
 
 
 @pytest.mark.requirement("L2-CFG-004")
+@pytest.mark.requirement("L3-API-010")
 @pytest.mark.parametrize("port", [1, 587, 8080, 65_535])
 def test_grpc_port_within_range_accepted(tmp_path: Path, port: int) -> None:
     data = _minimal_valid_data(tmp_path)
@@ -180,6 +182,44 @@ def test_grpc_port_within_range_accepted(tmp_path: Path, port: int) -> None:
     data["dashboard"]["port"] = port + 1 if port < 65_535 else port - 1  # type: ignore[index]
     cfg = Config.model_validate(data)
     assert cfg.grpc.port == port
+
+
+# -----------------------------------------------------------------------------
+# L3-API-001 / L3-API-009: GrpcConfig defaults + max_concurrent_rpcs
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-API-009")
+def test_grpc_config_defaults_when_keys_missing() -> None:
+    """L3-API-009: ``grpc`` section with no host/port SHALL use defaults
+    rather than failing startup. Default host = "0.0.0.0"; default port = 50051.
+    """
+    cfg = GrpcConfig.model_validate({})
+    assert cfg.host == "0.0.0.0"
+    assert cfg.port == 50_051
+
+
+@pytest.mark.requirement("L3-API-001")
+def test_grpc_config_max_concurrent_rpcs_default_is_100() -> None:
+    """L3-API-001: ``max_concurrent_rpcs`` default SHALL be 100."""
+    cfg = GrpcConfig.model_validate({})
+    assert cfg.max_concurrent_rpcs == 100
+
+
+@pytest.mark.requirement("L3-API-001")
+def test_grpc_config_max_concurrent_rpcs_must_be_positive() -> None:
+    """L3-API-001: zero or negative SHALL be rejected at validation time."""
+    with pytest.raises(ValidationError):
+        GrpcConfig.model_validate({"port": 50051, "max_concurrent_rpcs": 0})
+    with pytest.raises(ValidationError):
+        GrpcConfig.model_validate({"port": 50051, "max_concurrent_rpcs": -1})
+
+
+@pytest.mark.requirement("L3-API-001")
+def test_grpc_config_max_concurrent_rpcs_override_accepted() -> None:
+    """L3-API-001: an operator-supplied value SHALL be honored."""
+    cfg = GrpcConfig.model_validate({"max_concurrent_rpcs": 250})
+    assert cfg.max_concurrent_rpcs == 250
 
 
 # -----------------------------------------------------------------------------

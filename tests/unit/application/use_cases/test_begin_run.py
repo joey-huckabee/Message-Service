@@ -225,11 +225,15 @@ async def test_run_and_stages_share_clock_timestamp(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-010")
+@pytest.mark.requirement("L3-RUN-011")
 async def test_unknown_pipeline_type_raises(use_case: BeginRunUseCase) -> None:
     with pytest.raises(UnknownPipelineTypeError) as exc_info:
         await use_case.execute(_valid_command(pipeline_type="not-registered"))
+    # L3-RUN-011: details SHALL include `submitted` and `allowed` (sorted list).
     assert exc_info.value.details["submitted"] == "not-registered"
-    assert "etl-nightly" in exc_info.value.details["allowed"]
+    allowed = exc_info.value.details["allowed"]
+    assert "etl-nightly" in allowed
+    assert allowed == sorted(allowed), f"`allowed` is not sorted: {allowed}"
 
 
 @pytest.mark.asyncio

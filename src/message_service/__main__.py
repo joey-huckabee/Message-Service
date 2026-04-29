@@ -123,7 +123,9 @@ async def _build_grpc_server(service: Service) -> tuple[grpc.aio.Server, str]:
     Separated from :func:`_run` so tests can exercise construction
     independently of the blocking main loop.
     """
-    server = grpc.aio.server()
+    server = grpc.aio.server(
+        maximum_concurrent_rpcs=service.config.grpc.max_concurrent_rpcs,
+    )
     register(server, service)
 
     bind_address = f"{service.config.grpc.host}:{service.config.grpc.port}"

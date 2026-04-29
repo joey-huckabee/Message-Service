@@ -201,6 +201,8 @@ async def test_happy_path_calls_run_repo_update_state(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-RUN-012")
+@pytest.mark.requirement("L3-RUN-020")
+@pytest.mark.requirement("L3-RUN-021")
 @pytest.mark.parametrize(
     "wrong_state",
     [
@@ -306,6 +308,31 @@ async def test_audit_recorded_before_state_update(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-027")
+async def test_audit_failure_prevents_state_update(
+    use_case: FinalizeRunUseCase,
+    uow_bundle: tuple[MagicMock, AsyncMock, AsyncMock, Any, Any, AsyncMock],
+    scheduler: MagicMock,
+) -> None:
+    """L3-RUN-027: when ``audit_log.record`` raises, the state update SHALL
+    NOT be attempted; the exception propagates and the UoW exception path
+    rolls back. The background task SHALL NOT be scheduled because
+    scheduling happens after the UoW commits cleanly.
+    """
+    _, _uow, run_repo, _, _, audit_log = uow_bundle
+    run_repo.get.return_value = _sample_run()
+    audit_log.record.side_effect = RuntimeError("simulated audit-row insert failure")
+
+    with pytest.raises(RuntimeError, match="simulated audit-row insert failure"):
+        await use_case.execute(_valid_cmd())
+
+    # State update SHALL NOT have been attempted (audit ran first and failed).
+    run_repo.update_state.assert_not_called()
+    # Background scheduling SHALL NOT have happened (it requires a clean commit).
+    scheduler.schedule.assert_not_called()
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L1-RUN-005")
 @pytest.mark.requirement("L3-OBS-027")
 async def test_audit_event_captures_finalize_run_transition(
@@ -334,6 +361,7 @@ async def test_audit_event_captures_finalize_run_transition(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-RUN-013")
+@pytest.mark.requirement("L3-RUN-022")
 async def test_background_task_scheduled_after_commit(
     use_case: FinalizeRunUseCase,
     uow_bundle: tuple[MagicMock, AsyncMock, AsyncMock, Any, Any, Any],
@@ -381,6 +409,7 @@ async def test_scheduled_task_has_descriptive_name(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-RUN-013")
+@pytest.mark.requirement("L3-RUN-022")
 async def test_execute_returns_before_background_runs(
     use_case: FinalizeRunUseCase,
     uow_bundle: tuple[MagicMock, Any, AsyncMock, Any, Any, Any],

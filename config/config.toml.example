@@ -31,6 +31,9 @@
 # transport security is handled by the network layer.
 host = "0.0.0.0"
 port = 50051
+# Cap of concurrent in-flight RPCs at the server level (L3-API-001).
+# gRPC queues excess; tune up for higher-fanout pipelines.
+max_concurrent_rpcs = 100
 
 [dashboard]
 # FastAPI dashboard listener. Expose only on the management interface.

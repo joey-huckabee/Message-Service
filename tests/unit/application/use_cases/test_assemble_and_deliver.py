@@ -625,6 +625,8 @@ async def test_zero_recipients_still_transitions_to_sent(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AGGR-007")
+@pytest.mark.requirement("L3-RUN-023")
+@pytest.mark.requirement("L3-RUN-029")
 async def test_template_render_error_transitions_to_failed(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
@@ -659,6 +661,7 @@ async def test_template_render_error_transitions_to_failed(
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AGGR-007")
+@pytest.mark.requirement("L3-RUN-029")
 async def test_rendered_size_exceeded_transitions_to_failed(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, Any, AsyncMock],
@@ -686,6 +689,7 @@ async def test_rendered_size_exceeded_transitions_to_failed(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-029")
 async def test_context_size_exceeded_transitions_to_failed(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, Any, AsyncMock],
@@ -719,6 +723,7 @@ async def test_context_size_exceeded_transitions_to_failed(
 @pytest.mark.asyncio
 @pytest.mark.requirement("L1-MAIL-001")
 @pytest.mark.requirement("L3-OBS-037")
+@pytest.mark.requirement("L3-RUN-029")
 async def test_email_delivery_error_transitions_to_failed(
     use_case: AssembleAndDeliverUseCase,
     uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],

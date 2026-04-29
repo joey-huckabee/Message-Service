@@ -121,8 +121,12 @@ async def test_task_removed_from_set_after_completion() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-RUN-013")
+@pytest.mark.requirement("L3-RUN-023")
 async def test_raising_coroutine_does_not_propagate() -> None:
-    """An unhandled exception in a scheduled coroutine SHALL NOT escape."""
+    """L2-RUN-013 / L3-RUN-023: an unhandled exception in a scheduled
+    coroutine SHALL NOT escape; the scheduler logs at ERROR and moves on,
+    so the original FinalizeRun response is unaffected.
+    """
     sched = AsyncioBackgroundTaskScheduler()
 
     async def broken() -> None:

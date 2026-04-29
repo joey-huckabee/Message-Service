@@ -72,10 +72,17 @@ class _FrozenForbid(BaseModel):
 
 
 class GrpcConfig(_FrozenForbid):
-    """gRPC listener configuration (L2-API-007)."""
+    """gRPC listener configuration (L2-API-007).
+
+    ``max_concurrent_rpcs`` caps in-flight RPCs at the server level
+    per L3-API-001; excess requests are queued by gRPC's internal
+    scheduler. Default 100 is generous for the v1 single-tenant ETL
+    workload while still bounding pathological burst behavior.
+    """
 
     host: str = Field(default="0.0.0.0", min_length=1)
-    port: int = Field(ge=1, le=65_535)
+    port: int = Field(default=50_051, ge=1, le=65_535)
+    max_concurrent_rpcs: int = Field(default=100, ge=1)
 
 
 class DashboardConfig(_FrozenForbid):

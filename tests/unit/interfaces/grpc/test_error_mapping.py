@@ -167,6 +167,7 @@ def test_configuration_error_maps_to_internal() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-015")
+@pytest.mark.requirement("L3-API-011")
 async def test_translate_known_aborts_with_error_code_in_trailing_metadata() -> None:
     """L3-ERR-015 (reworded): trailing metadata SHALL carry x-message-service-error-code."""
     ctx = _FakeServicerContext()
@@ -259,8 +260,16 @@ async def test_translate_known_does_not_mutate_original_details() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-017")
+@pytest.mark.requirement("L3-API-014")
+@pytest.mark.requirement("L3-API-015")
+@pytest.mark.requirement("L3-API-016")
 async def test_translate_unexpected_returns_internal_with_correlation_id() -> None:
-    """L3-ERR-017: unhandled exceptions SHALL surface a uuid4-hex correlation id."""
+    """L3-ERR-017 / L3-API-014: unhandled exceptions SHALL surface a uuid4-hex
+    correlation id (32 hex chars, no hyphens). L3-API-015: the same id SHALL
+    appear in trailing metadata AND the public details string. L3-API-016:
+    the public details message SHALL be exactly
+    `"internal error (correlation id: {id})"`.
+    """
     ctx = _FakeServicerContext()
     exc = RuntimeError("something went wrong")
     with pytest.raises(_AbortRaisedError):
@@ -273,9 +282,11 @@ async def test_translate_unexpected_returns_internal_with_correlation_id() -> No
     # uuid4().hex is 32 hex chars, no hyphens (L3-API-014).
     assert len(correlation_id) == 32
     assert all(c in "0123456789abcdef" for c in correlation_id)
-    # The correlation id SHALL also appear in the public details
-    # string so an operator can grep the log for it.
+    # L3-API-015: the same correlation id SHALL also appear in the
+    # public details string so an operator can grep the log for it.
     assert correlation_id in abort.details
+    # L3-API-016: the exact detail-message format.
+    assert abort.details == f"internal error (correlation id: {correlation_id})"
 
 
 @pytest.mark.asyncio
@@ -505,8 +516,11 @@ def test_no_two_leaves_share_a_specific_error_code() -> None:
 
 
 @pytest.mark.requirement("L3-ERR-008")
+@pytest.mark.requirement("L3-API-018")
 def test_assert_error_codes_match_proto_enum_passes_for_real_proto() -> None:
-    """L3-ERR-008: every leaf class's error_code SHALL be in the real proto enum."""
+    """L3-ERR-008 / L3-API-018: every leaf class's error_code SHALL be in
+    the real proto enum (a static-analysis check enforced at import time).
+    """
     from message_service_proto.v1 import message_service_pb2
 
     from message_service.domain.errors import assert_error_codes_match_proto_enum

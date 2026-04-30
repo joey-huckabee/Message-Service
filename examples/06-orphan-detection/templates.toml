@@ -1,0 +1,17 @@
+[[template]]
+name = "email_body"
+version = "1.0"
+kind = "EMAIL_BODY"
+source_path = "C:/Users/Joey/Documents/GIT-GitHub/joey-huckabee/Message-Service/examples/06-orphan-detection/templates/email_body.html.j2"
+
+[[template]]
+name = "fragment"
+version = "1.0"
+kind = "REPORT_FRAGMENT"
+source_path = "C:/Users/Joey/Documents/GIT-GitHub/joey-huckabee/Message-Service/examples/06-orphan-detection/templates/fragment.html.j2"
+
+[[template]]
+name = "aggregation"
+version = "1.0"
+kind = "AGGREGATION"
+source_path = "C:/Users/Joey/Documents/GIT-GitHub/joey-huckabee/Message-Service/examples/06-orphan-detection/templates/aggregation.html.j2"

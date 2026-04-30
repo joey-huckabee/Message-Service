@@ -56,9 +56,11 @@ def write_default_templates(directory: Path) -> dict[str, Path]:
     body_path = directory / "email_body.html.j2"
     fragment_path = directory / "fragment.html.j2"
     aggregation_path = directory / "aggregation.html.j2"
-    body_path.write_text(_DEFAULT_BODY_TEMPLATE, encoding="utf-8")
-    fragment_path.write_text(_DEFAULT_FRAGMENT_TEMPLATE, encoding="utf-8")
-    aggregation_path.write_text(_DEFAULT_AGGREGATION_TEMPLATE, encoding="utf-8")
+    # newline="\n" keeps the generated templates LF-only on Windows so
+    # repeated runs don't churn line endings vs what's checked in.
+    body_path.write_text(_DEFAULT_BODY_TEMPLATE, encoding="utf-8", newline="\n")
+    fragment_path.write_text(_DEFAULT_FRAGMENT_TEMPLATE, encoding="utf-8", newline="\n")
+    aggregation_path.write_text(_DEFAULT_AGGREGATION_TEMPLATE, encoding="utf-8", newline="\n")
     return {
         "email_body": body_path,
         "fragment": fragment_path,
@@ -101,6 +103,7 @@ kind = "AGGREGATION"
 source_path = "{aggregation}"
 """,
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -110,7 +113,7 @@ def write_tag_vocabulary(path: Path, names: list[str]) -> None:
     lines = []
     for name in names:
         lines.append(f'[[tag]]\nname = "{name}"\n')
-    path.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
 
 def reset_state_dirs(*dirs: Path) -> None:

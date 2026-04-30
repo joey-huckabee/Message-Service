@@ -1,0 +1,81 @@
+# 01-hello-world: single-stage smoke test.
+#
+# What this differs from the project default:
+#   - Uses scenario-local SQLite + report dir under examples/01-hello-world/.tmp
+#   - Mailer points at the in-process aiosmtpd capture on 127.0.0.1:1025
+#   - One pipeline registered: "hello-world"
+#   - Sweeper poll cadence is loose (60s) since this scenario finalizes quickly
+
+[grpc]
+host = "127.0.0.1"
+port = 50051
+
+[dashboard]
+host = "127.0.0.1"
+port = 8080
+https_only = false
+
+[persistence]
+sqlite_path = ".tmp/message-service.db"
+
+[persistence.filesystem]
+report_directory = ".tmp/reports"
+report_retention_days = 30
+prune_interval_seconds = 3600
+max_prunes_per_iteration = 100
+
+[templates]
+manifest_path = "templates.toml"
+max_context_bytes = 1_048_576
+max_rendered_bytes = 10_485_760
+
+[templates.email_body_template_ref]
+name = "email_body"
+version = "1.0"
+
+[tags]
+vocabulary_path = "tags.toml"
+
+[pipelines]
+registered = ["hello-world"]
+
+[sweeper]
+run_timeout_seconds = 600
+poll_interval_seconds = 60
+disposition_actions = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+
+[mail]
+from_address = "message-service@example.com"
+max_email_size_bytes = 26_214_400
+admin_recipients = ["admin@example.com"]
+
+[mail.smtp]
+host = "127.0.0.1"
+port = 1025
+username = ""
+password = ""
+use_starttls = false
+
+[mail.retry]
+max_retries = 1
+initial_interval_seconds = 1
+max_interval_seconds = 5
+
+[auth]
+session_idle_timeout_seconds = 3600
+
+[auth.argon2]
+memory_cost = 65_536
+time_cost = 3
+parallelism = 4
+
+[observability]
+log_level = "INFO"
+
+[observability.audit]
+retention_days = 30
+cleanup_interval_hours = 24
+cleanup_batch_size = 1000
+
+[service]
+shutdown_grace_period_seconds = 5

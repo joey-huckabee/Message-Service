@@ -7,9 +7,21 @@ itself when stdout is not a TTY.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from datetime import datetime
+
+# Force UTF-8 on stdout/stderr so the demos render the same on Windows
+# (cp1252 default), Linux, and macOS. Without this the `✓` / `✗`
+# characters and any arrows in scenario messages raise UnicodeEncodeError
+# under the legacy Windows console codepage. Wrapped in a guard because
+# `reconfigure` only exists on `io.TextIOWrapper`-shaped streams.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if callable(_reconfigure):
+        with contextlib.suppress(OSError, ValueError):
+            _reconfigure(encoding="utf-8", errors="replace")
 
 _BOLD = "\033[1m"
 _DIM = "\033[2m"

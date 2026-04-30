@@ -30,8 +30,8 @@ from __future__ import annotations
 import asyncio
 import socket
 from dataclasses import dataclass, field
-from email import message_from_bytes
-from email.message import Message
+from email import message_from_bytes, policy
+from email.message import EmailMessage
 from types import TracebackType
 from typing import Any
 
@@ -47,9 +47,17 @@ class CapturedMessage:
     raw_content: bytes
 
     @property
-    def parsed(self) -> Message:
-        """The raw bytes parsed via :mod:`email`."""
-        return message_from_bytes(self.raw_content)
+    def parsed(self) -> EmailMessage:
+        """The raw bytes parsed via :mod:`email` using the modern policy.
+
+        The modern ``EmailMessage`` API exposes
+        :meth:`iter_attachments`, which the demos use to inspect MIME
+        attachments. Returning ``Message`` (legacy) would force every
+        caller to re-parse with the right policy.
+        """
+        msg = message_from_bytes(self.raw_content, policy=policy.default)
+        assert isinstance(msg, EmailMessage)
+        return msg
 
     @property
     def subject(self) -> str:
@@ -63,17 +71,18 @@ class CapturedMessage:
         """Best-effort plain-text body extraction.
 
         v1 sends HTML bodies; this returns the HTML payload as a
-        string so the demos can preview it.
+        string so the demos can preview it. Skips parts that are
+        attachments (have a filename) so the inline body isn't
+        confused with a per-stage report attachment.
         """
         msg = self.parsed
-        if msg.is_multipart():
-            for part in msg.walk():
-                ct = part.get_content_type()
-                if ct in ("text/html", "text/plain"):
-                    payload = part.get_payload(decode=True)
-                    if isinstance(payload, bytes):
-                        return payload.decode("utf-8", errors="replace")
-            return ""
+        body = msg.get_body(preferencelist=("html", "plain"))
+        if body is not None:
+            payload = body.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                return payload.decode("utf-8", errors="replace")
+            return str(payload or "")
+        # Last-ditch fallback for messages that don't declare a body.
         payload = msg.get_payload(decode=True)
         if isinstance(payload, bytes):
             return payload.decode("utf-8", errors="replace")

@@ -109,3 +109,9 @@ Each maps to a specific gRPC status code; the partition is documented in the `Er
 ```bash
 rm -rf examples/08-error-recovery/.tmp examples/08-error-recovery/templates examples/08-error-recovery/templates.toml examples/08-error-recovery/tags.toml
 ```
+
+## Troubleshooting
+
+- **A call returns `OK` instead of raising**: confirm the input is actually invalid against the *currently loaded* config. If the demo's `tags.toml` was hand-edited to include `gibberish`, case 2 will succeed; the demo always rewrites these files on `_setup()` so this only happens if you tampered between runs.
+- **Different error code than expected**: the service rejects on the *first* invariant it checks. If a request violates several invariants at once (e.g., unknown pipeline AND unknown tag), the surfaced error code is whichever check ran first. The cases here violate exactly one invariant each.
+- **`ERROR_CODE_INTERNAL` (gRPC `INTERNAL`)**: this is *never* a domain rejection; it indicates a bug or unexpected exception inside the service. Inspect the service's structured logs for the underlying cause; the tail of the JSON event chain is the offending stack trace.

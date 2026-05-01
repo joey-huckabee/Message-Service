@@ -185,6 +185,55 @@ def test_pyproject_console_script_entry(pyproject_data: dict[str, Any]) -> None:
 
 
 # -----------------------------------------------------------------------------
+# Proto dependency portability (L3-API-003)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-API-003")
+def test_proto_dependency_is_tag_pinned_git_url(pyproject_data: dict[str, Any]) -> None:
+    """L3-API-003: ``message-service-proto`` SHALL be a tag-pinned git URL.
+
+    The local-path / develop-mode form bakes an absolute filesystem
+    path (``file:///.../Message-Service-Proto``) into the built
+    wheel's ``Requires-Dist`` metadata, making the artifact
+    unusable on any machine where the sibling repo is not at the
+    same path. Tag-pinning the git URL records the resolved SHA in
+    ``poetry.lock`` so installs are deterministic AND portable.
+    """
+    deps = pyproject_data["tool"]["poetry"]["dependencies"]
+    proto = deps.get("message-service-proto")
+    assert proto is not None, "[tool.poetry.dependencies] missing the `message-service-proto` entry"
+    assert isinstance(proto, dict), (
+        f"`message-service-proto` should be an inline-table dependency, got: {proto!r}"
+    )
+    # Forbid the failure modes that break wheel portability.
+    assert "path" not in proto, (
+        f"L3-API-003 violation: `message-service-proto` uses a local path "
+        f"({proto.get('path')!r}); the built wheel will carry an absolute "
+        "file:// URL in Requires-Dist and fail to install on any other machine. "
+        "Replace with `git = ..., tag = ...`."
+    )
+    assert not proto.get("develop"), (
+        "L3-API-003 violation: `message-service-proto` declares `develop = true`; "
+        "develop installs are local-only and not appropriate for the committed manifest."
+    )
+    # Require the portable form.
+    assert "git" in proto, (
+        f"L3-API-003 violation: `message-service-proto` lacks a `git` URL; got: {proto!r}"
+    )
+    assert proto["git"].startswith("https://"), (
+        f"`message-service-proto.git` should be an https:// URL for CI portability; "
+        f"got: {proto['git']!r}"
+    )
+    tag = proto.get("tag")
+    assert tag, (
+        f"L3-API-003 violation: `message-service-proto` is not tag-pinned; got: {proto!r}. "
+        "Branch refs and bare commit SHAs lose human-readable provenance."
+    )
+    assert tag.startswith("v"), f"L3-API-003 expects a vX.Y.Z release tag; got: {tag!r}"
+
+
+# -----------------------------------------------------------------------------
 # Windows install demonstration artifact (L3-DEP-009)
 # -----------------------------------------------------------------------------
 

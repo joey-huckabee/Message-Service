@@ -35,7 +35,7 @@ the single source of truth.
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-API-001 | L3-API-001, L3-API-002 | `tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_default_is_100`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_must_be_positive`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_override_accepted`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_build_grpc_server_passes_max_concurrent_rpcs` | Partially Implemented |
-| L2-API-002 | L3-API-003, L3-API-004 | _(TBD)_ | Draft |
+| L2-API-002 | L3-API-003, L3-API-004 | `tests/conformance/test_deploy_artifacts.py::test_proto_dependency_is_tag_pinned_git_url` | Partially Implemented |
 | L2-API-003 | L3-API-005 | `tests/integration/grpc/test_servicer.py::test_begin_run_happy_path`<br>`tests/integration/grpc/test_servicer.py::test_servicer_registers_exactly_three_rpc_methods` | Implemented |
 | L2-API-004 | L3-API-006 | `tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_is_async_def`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_signature_is_request_context` | Implemented |
 | L2-API-005 | L3-API-007 | `tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_returns_no_async_iterator`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_takes_no_async_iterator_param` | Implemented |
@@ -476,7 +476,7 @@ the single source of truth.
 
 | Category | L1 | L2 | L3 | L2s with tests | L3s with tests |
 |----------|----|----|-----|----------------|----------------|
-| API | 4 | 11 | 18 | 3 | 15 |
+| API | 4 | 11 | 18 | 3 | 16 |
 | RUN | 5 | 16 | 33 | 9 | 33 |
 | STAGE | 4 | 9 | 18 | 8 | 18 |
 | TMPL | 5 | 14 | 32 | 8 | 32 |
@@ -492,9 +492,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **393** | **65** | **381** |
+| **Total** | **67** | **192** | **393** | **65** | **382** |
 
-**Requirements verified by at least one test**: 446 of 585 (76.2%).
+**Requirements verified by at least one test**: 447 of 585 (76.4%).
 
 ### Orphan check
 

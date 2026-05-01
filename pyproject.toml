@@ -17,7 +17,7 @@ grpcio-status = "^1.80"
 grpcio-health-checking = "^1.80"
 grpcio-reflection = "^1.80"
 protobuf = "^6.33"
-message-service-proto = { path = "../message-service-proto", develop = true }
+message-service-proto = { git = "https://github.com/joey-huckabee/Message-Service-Proto.git", tag = "v0.1.1" }
 
 # FastAPI + ASGI
 fastapi = "^0.136"

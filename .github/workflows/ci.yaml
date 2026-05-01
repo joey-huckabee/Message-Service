@@ -63,6 +63,19 @@ jobs:
       - name: Install Poetry
         run: pip install "poetry==${POETRY_VERSION}"
 
+      - name: Configure git access to private proto repo
+        # The `message-service-proto` runtime dependency is a git URL
+        # pointing at the private joey-huckabee/Message-Service-Proto
+        # repo. The default GITHUB_TOKEN is scoped to the current repo
+        # only, so we inject a fine-grained PAT (read-only on the
+        # proto repo) via a narrowly-scoped insteadOf rewrite — only
+        # joey-huckabee/* URLs get the token; public github.com URLs
+        # remain untouched.
+        env:
+          PROTO_REPO_TOKEN: ${{ secrets.PROTO_REPO_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${PROTO_REPO_TOKEN}@github.com/joey-huckabee/".insteadOf "https://github.com/joey-huckabee/"
+
       - name: Install project dependencies
         run: poetry install --no-interaction --no-ansi
 
@@ -112,6 +125,13 @@ jobs:
 
       - name: Install Poetry
         run: pip install "poetry==${POETRY_VERSION}"
+
+      - name: Configure git access to private proto repo
+        # See pytest job for rationale.
+        env:
+          PROTO_REPO_TOKEN: ${{ secrets.PROTO_REPO_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${PROTO_REPO_TOKEN}@github.com/joey-huckabee/".insteadOf "https://github.com/joey-huckabee/"
 
       - name: Install project dependencies
         # mypy needs the project's runtime deps on the path to type-check
@@ -170,6 +190,13 @@ jobs:
 
       - name: Install Poetry
         run: pip install "poetry==${POETRY_VERSION}"
+
+      - name: Configure git access to private proto repo
+        # See pytest job for rationale.
+        env:
+          PROTO_REPO_TOKEN: ${{ secrets.PROTO_REPO_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${PROTO_REPO_TOKEN}@github.com/joey-huckabee/".insteadOf "https://github.com/joey-huckabee/"
 
       - name: Install project dependencies
         # Needed because --check re-collects test markers via AST scan;

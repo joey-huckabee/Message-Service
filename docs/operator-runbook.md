@@ -247,7 +247,7 @@ If a migration fails, the transaction rolls back (per `L3-PERS-020`) and the ser
 | Why is the architecture-boundary check a static AST scan? | `docs/adr/002-hexagonal-boundary-enforcement.md` |
 | What's the exception/logging philosophy? | `docs/LOGGING-AND-EXCEPTIONS.md` |
 | How do I integrate a pipeline? | `docs/pipeline-integration-guide.md` |
-| What's deferred to v2? | `ROADMAP.md` Part 2 (R-XXX-NNN entries) |
+| What's deferred to v2? | `docs/ROADMAP.md` (R-XXX-NNN entries) |
 | How do I add a test? | `docs/test-strategy.md` |
 | Is feature X intentionally missing? | `docs/L3-REQ.md` (search for "Deferred to v2") + ROADMAP Part 2 |
 

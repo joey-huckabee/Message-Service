@@ -4,7 +4,7 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 ## Status
 
-**v0.1.0 — first tagged release.** The full v1 feature scope is implemented: domain + application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, the FastAPI dashboard (subscription CRUD, past-run views, resend, admin template/user/audit management), the sweeper outbox with stuck-claim recovery, report + audit-log retention pruners, and Prometheus metrics. Of 67 L1 requirements, 62 are Implemented; the remaining 5 are deliberate v2 deferrals, each documented in `ROADMAP.md` Part 2 with a re-evaluation trigger. This first tag deliberately starts a 0.x line with a long runway up toward 1.0.0. See `ROADMAP.md` for the phase history and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
+**v0.1.0 — first tagged release.** The full v1 feature scope is implemented: domain + application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, the FastAPI dashboard (subscription CRUD, past-run views, resend, admin template/user/audit management), the sweeper outbox with stuck-claim recovery, report + audit-log retention pruners, and Prometheus metrics. Of 67 L1 requirements, 62 are Implemented; the remaining 5 are deliberate v2 deferrals, each documented in `docs/ROADMAP.md` with a re-evaluation trigger. This first tag deliberately starts a 0.x line with a long runway up toward 1.0.0. See `CHANGELOG.md` for release history, `docs/ROADMAP.md` for forward-looking work, and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
 
 Requirement counts: **67 L1 · 192 L2 · 393 L3** across 16 categories.
 
@@ -56,7 +56,7 @@ Message-Service/
 │   ├── e2e/                    # full service exercised end-to-end
 │   └── fixtures/               # shared test fixtures
 ├── pyproject.toml              # Poetry project + tooling config
-├── ROADMAP.md                  # deferred items
+├── CHANGELOG.md                # release history (Keep a Changelog)
 └── README.md                   # this file
 ```
 
@@ -116,4 +116,5 @@ See `CONTRIBUTING.md` for the full pre-commit-passing command sequence.
 - `docs/TRACE-MATRIX.md` — auto-generated requirements-to-tests forward trace
 - `docs/LOGGING-AND-EXCEPTIONS.md` — exception hierarchy and structured logging conventions
 - `CONTRIBUTING.md` — pre-commit-passing command sequence and coding conventions
-- `ROADMAP.md` — deferred items and future work
+- `CHANGELOG.md` — release history (Keep a Changelog format)
+- `docs/ROADMAP.md` — forward-looking deferred items and future work

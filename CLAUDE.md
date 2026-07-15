@@ -103,7 +103,7 @@ Google convention (Args / Returns / Raises sections); pydocstyle rules `D*` are 
 
 ## Coverage gate
 
-`pyproject.toml` sets `--cov-fail-under=85` with branch coverage on `message_service`. HTML report lands in `.coverage_html/`. If the gate fails, either add tests for the missing branches (the terminal report shows the gaps, or open `.coverage_html/index.html`) or use `--no-cov` for local iteration. `ROADMAP.md` describes the intended ratchet; don't lower the gate to work around a drop.
+`pyproject.toml` sets `--cov-fail-under=85` with branch coverage on `message_service`. HTML report lands in `.coverage_html/`. If the gate fails, either add tests for the missing branches (the terminal report shows the gaps, or open `.coverage_html/index.html`) or use `--no-cov` for local iteration. `docs/ROADMAP.md` records the coverage-gate commitment (the 60% → 75% → 85% ratchet is complete); don't lower the gate to work around a drop.
 
 ## Windows event-loop quirk
 
@@ -127,4 +127,5 @@ Do **not** add `Co-Authored-By: Claude ...` trailers to commit messages on this 
 - `docs/TRACE-MATRIX.md` — which tests verify which requirements.
 - `docs/LOGGING-AND-EXCEPTIONS.md` — exception hierarchy and logging conventions.
 - `docs/test-strategy.md` — formal test-tier definitions, fixture-scoping conventions, I/O guard, SMTP capture, Windows event-loop quirks, and the `@pytest.mark.requirement` workflow. (`tests/README.md` is now a brief pointer to this doc.)
-- `ROADMAP.md` — deferred items; scope decisions that deliberately live outside v1.
+- `docs/ROADMAP.md` — forward-looking deferred items; scope decisions that deliberately live outside the current release. Completed work is not tracked here.
+- `CHANGELOG.md` — release history in [Keep a Changelog](https://keepachangelog.com/) format.

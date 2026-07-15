@@ -248,5 +248,5 @@ For pipelines that want to observe delivery, scrape `message_service_email_deliv
 | What does requirement L3-FOO-NNN say? | `docs/L3-REQ.md` |
 | What's the operational model? | `docs/operator-runbook.md` |
 | Why does the service look this way? | `docs/adr/` |
-| What's deferred to v2? | `ROADMAP.md` Part 2 |
+| What's deferred to v2? | `docs/ROADMAP.md` |
 | Where do I see this requirement tested? | `docs/TRACE-MATRIX.md` |

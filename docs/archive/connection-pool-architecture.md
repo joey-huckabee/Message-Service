@@ -128,5 +128,5 @@ The integration test for concurrency authored in Increment 27f would need to be 
 ## Cross-references
 
 - Active mutex requirements: L2-PERS-004 + L3-PERS-006/007/021 (post-Increment-27 form, in `docs/L2-REQ.md` and `docs/L3-REQ.md`).
-- Increment 27 entry: `ROADMAP.md` — sub-steps 27a through 27i.
+- Increment 27 rationale: git history (commits `410aa90`, `ee69b87`, `d48b4c8`, `0f13927`, `388bdf2`, `88279e5`, `f69e95a`, `2e014b3`, `950d754`) — the detailed increment log was removed from the roadmap when it became forward-looking only (v0.1.0).
 - Future ADR (planned for Increment 24): `docs/adr/001-sqlite-for-in-flight-state.md` will reference this archive when discussing the connection-handling choice.

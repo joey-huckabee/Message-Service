@@ -1,0 +1,63 @@
+# Changelog
+
+All notable changes to Message-Service are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+The project is requirements-driven: every change traces to an L1/L2/L3 SHALL
+statement in `docs/L1-REQ.md` / `docs/L2-REQ.md` / `docs/L3-REQ.md`, with
+verification status in `docs/TRACE-MATRIX.md`. Forward-looking work is tracked
+in `docs/ROADMAP.md`, not here.
+
+## [Unreleased]
+
+## [0.1.0] — 2026-07-14
+
+First official release — the full v1 feature scope: collecting per-stage reports
+from external ETL pipelines over gRPC, aggregating them into Jinja2-rendered HTML,
+and emailing the result to subscribed users, with a FastAPI dashboard for
+subscription management, resend, admin, and audit. Requirements-driven throughout:
+this tag ships **62 of 67 L1 requirements Implemented** (67 L1 / 192 L2 / 393 L3
+across 16 categories) at **94.88% branch coverage** over **1370 tests**. The
+remaining 5 L1s are deliberate v2 deferrals, each documented in `docs/ROADMAP.md`
+with a re-evaluation trigger. This is the start of a 0.x line with a runway toward
+1.0.0.
+
+### Added
+
+- **gRPC ingest for per-stage pipeline reports.** Unary `BeginRun` /
+  `SubmitStageReport` / `FinalizeRun` RPCs over plaintext TCP, sized for the
+  trusted-ISOLAN deployment model, with a typed error-code contract surfaced in
+  gRPC trailing metadata (`x-message-service-error-code`).
+- **FastAPI dashboard.** Subscription CRUD, paginated past-run views with a
+  report viewer, manual resend (re-renders from saved stage context), and admin
+  template-registry / user-management / audit-log screens behind an admin gate.
+  Local-account auth with Argon2 password hashing and server-side sessions.
+- **Jinja2 sandboxed rendering.** Manifest-managed templates referenced by name +
+  version, JSON Schema context validation at render time, and case-sensitive
+  `"latest"` version resolution frozen per run.
+- **Aggregation model.** Two attachment modes per run (`SINGLE_AGGREGATED`
+  composite, or `PER_STAGE` one attachment per stage) and a two-slot stage
+  contribution model (report fragment + optional email body), both slots optional.
+- **SQLite persistence** (WAL, single-connection + `asyncio.Lock` writer mutex)
+  for in-flight run state, users, subscriptions, audit log, and template metadata;
+  **filesystem persistence** for rendered HTML reports. Raw SQL via `aiosqlite`,
+  no ORM; migrations applied by a migration runner.
+- **Asyncio orphan sweeper** with an exactly-once outbox (`sweeper_actions`
+  table), stuck-claim recovery, a bounded per-tick candidate limit, and
+  policy-driven disposition (`DISCARD_SILENTLY` / `NOTIFY_ADMINS` registered in
+  v1).
+- **Retention pruners** for rendered reports and the audit log, each on the
+  shared background scheduler with configurable windows and sole-deleter
+  conformance guards.
+- **Observability.** Structured `structlog` events, a full audit-action taxonomy,
+  and a Prometheus `/metrics` scrape endpoint.
+- **Deployment.** Cross-platform — Linux (systemd unit) and Windows (NSSM) — with
+  graceful shutdown, an operator runbook, a pipeline-integration guide, and two
+  architecture decision records.
+- **Runnable examples.** Eight self-contained demonstration scenarios
+  (`01-hello-world` … `08-error-recovery`) that need no external mail server.
+
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/joey-huckabee/Message-Service/releases/tag/v0.1.0

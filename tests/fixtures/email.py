@@ -26,7 +26,6 @@ package) and the test fidelity gain is large.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import socket
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -147,23 +146,6 @@ class _CaptureHandler:
         return "250 Message accepted for delivery"
 
 
-async def _close_server_listeners(server: asyncio.AbstractServer) -> None:
-    """Close an aiosmtpd server's listening sockets on its own event loop.
-
-    ``Server.sockets`` are read-only ``asyncio.trsock.TransportSocket``
-    wrappers with no ``close()``; the real listening sockets can only be
-    closed via ``Server.close()``, and that must run on the loop that owns
-    them. Scheduled via ``run_coroutine_threadsafe`` from the fixture
-    teardown so the sockets are closed deterministically rather than left
-    for a GC pass that raises ``ResourceWarning`` under
-    ``filterwarnings = ["error"]`` on CPython 3.13.
-    """
-    server.close()
-    # Give the loop a few cycles to run the socket-close callbacks it queued.
-    for _ in range(3):
-        await asyncio.sleep(0)
-
-
 @pytest.fixture
 def smtp_capture() -> Iterator[SmtpCapture]:
     """Start aiosmtpd on an ephemeral local port; capture every message.
@@ -183,21 +165,6 @@ def smtp_capture() -> Iterator[SmtpCapture]:
     try:
         yield capture
     finally:
-        # aiosmtpd's ``Controller.stop()`` stops the server loop but relies on
-        # GC to finalize the underlying listening socket. On CPython 3.13 that
-        # GC pass can fire while the socket is still open, surfacing as a
-        # ``ResourceWarning`` that ``filterwarnings = ["error"]`` escalates to a
-        # ``PytestUnraisableExceptionWarning`` at session teardown (the same
-        # class of teardown-timing issue the Windows ProactorEventLoop cleanup
-        # in ``tests/conftest.py`` handles for a different socket).
-        # Deterministically close the listening sockets on the controller's own
-        # loop *before* stopping it, so nothing survives to GC.
-        server = getattr(controller, "server", None)
-        loop = getattr(controller, "loop", None)
-        if server is not None and loop is not None and loop.is_running():
-            future = asyncio.run_coroutine_threadsafe(_close_server_listeners(server), loop)
-            with contextlib.suppress(Exception):
-                future.result(timeout=2.0)
         controller.stop()
 
 

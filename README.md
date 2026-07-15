@@ -4,9 +4,9 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 ## Status
 
-**Under active development (through Increment 16).** Domain, application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, sweeper outbox with stuck-claim recovery, and Prometheus metrics are all in place. Remaining v1 work is primarily the FastAPI dashboard chassis and routes (Increments 17–20), end-to-end harness (21), error-mapping coverage (22), deployment polish (23), and documentation deliverables (24). See `ROADMAP.md` for the full phase plan and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
+**v0.1.0 — first tagged release.** The full v1 feature scope is implemented: domain + application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, the FastAPI dashboard (subscription CRUD, past-run views, resend, admin template/user/audit management), the sweeper outbox with stuck-claim recovery, report + audit-log retention pruners, and Prometheus metrics. Of 67 L1 requirements, 62 are Implemented; the remaining 5 are deliberate v2 deferrals, each documented in `ROADMAP.md` Part 2 with a re-evaluation trigger. This first tag deliberately starts a 0.x line with a long runway up toward 1.0.0. See `ROADMAP.md` for the phase history and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
 
-Requirement counts: **65 L1 · 186 L2 · 361 L3** across 16 categories.
+Requirement counts: **67 L1 · 192 L2 · 393 L3** across 16 categories.
 
 ## Key characteristics
 

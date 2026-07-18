@@ -55,6 +55,7 @@ from message_service.domain.aggregates.audit_event import (
     AuditEvent,
     AuditOutcome,
 )
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.errors import (
@@ -272,13 +273,25 @@ class SubmitStageReportUseCase:
             # ---------------------------------------------------------
             # 7. Build the new Stage (replaces the existing row).
             # ---------------------------------------------------------
+            # L3-AGGR-018: the stored position is set iff the email body
+            # contribution is present. Sub-step c of R-AGGR-001 replaces
+            # this presence-derived default with the resolved position
+            # threaded from the request (L3-AGGR-004); until then any
+            # contribution is placed AFTER the summary.
+            email_body_context_json = _serialize_context(cmd.email_body_context)
+            email_body_position = (
+                EmailBodyPosition.AFTER_STAGES_SUMMARY
+                if email_body_context_json is not None
+                else None
+            )
             new_stage = Stage(
                 run_id=run_id,
                 stage_id=stage_id,
                 state=next_stage_state,
                 report_template_ref=current_stage.report_template_ref,
                 report_context_json=_serialize_context(cmd.report_context),
-                email_body_context_json=_serialize_context(cmd.email_body_context),
+                email_body_context_json=email_body_context_json,
+                email_body_position=email_body_position,
                 submitted_at=now,
             )
 

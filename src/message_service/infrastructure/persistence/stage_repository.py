@@ -20,6 +20,7 @@ Requirement references
 ----------------------
 L1-PERS-003
 L3-STAGE-002, L3-STAGE-006, L3-STAGE-007, L3-STAGE-009
+L3-AGGR-018
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ import aiosqlite
 
 from message_service.application.ports.clock import iso_z
 from message_service.application.ports.stage_repository import StageRepository
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import PersistenceError, UnknownStageError
@@ -47,12 +49,12 @@ _SQL_UPSERT = """
 INSERT INTO stages (
     run_id, stage_id, state,
     report_template_name, report_template_version,
-    report_context_json, email_body_context_json,
+    report_context_json, email_body_context_json, email_body_position,
     submitted_at
 ) VALUES (
     :run_id, :stage_id, :state,
     :report_template_name, :report_template_version,
-    :report_context_json, :email_body_context_json,
+    :report_context_json, :email_body_context_json, :email_body_position,
     :submitted_at
 )
 ON CONFLICT(run_id, stage_id) DO UPDATE SET
@@ -61,6 +63,7 @@ ON CONFLICT(run_id, stage_id) DO UPDATE SET
     report_template_version = excluded.report_template_version,
     report_context_json = excluded.report_context_json,
     email_body_context_json = excluded.email_body_context_json,
+    email_body_position = excluded.email_body_position,
     submitted_at = excluded.submitted_at
 """
 
@@ -68,7 +71,7 @@ _SQL_SELECT_BY_KEY = """
 SELECT
     run_id, stage_id, state,
     report_template_name, report_template_version,
-    report_context_json, email_body_context_json,
+    report_context_json, email_body_context_json, email_body_position,
     submitted_at
 FROM stages
 WHERE run_id = ? AND stage_id = ?
@@ -78,7 +81,7 @@ _SQL_SELECT_BY_RUN = """
 SELECT
     run_id, stage_id, state,
     report_template_name, report_template_version,
-    report_context_json, email_body_context_json,
+    report_context_json, email_body_context_json, email_body_position,
     submitted_at
 FROM stages
 WHERE run_id = ?
@@ -172,6 +175,9 @@ def _stage_to_params(stage: Stage) -> dict[str, Any]:
         "report_template_version": stage.report_template_ref.version,
         "report_context_json": stage.report_context_json,
         "email_body_context_json": stage.email_body_context_json,
+        "email_body_position": (
+            stage.email_body_position.value if stage.email_body_position is not None else None
+        ),
         "submitted_at": iso_z(stage.submitted_at) if stage.submitted_at is not None else None,
     }
 
@@ -192,6 +198,19 @@ def _row_to_stage(row: aiosqlite.Row) -> Stage:
 
     submitted_at = parse_iso_z(row["submitted_at"]) if row["submitted_at"] is not None else None
 
+    raw_position = row["email_body_position"]
+    try:
+        email_body_position = EmailBodyPosition(raw_position) if raw_position is not None else None
+    except ValueError as exc:
+        raise PersistenceError(
+            f"persisted stage has unknown email_body_position {raw_position!r}",
+            details={
+                "run_id": row["run_id"],
+                "stage_id": row["stage_id"],
+                "email_body_position": raw_position,
+            },
+        ) from exc
+
     try:
         return Stage(
             run_id=RunId(row["run_id"]),
@@ -203,6 +222,7 @@ def _row_to_stage(row: aiosqlite.Row) -> Stage:
             ),
             report_context_json=row["report_context_json"],
             email_body_context_json=row["email_body_context_json"],
+            email_body_position=email_body_position,
             submitted_at=submitted_at,
         )
     except ValueError as exc:

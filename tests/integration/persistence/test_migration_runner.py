@@ -42,8 +42,9 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
     conn = await open_connection(db)
     try:
         applied = await apply_migrations(conn)
-        assert [m.version for m in applied] == [1, 2, 3]
-        # Domain tables from 001, sweeper outbox from 002, sessions from 003.
+        assert [m.version for m in applied] == [1, 2, 3, 4]
+        # Domain tables from 001, sweeper outbox from 002, sessions from 003,
+        # stages.email_body_position from 004.
         for table in (
             "users",
             "runs",
@@ -71,7 +72,7 @@ async def test_reapply_is_noop(tmp_path: Path) -> None:
         second = await apply_migrations(conn)
         assert second == []  # no-op
         # Bookkeeping table records each applied migration exactly once.
-        assert await _applied_versions(conn) == [1, 2, 3]
+        assert await _applied_versions(conn) == [1, 2, 3, 4]
     finally:
         await conn.close()
 

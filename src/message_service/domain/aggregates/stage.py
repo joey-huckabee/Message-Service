@@ -33,7 +33,9 @@ Design notes
 Requirement references
 ----------------------
 L2-STAGE-001, L2-STAGE-003, L2-STAGE-004, L2-STAGE-005
+L2-AGGR-003
 L3-STAGE-002, L3-STAGE-005, L3-STAGE-007, L3-STAGE-008, L3-STAGE-009
+L3-AGGR-004, L3-AGGR-018
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.stage_states import StageState
@@ -63,6 +66,13 @@ class Stage:
             email body template. Independent of the report
             contribution: either may be ``None`` while the other is
             populated (L3-STAGE-009).
+        email_body_position: Resolved placement of this stage's email
+            body contribution relative to the run-level summary block
+            (L2-AGGR-003). Set iff ``email_body_context_json`` is set
+            (L3-AGGR-018); ``None`` when the stage contributed no email
+            body content. Never ``UNSPECIFIED`` — the gRPC boundary
+            resolves that sentinel before the aggregate is built
+            (L3-AGGR-004).
         submitted_at: UTC timestamp of the most recent successful
             submission. ``None`` while the stage is still ``PENDING``
             (L3-STAGE-007).
@@ -74,6 +84,7 @@ class Stage:
     report_template_ref: TemplateRef
     report_context_json: str | None = None
     email_body_context_json: str | None = None
+    email_body_position: EmailBodyPosition | None = None
     submitted_at: datetime | None = None
 
     def __post_init__(self) -> None:
@@ -101,6 +112,17 @@ class Stage:
         }
         if self.state in submission_states and self.submitted_at is None:
             raise ValueError(f"Stage in {self.state} state must have a submitted_at timestamp")
+
+        # L3-AGGR-018: the email body position is set iff an email body
+        # contribution is present. An empty struct is stored as "{}"
+        # (L3-STAGE-010) — non-null — so it too carries a resolved
+        # position; a cleared/absent contribution carries none.
+        if (self.email_body_position is None) != (self.email_body_context_json is None):
+            raise ValueError(
+                "Stage.email_body_position must be set iff email_body_context_json is set "
+                f"(position={self.email_body_position!r}, "
+                f"context={'None' if self.email_body_context_json is None else 'present'})"
+            )
 
 
 __all__ = ["Stage"]

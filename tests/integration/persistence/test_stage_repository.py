@@ -9,6 +9,7 @@ from pathlib import Path
 import aiosqlite
 import pytest
 
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import PersistenceError, UnknownStageError
@@ -70,11 +71,15 @@ def _make_stage(
     state: StageState = StageState.PENDING,
     report_context_json: str | None = None,
     email_body_context_json: str | None = None,
+    email_body_position: EmailBodyPosition | None = None,
     submitted_at: datetime | None = None,
 ) -> Stage:
     # PENDING must have submitted_at=None; non-PENDING must have it set.
     if state is not StageState.PENDING and submitted_at is None:
         submitted_at = _T0
+    # L3-AGGR-018: position is set iff an email body contribution is present.
+    if email_body_position is None and email_body_context_json is not None:
+        email_body_position = EmailBodyPosition.AFTER_STAGES_SUMMARY
     return Stage(
         run_id=_RID,
         stage_id=StageId(stage_id),
@@ -82,6 +87,7 @@ def _make_stage(
         report_template_ref=_TPL,
         report_context_json=report_context_json,
         email_body_context_json=email_body_context_json,
+        email_body_position=email_body_position,
         submitted_at=submitted_at,
     )
 

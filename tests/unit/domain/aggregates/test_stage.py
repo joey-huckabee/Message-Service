@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.ids import RunId, StageId
@@ -97,6 +98,7 @@ def test_stage_report_and_email_body_contexts_are_independent() -> None:
         submitted_at=_T0,
         report_context_json=None,
         email_body_context_json='{"y": 2}',
+        email_body_position=EmailBodyPosition.AFTER_STAGES_SUMMARY,
     )
     assert s_report_only.email_body_context_json is None
     assert s_body_only.report_context_json is None

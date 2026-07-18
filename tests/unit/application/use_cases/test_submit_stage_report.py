@@ -35,6 +35,7 @@ from message_service.application.use_cases.submit_stage_report_command import (
 )
 from message_service.domain.aggregates.audit_event import AuditAction, AuditOutcome
 from message_service.domain.aggregates.declared_stage import DeclaredStage
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
@@ -87,7 +88,11 @@ def _sample_stage(
     submitted_at: datetime | None = None,
     report_context_json: str | None = None,
     email_body_context_json: str | None = None,
+    email_body_position: EmailBodyPosition | None = None,
 ) -> Stage:
+    # L3-AGGR-018: position is set iff an email body contribution is present.
+    if email_body_position is None and email_body_context_json is not None:
+        email_body_position = EmailBodyPosition.AFTER_STAGES_SUMMARY
     return Stage(
         run_id=_RID,
         stage_id=_SID_EXTRACT,
@@ -95,6 +100,7 @@ def _sample_stage(
         report_template_ref=_TPL_EXT,
         report_context_json=report_context_json,
         email_body_context_json=email_body_context_json,
+        email_body_position=email_body_position,
         submitted_at=submitted_at,
     )
 

@@ -34,11 +34,14 @@ Workflow
 
 5. Render the email body via the configured
    ``templates.email_body_template_ref`` with a context containing
-   the run metadata and the email-body contributions from each stage
-   (ordered per L3-AGGR-005: BEFORE_STAGES_SUMMARY, then the default
-   summary, then AFTER_STAGES_SUMMARY). *Email-body ordering within
-   BEFORE/AFTER buckets is by stage order; the default summary block
-   is assembled from stage identifiers — no stage-supplied content.*
+   the run metadata, the stage-identifier summary list, and the
+   per-stage email-body contributions split into ``before_contributions``
+   and ``after_contributions`` buckets (L3-AGGR-005). Each bucket is
+   sorted by ``(stage_order, stage_id)`` and carries the parsed
+   ``email_body_context`` per contributing stage; the reference template
+   renders BEFORE_STAGES_SUMMARY, then the summary, then
+   AFTER_STAGES_SUMMARY. Stages that submitted no email body
+   contribution appear in the summary list but in neither bucket.
 6. Resolve recipients via
    :meth:`SubscriptionRepository.list_recipients_for_run`. If the
    set is empty, skip :meth:`Mailer.send` and transition to ``SENT``
@@ -65,11 +68,14 @@ stuck in ``SENDING`` after ``sweeper.run_timeout_seconds``.
 Requirement references
 ----------------------
 L1-RUN-004 (assembly and delivery triggered by FinalizeRun)
+L1-AGGR-001 (per-stage email body contributions)
 L1-AGGR-002, L1-AGGR-003 (attachment modes, stage ordering)
+L2-AGGR-003 (email body position placement)
 L1-SUB-004 (recipient list via subscription union)
 L1-MAIL-001, L1-MAIL-005 (SMTP delivery, audit)
 L2-AGGR-004, L2-AGGR-005, L2-AGGR-006, L2-AGGR-007, L2-AGGR-008
 L2-MAIL-012 (delivery audit fields)
+L3-AGGR-005 (email body before/after contribution buckets)
 L3-AGGR-006 (aggregation template context shape)
 L3-AGGR-007 (rendered-size failure)
 L3-AGGR-008, L3-AGGR-009 (empty-report handling)
@@ -107,6 +113,7 @@ from message_service.domain.aggregates.audit_event import (
     AuditEvent,
     AuditOutcome,
 )
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
@@ -216,11 +223,20 @@ def _build_subject(pipeline_type: str, run_id: RunId) -> str:
 
 @dataclass(frozen=True, slots=True)
 class _RenderedFragment:
-    """A rendered stage report fragment plus its ordering metadata."""
+    """A rendered stage report fragment plus its ordering metadata.
+
+    Also carries the stage's email body contribution (L3-AGGR-005): the
+    parsed ``email_body_context`` and its resolved
+    ``email_body_position``. Both are ``None`` when the stage submitted
+    no email body contribution — that stage participates in the report
+    attachment but not in either email-body bucket.
+    """
 
     stage_id: str
     stage_order: int
     rendered_html: str
+    email_body_context: dict[str, Any] | None = None
+    email_body_position: EmailBodyPosition | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -622,11 +638,22 @@ class AssembleAndDeliverUseCase:
             else:
                 ctx = json.loads(stage.report_context_json)
                 rendered_html = self._template_renderer.render(stage.report_template_ref, ctx)
+            # Carry the stage's email body contribution alongside the
+            # report fragment (L3-AGGR-005). Independent of the report:
+            # a stage may contribute email body content with an empty or
+            # absent report, and vice versa (L3-STAGE-009).
+            email_body_context = (
+                json.loads(stage.email_body_context_json)
+                if stage.email_body_context_json is not None
+                else None
+            )
             fragments.append(
                 _RenderedFragment(
                     stage_id=stage.stage_id,
                     stage_order=stage_order_by_id.get(stage.stage_id, 0),
                     rendered_html=rendered_html,
+                    email_body_context=email_body_context,
+                    email_body_position=stage.email_body_position,
                 )
             )
         return fragments
@@ -703,11 +730,25 @@ class AssembleAndDeliverUseCase:
     def _render_email_body(self, run: Run, fragments: list[_RenderedFragment]) -> str:
         """Render the email body template.
 
-        The email body template receives the stages' identifying
-        metadata (not their report contributions — those are in the
-        attachments). Custom email body contributions from
-        ``SubmitStageReport`` (per L1-AGGR-001) are a future
-        enhancement; v1 passes stage identifiers only.
+        Besides the stages' identifying metadata (the ``stages`` summary
+        list — report contributions themselves live in the attachments),
+        the template receives the per-stage email body contributions
+        (L1-AGGR-001) split into two position buckets (L3-AGGR-005):
+
+        * ``before_contributions`` — stages whose resolved position is
+          ``BEFORE_STAGES_SUMMARY``.
+        * ``after_contributions`` — stages whose resolved position is
+          ``AFTER_STAGES_SUMMARY``.
+
+        Only stages carrying a non-null email body contribution appear
+        in a bucket (a ``None`` position means no contribution). ``fragments``
+        arrives sorted by ``(stage_order, stage_id)`` from
+        :meth:`_load_and_render_stages`, so each bucket inherits that
+        order (L3-AGGR-012). Each entry is ``{stage_id, stage_order,
+        context}`` where ``context`` is the parsed
+        ``email_body_context_json``. The reference template renders the
+        before block, the summary, then the after block, realizing the
+        BEFORE -> summary -> AFTER placement of L2-AGGR-003.
 
         Args:
             run: The run being assembled.
@@ -720,6 +761,18 @@ class AssembleAndDeliverUseCase:
             TemplateRenderError: Body template render failure.
             RenderedSizeExceededError: Body exceeds max size.
         """
+
+        def _bucket(position: EmailBodyPosition) -> list[dict[str, Any]]:
+            return [
+                {
+                    "stage_id": f.stage_id,
+                    "stage_order": f.stage_order,
+                    "context": f.email_body_context,
+                }
+                for f in fragments
+                if f.email_body_position is position
+            ]
+
         body_context: dict[str, Any] = {
             "run_id": run.run_id,
             "pipeline_type": run.pipeline_type,
@@ -736,6 +789,8 @@ class AssembleAndDeliverUseCase:
                 for f in fragments
             ],
             "attachment_mode": run.attachment_mode.value,
+            "before_contributions": _bucket(EmailBodyPosition.BEFORE_STAGES_SUMMARY),
+            "after_contributions": _bucket(EmailBodyPosition.AFTER_STAGES_SUMMARY),
         }
         return self._template_renderer.render(self._email_body_template_ref, body_context)
 

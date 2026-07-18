@@ -10,12 +10,34 @@
       <strong>Pipeline:</strong> {{ pipeline_type }}<br />
       <strong>Run:</strong> <code>{{ run_id }}</code>
     </p>
+
+    {# Stage contributions placed BEFORE the summary (L3-AGGR-005). #}
+    {% for c in before_contributions %}
+      <section class="stage-contribution" data-stage="{{ c.stage_id }}" data-position="before">
+        <h3>{{ c.context.get("heading", c.stage_id) }}</h3>
+        {% for key, value in c.context.items() if key != "heading" %}
+          <p><strong>{{ key }}:</strong> {{ value }}</p>
+        {% endfor %}
+      </section>
+    {% endfor %}
+
     <h2>Stages</h2>
     <ul>
       {% for s in stages %}
         <li><code>{{ s.stage_id }}</code></li>
       {% endfor %}
     </ul>
+
+    {# Stage contributions placed AFTER the summary (L3-AGGR-005). #}
+    {% for c in after_contributions %}
+      <section class="stage-contribution" data-stage="{{ c.stage_id }}" data-position="after">
+        <h3>{{ c.context.get("heading", c.stage_id) }}</h3>
+        {% for key, value in c.context.items() if key != "heading" %}
+          <p><strong>{{ key }}:</strong> {{ value }}</p>
+        {% endfor %}
+      </section>
+    {% endfor %}
+
     <p style="color: #666; font-size: 0.9em;">
       Attached: the full rendered report for your review.
     </p>

@@ -16,29 +16,31 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The next cut is **v0.2.0** — nothing is scheduled into it yet.
-Pull items from the **Deferred features** backlog below, promote each to real
-L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped result
-under a new dated section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.2.0** (`R-AGGR-001` — custom per-stage
+email body contributions); the next cut is **v0.3.0** — nothing is scheduled into
+it yet. Pull items from the **Deferred features** backlog below, promote each to
+real L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
+result under a new dated section in `CHANGELOG.md`.
 
 ## Planned
 
 | Version | Theme |
 |---------|-------|
 | 0.2.0 → | Work down the deferred-feature backlog toward feature-completeness; each release promotes one or more `R-XXX` items to real requirements. |
-| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-API-001` / `R-ERR-001` wire-contract upgrades) have either shipped or been explicitly scoped out, and the five intentional v1 partials below are resolved. |
+| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-API-001` / `R-ERR-001` wire-contract upgrades) have either shipped or been explicitly scoped out, and the four remaining intentional v1 partials below are resolved. |
 
 ## The road to 1.0.0 — intentional v1 partials
 
-Five L1 requirements ship **Partial** in v0.1.0. None is a missing-functionality
-bug; each is a deliberate deferral with all-but-one L2 child Implemented and the
-deferred child carried as an `R-XXX` entry below. `docs/TRACE-MATRIX.md` shows
-them as Partial because the matrix has no "Deferred to v2" state.
+v0.1.0 shipped five L1 requirements **Partial**; v0.2.0 resolved `L1-AGGR-001`
+(`R-AGGR-001` — custom per-stage email body contributions), leaving **four**.
+None is a missing-functionality bug; each is a deliberate deferral with
+all-but-one L2 child Implemented and the deferred child carried as an `R-XXX`
+entry below. `docs/TRACE-MATRIX.md` shows them as Partial because the matrix has
+no "Deferred to v2" state.
 
 | L1 | Deferred piece | Deferral tag |
 |----|----------------|--------------|
 | L1-API-001 | Per-RPC correlation interceptor + CI proto-version check | R-API-001 |
-| L1-AGGR-001 | Per-stage email body contributions with a `position` enum | R-AGGR-001 |
 | L1-DASH-004 | Embedded Chart.js metrics dashboard (scrape endpoint already ships) | R-DASH-004 |
 | L1-ERR-002 | Error-code-stability lockfile + helper scripts | R-ERR-002 |
 | L1-OBS-001 | Per-RPC / per-route correlation interceptor (same as L1-API-001) | R-API-001 |
@@ -207,17 +209,6 @@ referenced by spec docs and code comments; keep the tags stable.
   `email_body_template_ref` on `BeginRunRequest`; more flexible but needs a proto
   change, a new aggregate field, extra validation, and a migration. Either path is
   additive.
-- **R-AGGR-001 — Custom email body contributions from stages** — the email body
-  template currently receives only stage identifiers, not stage-supplied body
-  content. Specified future behavior (L1-AGGR-001, L2-AGGR-003): each
-  `SubmitStageReport` may carry an `email_body_contribution` with a `position`
-  enum (`BEFORE_STAGES_SUMMARY` / `AFTER_STAGES_SUMMARY`), and assembly orders
-  contributions accordingly (L3-AGGR-005). The `Stage` aggregate already has an
-  `email_body_context_json` column, so storage is ready; the use case just isn't
-  reading it. Future work: extend `AssembleAndDeliverUseCase._render_email_body`
-  to read each stage's `email_body_context_json`, group by `position`, and pass
-  the structured payload into the template; wire the `position` field through the
-  proto → command → aggregate path. Additive.
 - **Subscription granularity extensions** — beyond `GLOBAL`, `PIPELINE`, `TAG`:
   consider per-severity, per-submitter, or boolean combinations if use cases
   emerge.

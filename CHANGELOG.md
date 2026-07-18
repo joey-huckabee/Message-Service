@@ -12,6 +12,41 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-17
+
+Custom per-stage email body contributions — the first deferred-feature item
+(`R-AGGR-001`) promoted to real requirements on the road to 1.0.0. A stage's
+`SubmitStageReport` may now carry an email body contribution with a `position`
+(`BEFORE_STAGES_SUMMARY` / `AFTER_STAGES_SUMMARY`), and assembly places each
+contribution relative to the run-level stage summary accordingly. This resolves
+the `L1-AGGR-001` v1 partial: **63 of 67 L1 requirements Implemented** at
+**94.86% branch coverage** over **1385 tests**. Four intentional partials remain
+toward 1.0.0.
+
+### Added
+
+- **Per-stage email body contributions (`L1-AGGR-001`).** `SubmitStageReport`'s
+  optional `email_body_contribution` now carries a `position` enum. The gRPC
+  boundary resolves the proto `UNSPECIFIED` default to `AFTER_STAGES_SUMMARY`
+  (with a DEBUG log); assembly groups contributions into `before_contributions`
+  / `after_contributions` buckets, each sorted by `(stage_order, stage_id)`, and
+  passes them to the email body template, which renders them before and after
+  the stage summary. The reference template
+  (`config/dev-templates/email_body.html.j2`) demonstrates the placement.
+
+### Changed
+
+- **`stages` schema.** Migration `004` adds a nullable `email_body_position`
+  column (set iff an email body contribution is present); pre-existing
+  context-bearing rows are backfilled to `AFTER_STAGES_SUMMARY`.
+
+### Fixed
+
+- **Flaky `test_main` gRPC lifecycle tests on Windows.** The three real-server
+  tests hard-coded ports inside a Windows reserved range (Hyper-V/WSL/Docker),
+  which no process may bind; they now bind an OS-assigned free port. No runtime
+  impact — test harness only.
+
 ## [0.1.0] — 2026-07-14
 
 First official release — the full v1 feature scope: collecting per-stage reports
@@ -59,5 +94,6 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/joey-huckabee/Message-Service/releases/tag/v0.1.0

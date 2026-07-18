@@ -33,6 +33,7 @@ L1-API-001, L1-API-002, L1-API-004
 L2-API-003, L2-API-004, L2-API-005
 L3-API-005, L3-API-006, L3-API-011
 L3-AGGR-002 (Struct to dict conversion)
+L3-AGGR-004 (email body position UNSPECIFIED -> AFTER + DEBUG log)
 """
 
 from __future__ import annotations
@@ -66,6 +67,7 @@ from message_service.application.use_cases.finalize_run_command import (
 from message_service.application.use_cases.submit_stage_report_command import (
     SubmitStageReportCommand,
 )
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import AttachmentMode
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.interfaces.grpc.error_mapping import translate_to_grpc_status
@@ -99,6 +101,43 @@ def _attachment_mode_to_domain(value: int) -> AttachmentMode:
         return _PROTO_TO_DOMAIN_ATTACHMENT_MODE[value]
     except KeyError as exc:  # pragma: no cover — proto validation prevents this
         raise ValueError(f"unknown AttachmentMode enum value: {value}") from exc
+
+
+_PROTO_TO_DOMAIN_EMAIL_BODY_POSITION: dict[int, EmailBodyPosition] = {
+    pb.EMAIL_BODY_POSITION_BEFORE_STAGES_SUMMARY: EmailBodyPosition.BEFORE_STAGES_SUMMARY,
+    pb.EMAIL_BODY_POSITION_AFTER_STAGES_SUMMARY: EmailBodyPosition.AFTER_STAGES_SUMMARY,
+}
+
+
+def _email_body_position_to_domain(value: int, *, run_id: str, stage_id: str) -> EmailBodyPosition:
+    """Translate proto ``EmailBodyPosition`` → domain enum (L3-AGGR-004).
+
+    ``EMAIL_BODY_POSITION_UNSPECIFIED`` (the proto3 default, sent
+    whenever the client omits ``position`` on a contribution it does
+    provide) resolves to ``AFTER_STAGES_SUMMARY`` and emits a DEBUG log
+    recording the defaulting; the domain never sees ``UNSPECIFIED``.
+    An explicit ``BEFORE``/``AFTER`` is translated verbatim with no log.
+
+    Args:
+        value: The proto ``EmailBodyPosition`` int value.
+        run_id: Request's run id — diagnostic context for the log.
+        stage_id: Request's stage id — diagnostic context for the log.
+
+    Returns:
+        The resolved domain :class:`EmailBodyPosition`.
+    """
+    if value == pb.EMAIL_BODY_POSITION_UNSPECIFIED:
+        _log.debug(
+            "email_body_position_defaulted",
+            run_id=run_id,
+            stage_id=stage_id,
+            resolved_position=EmailBodyPosition.AFTER_STAGES_SUMMARY.value,
+        )
+        return EmailBodyPosition.AFTER_STAGES_SUMMARY
+    try:
+        return _PROTO_TO_DOMAIN_EMAIL_BODY_POSITION[value]
+    except KeyError as exc:  # pragma: no cover — proto validation prevents this
+        raise ValueError(f"unknown EmailBodyPosition enum value: {value}") from exc
 
 
 # -----------------------------------------------------------------------------
@@ -233,19 +272,29 @@ class MessageServiceServicer(pb_grpc.MessageServiceServicer):  # type: ignore[mi
                 report_ctx = None
 
             # Email body contribution is optional. HasField is the right
-            # presence check for a message-typed field.
+            # presence check for a message-typed field. When present, its
+            # position resolves UNSPECIFIED -> AFTER (L3-AGGR-004); when
+            # absent, both context and position are None so the pairing
+            # invariant (L3-AGGR-018) holds.
             if request.HasField("email_body_contribution"):
                 body_ctx: dict[str, Any] | None = _struct_to_dict(
                     request.email_body_contribution.context
                 )
+                body_position: EmailBodyPosition | None = _email_body_position_to_domain(
+                    request.email_body_contribution.position,
+                    run_id=request.run_id,
+                    stage_id=request.stage_id,
+                )
             else:
                 body_ctx = None
+                body_position = None
 
             cmd = SubmitStageReportCommand(
                 run_id=request.run_id,
                 stage_id=request.stage_id,
                 report_context=report_ctx,
                 email_body_context=body_ctx,
+                email_body_position=body_position,
             )
 
             result = await self._service.submit_stage_report.execute(cmd)

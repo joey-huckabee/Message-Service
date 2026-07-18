@@ -14,16 +14,19 @@ Requirement references
 L1-STAGE-002 (idempotent on (run_id, stage_id))
 L2-STAGE-004 (retry replaces prior content, transitions to RETRIED)
 L2-STAGE-006 (empty submission accepted)
+L2-AGGR-003 (email body position enum)
 L3-STAGE-010 (empty Struct stored as "{}")
 L3-STAGE-011 (both contributions omitted stored as null/null)
+L3-AGGR-004 (UNSPECIFIED resolved before the command), L3-AGGR-018 (pairing)
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.state_machines.stage_states import StageState
 
 
@@ -51,6 +54,12 @@ class SubmitStageReportCommand(BaseModel):
             template. Same three-way distinction as ``report_context``.
             Per L2-STAGE-005: omitting this on retry explicitly CLEARS
             any previously-recorded email body content.
+        email_body_position: Resolved placement of the email body
+            contribution relative to the run-level summary block
+            (L2-AGGR-003). Set iff ``email_body_context`` is set; the
+            gRPC boundary resolves the proto ``UNSPECIFIED`` sentinel to
+            ``AFTER_STAGES_SUMMARY`` before constructing the command
+            (L3-AGGR-004), so the domain never sees ``UNSPECIFIED``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
@@ -59,6 +68,24 @@ class SubmitStageReportCommand(BaseModel):
     stage_id: str = Field(min_length=1)
     report_context: dict[str, Any] | None = None
     email_body_context: dict[str, Any] | None = None
+    email_body_position: EmailBodyPosition | None = None
+
+    @model_validator(mode="after")
+    def _check_position_pairing(self) -> SubmitStageReportCommand:
+        """Enforce L3-AGGR-018's pairing at the command boundary.
+
+        ``email_body_position`` is present iff ``email_body_context`` is
+        present. Catching the mismatch here yields a clear boundary error
+        rather than surfacing deep in the :class:`Stage` aggregate's
+        ``__post_init__``.
+        """
+        if (self.email_body_position is None) != (self.email_body_context is None):
+            raise ValueError(
+                "email_body_position must be set iff email_body_context is set "
+                f"(position={self.email_body_position!r}, "
+                f"context={'None' if self.email_body_context is None else 'present'})"
+            )
+        return self
 
 
 class SubmitStageReportResult(BaseModel):

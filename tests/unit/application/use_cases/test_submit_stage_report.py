@@ -147,6 +147,14 @@ def _valid_cmd(**overrides: Any) -> SubmitStageReportCommand:
         "email_body_context": {"summary": "ok"},
     }
     fields.update(overrides)
+    # Mirror the command's L3-AGGR-018 pairing: position set iff body
+    # context set. Callers may override email_body_position explicitly.
+    if "email_body_position" not in fields:
+        fields["email_body_position"] = (
+            EmailBodyPosition.AFTER_STAGES_SUMMARY
+            if fields.get("email_body_context") is not None
+            else None
+        )
     return SubmitStageReportCommand(**fields)
 
 

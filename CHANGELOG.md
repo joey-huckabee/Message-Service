@@ -12,6 +12,35 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-18
+
+Error-code stability lockfile — the second deferred-feature item (`R-ERR-002`)
+promoted to real requirements on the road to 1.0.0. The machine-readable error
+codes that pipelines program against (surfaced in gRPC trailing metadata under
+`x-message-service-error-code`) are now frozen by a committed lockfile and a CI
+gate, so a removal or rename can no longer slip through unnoticed. This resolves
+the `L1-ERR-002` v1 partial: **64 of 67 L1 requirements Implemented** at
+**94.99% branch coverage** over **1402 tests**. Three intentional partials remain
+toward 1.0.0.
+
+### Added
+
+- **Error-code stability lockfile (`L1-ERR-002`).** `docs/error-codes.lock`
+  records the proto `ErrorCode` enum — the single enumerated set shared with the
+  exception hierarchy (per `L1-ERR-002`, asserted at startup by `L3-ERR-008`).
+  `scripts/check-error-code-stability.py` diffs the current enum against the
+  lockfile and exits `0` (clean), `1` (stability violation — a released code was
+  removed or renamed), `2` (stale lockfile — a code was added; regenerate and
+  commit), or `3` (lockfile missing/unreadable); a removal outranks an addition
+  so a rename fails as a violation. `scripts/update-error-codes-lock.py`
+  regenerates the lockfile deterministically. Promotes `L3-ERR-010` /
+  `L3-ERR-011` from deferred stubs to real SHALLs.
+
+### Changed
+
+- **CI.** A new `error-code-stability` job runs the check on every push and PR,
+  surfacing error-code adds, removals, and renames at review time.
+
 ## [0.2.0] — 2026-07-17
 
 Custom per-stage email body contributions — the first deferred-feature item
@@ -94,6 +123,7 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/joey-huckabee/Message-Service/releases/tag/v0.1.0

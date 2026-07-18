@@ -16,8 +16,8 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.2.0** (`R-AGGR-001` — custom per-stage
-email body contributions); the next cut is **v0.3.0** — nothing is scheduled into
+each release cut. The last cut was **v0.3.0** (`R-ERR-002` — error-code stability
+lockfile + helper scripts); the next cut is **v0.4.0** — nothing is scheduled into
 it yet. Pull items from the **Deferred features** backlog below, promote each to
 real L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
 result under a new dated section in `CHANGELOG.md`.
@@ -27,12 +27,13 @@ result under a new dated section in `CHANGELOG.md`.
 | Version | Theme |
 |---------|-------|
 | 0.2.0 → | Work down the deferred-feature backlog toward feature-completeness; each release promotes one or more `R-XXX` items to real requirements. |
-| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-API-001` / `R-ERR-001` wire-contract upgrades) have either shipped or been explicitly scoped out, and the four remaining intentional v1 partials below are resolved. |
+| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-API-001` / `R-ERR-001` wire-contract upgrades) have either shipped or been explicitly scoped out, and the three remaining intentional v1 partials below are resolved. |
 
 ## The road to 1.0.0 — intentional v1 partials
 
 v0.1.0 shipped five L1 requirements **Partial**; v0.2.0 resolved `L1-AGGR-001`
-(`R-AGGR-001` — custom per-stage email body contributions), leaving **four**.
+(`R-AGGR-001` — custom per-stage email body contributions) and v0.3.0 resolved
+`L1-ERR-002` (`R-ERR-002` — error-code stability lockfile), leaving **three**.
 None is a missing-functionality bug; each is a deliberate deferral with
 all-but-one L2 child Implemented and the deferred child carried as an `R-XXX`
 entry below. `docs/TRACE-MATRIX.md` shows them as Partial because the matrix has
@@ -42,7 +43,6 @@ no "Deferred to v2" state.
 |----|----------------|--------------|
 | L1-API-001 | Per-RPC correlation interceptor + CI proto-version check | R-API-001 |
 | L1-DASH-004 | Embedded Chart.js metrics dashboard (scrape endpoint already ships) | R-DASH-004 |
-| L1-ERR-002 | Error-code-stability lockfile + helper scripts | R-ERR-002 |
 | L1-OBS-001 | Per-RPC / per-route correlation interceptor (same as L1-API-001) | R-API-001 |
 
 These share a common trigger: the gRPC ingress crossing a stable trust boundary
@@ -172,14 +172,6 @@ referenced by spec docs and code comments; keep the tags stable.
   the translator to construct `google.rpc.Status`. Strictly additive server-side;
   the same trailing-metadata key can be carried in both shapes during a phased
   rollout, so existing clients keep working.
-- **R-ERR-002 — Error-code stability lockfile + helper script** — v1 holds the
-  error-code-stability obligation through the import-time self-check (every
-  exception's `error_code` exists in the proto enum) and the centralized
-  `error_code` ClassVars reviewers diff at PR time. A formal `docs/error-codes.lock`
-  manifest plus `scripts/check-error-code-stability.py` /
-  `scripts/update-error-codes-lock.py` become useful when external pipelines start
-  pinning specific codes. Future work: regenerate the lockfile at PR time and gate
-  adds/removes/renames in CI.
 
 ### Feature extensions
 

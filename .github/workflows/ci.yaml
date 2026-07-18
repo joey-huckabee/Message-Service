@@ -201,3 +201,35 @@ jobs:
           path: docs/TRACE-MATRIX.md
           retention-days: 30
           if-no-files-found: warn
+
+  # ---------------------------------------------------------------------
+  # L1-ERR-002 — Error-code stability gate.
+  # Runs `check-error-code-stability.py` (L3-ERR-010 / L3-ERR-011) to surface
+  # error-code adds, removals, and renames at PR time. Exit codes:
+  #   0 — clean (lockfile matches the current proto ErrorCode enum)
+  #   1 — stability violation (a released code was removed or renamed)
+  #   2 — stale lockfile (a code was added; regenerate + commit the lockfile)
+  #   3 — lockfile missing or unreadable
+  # ---------------------------------------------------------------------
+  error-code-stability:
+    name: Error-code stability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pip install "poetry==${POETRY_VERSION}"
+
+      - name: Install project dependencies
+        # The check imports the proto ErrorCode enum via the project's
+        # message_service_proto dependency; needs the resolved environment.
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Verify error-code lockfile (adds/removes/renames gate)
+        run: poetry run python scripts/check-error-code-stability.py

@@ -1,0 +1,28 @@
+# Message-Service error-code stability lockfile
+#
+# Locks the machine-readable error codes — the proto ErrorCode enum, the single
+# enumerated set shared with the exception hierarchy per L1-ERR-002 and asserted
+# at startup by L3-ERR-008. Per L2-ERR-005 / L3-ERR-010, once a code appears in a
+# released version it SHALL NOT be renamed or repurposed.
+#
+# Regenerate with: poetry run python scripts/update-error-codes-lock.py
+# CI gate:         poetry run python scripts/check-error-code-stability.py
+#
+# One UPPER_SNAKE_CASE code per line, sorted. '#'-prefixed and blank lines are
+# ignored. DO NOT hand-edit — this file is generated.
+
+ERROR_CODE_CONTEXT_SCHEMA_VIOLATION
+ERROR_CODE_CONTEXT_SIZE_EXCEEDED
+ERROR_CODE_DUPLICATE_STAGE_ID
+ERROR_CODE_INTERNAL
+ERROR_CODE_INVALID_RUN_STATE
+ERROR_CODE_INVALID_STAGE_STATE
+ERROR_CODE_MALFORMED_REQUEST
+ERROR_CODE_MISSING_AGGREGATION_TEMPLATE
+ERROR_CODE_RENDERED_SIZE_EXCEEDED
+ERROR_CODE_RUN_NOT_FOUND
+ERROR_CODE_UNKNOWN_PIPELINE_TYPE
+ERROR_CODE_UNKNOWN_STAGE
+ERROR_CODE_UNKNOWN_TAG
+ERROR_CODE_UNKNOWN_TEMPLATE
+ERROR_CODE_UNSPECIFIED

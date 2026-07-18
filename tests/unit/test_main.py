@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 from pathlib import Path
 from unittest.mock import patch
 
@@ -41,6 +42,26 @@ from message_service.config.loader import load_config
 # -----------------------------------------------------------------------------
 # Fixtures — minimal valid config on disk
 # -----------------------------------------------------------------------------
+
+
+def _find_free_port() -> int:
+    """Return an OS-assigned free TCP port on the loopback interface.
+
+    Binding to port 0 lets the kernel choose a port that is guaranteed
+    free AND outside any reserved range. This matters on Windows, where
+    Hyper-V/WSL/Docker reserve blocks of ports (visible via ``netsh
+    interface ipv4 show excludedportrange protocol=tcp``); a hard-coded
+    port that lands inside such a block cannot be bound by any process
+    and fails with ``WinError 10013`` — surfacing as gRPC's
+    ``Failed to bind to address ...; port == 0``. The kernel never hands
+    out a reserved port for an ephemeral bind, so this avoids the whole
+    class of collision. The socket is closed immediately; a bind-only
+    socket (never listened/connected) leaves no ``TIME_WAIT`` behind.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        port: int = probe.getsockname()[1]
+        return port
 
 
 def _write_config(
@@ -178,8 +199,11 @@ async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None
     `_run` blocks on; setting it returns control cleanly to the caller.
     Also exercises the L1-DEP-001 dual-platform startup invariant.
     """
-    # Choose a port unlikely to collide with other tests.
-    cfg_path = _write_config(tmp_path, grpc_port=55090, dashboard_port=58090)
+    # OS-assigned free ports avoid collisions with other tests and with
+    # Windows reserved port ranges (see _find_free_port).
+    cfg_path = _write_config(
+        tmp_path, grpc_port=_find_free_port(), dashboard_port=_find_free_port()
+    )
     config = load_config(cfg_path)
     shutdown = asyncio.Event()
 
@@ -200,7 +224,8 @@ async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None
 @pytest.mark.allow_io
 async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     """While ``_run`` is active the server SHALL answer a real BeginRun RPC."""
-    cfg_path = _write_config(tmp_path, grpc_port=55091, dashboard_port=58091)
+    grpc_port = _find_free_port()
+    cfg_path = _write_config(tmp_path, grpc_port=grpc_port, dashboard_port=_find_free_port())
     config = load_config(cfg_path)
     shutdown = asyncio.Event()
 
@@ -208,7 +233,7 @@ async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
         # Wait for the listener.
         await asyncio.sleep(0.3)
         try:
-            async with grpc.aio.insecure_channel("127.0.0.1:55091") as channel:
+            async with grpc.aio.insecure_channel(f"127.0.0.1:{grpc_port}") as channel:
                 stub = pb_grpc.MessageServiceStub(channel)
                 response = await stub.BeginRun(
                     pb.BeginRunRequest(
@@ -360,7 +385,9 @@ async def test_run_propagates_shutdown_grace_period_to_grpc_stop(
     """
     from grpc.aio import _server as _grpc_aio_server
 
-    cfg_path = _write_config(tmp_path, grpc_port=55092, dashboard_port=58092)
+    cfg_path = _write_config(
+        tmp_path, grpc_port=_find_free_port(), dashboard_port=_find_free_port()
+    )
     config = load_config(cfg_path)
     expected_grace = float(config.service.shutdown_grace_period_seconds)
     assert expected_grace > 0  # sanity

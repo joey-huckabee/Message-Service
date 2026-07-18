@@ -370,7 +370,7 @@ the single source of truth.
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
 | L1-ERR-001 | L2-ERR-001, L2-ERR-002, L2-ERR-003 | Implemented |
-| L1-ERR-002 | L2-ERR-004, L2-ERR-005 | Partially Implemented |
+| L1-ERR-002 | L2-ERR-004, L2-ERR-005 | Implemented |
 | L1-ERR-003 | L2-ERR-006, L2-ERR-007, L2-ERR-008 | Implemented |
 | L1-ERR-004 | L2-ERR-009, L2-ERR-010 | Implemented |
 
@@ -382,7 +382,7 @@ the single source of truth.
 | L2-ERR-002 | L3-ERR-004, L3-ERR-005 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_domain_subcategories_inherit_from_domain_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_every_concrete_class_inherits_from_one_intermediate`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_four_intermediate_subclasses_exist` | Implemented |
 | L2-ERR-003 | L3-ERR-006, L3-ERR-007 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_every_leaf_error_code_is_upper_snake_case`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_no_two_leaves_share_a_specific_error_code` | Implemented |
 | L2-ERR-004 | L3-ERR-008, L3-ERR-009 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_passes_for_real_proto`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_raises_when_class_code_missing`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_returns_orphans` | Implemented |
-| L2-ERR-005 | L3-ERR-010, L3-ERR-011 | _(TBD)_ | Draft |
+| L2-ERR-005 | L3-ERR-010, L3-ERR-011 | `tests/conformance/test_error_code_stability.py::test_added_code_is_a_stale_lockfile`<br>`tests/conformance/test_error_code_stability.py::test_both_helper_scripts_exist`<br>`tests/conformance/test_error_code_stability.py::test_check_module_exposes_reusable_helpers`<br>`tests/conformance/test_error_code_stability.py::test_committed_lockfile_matches_current_enum`<br>`tests/conformance/test_error_code_stability.py::test_exit_code_constants_match_contract`<br>`tests/conformance/test_error_code_stability.py::test_main_passes_against_committed_state`<br>`tests/conformance/test_error_code_stability.py::test_main_reports_missing_lockfile_exit_3`<br>`tests/conformance/test_error_code_stability.py::test_main_reports_stale_lockfile_exit_2`<br>`tests/conformance/test_error_code_stability.py::test_parse_ignores_comments_and_blank_lines`<br>`tests/conformance/test_error_code_stability.py::test_removed_code_is_a_stability_violation`<br>`tests/conformance/test_error_code_stability.py::test_rename_fails_as_violation_not_stale`<br>`tests/conformance/test_error_code_stability.py::test_render_round_trips_and_is_sorted`<br>`tests/conformance/test_error_code_stability.py::test_update_script_regenerates_committed_lockfile_byte_for_byte` | Implemented |
 | L2-ERR-006 | L3-ERR-012, L3-ERR-013 | `tests/conformance/test_error_handling_discipline.py::test_aiosmtplib_mailer_classifies_transient_vs_permanent`<br>`tests/conformance/test_error_handling_discipline.py::test_grpc_interface_has_single_translate_exceptions_chokepoint` | Implemented |
 | L2-ERR-007 | L3-ERR-014, L3-ERR-015, L3-ERR-016 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_configuration_error_maps_to_internal`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_maps_to_internal`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_not_found_error_maps_to_not_found`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_precondition_error_maps_to_failed_precondition`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_does_not_leak_internal_class_name`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_does_not_mutate_original_details`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_redacts_sensitive_keys_in_log_record`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_to_grpc_status_dispatches_known_to_translate_known`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_to_grpc_status_dispatches_unknown_to_translate_unexpected`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_maps_to_invalid_argument` | Implemented |
 | L2-ERR-008 | L3-ERR-017, L3-ERR-018 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_does_not_leak_stack_trace_to_client`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_returns_internal_with_correlation_id` | Implemented |
@@ -488,13 +488,13 @@ the single source of truth.
 | DASH | 5 | 16 | 35 | 1 | 33 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 18 | 40 | 3 | 38 |
-| ERR | 4 | 10 | 22 | 0 | 20 |
+| ERR | 4 | 10 | 22 | 0 | 22 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **393** | **66** | **385** |
+| **Total** | **67** | **192** | **393** | **66** | **387** |
 
-**Requirements verified by at least one test**: 451 of 585 (77.1%).
+**Requirements verified by at least one test**: 453 of 585 (77.4%).
 
 ### Orphan check
 

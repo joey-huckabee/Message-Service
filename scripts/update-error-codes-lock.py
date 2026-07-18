@@ -21,12 +21,13 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _CHECK_SCRIPT = _SCRIPT_DIR / "check-error-code-stability.py"
 
 
-def _load_check_module() -> object:
+def _load_check_module() -> ModuleType:
     """Load the sibling check script as a module by file path.
 
     Returns:
@@ -53,9 +54,9 @@ def main() -> int:
         Process exit code (always ``0`` on success).
     """
     check = _load_check_module()
-    codes = check.current_error_codes()  # type: ignore[attr-defined]
-    text = check.render_lockfile(codes)  # type: ignore[attr-defined]
-    lock_path: Path = check.LOCK_PATH  # type: ignore[attr-defined]
+    codes = check.current_error_codes()
+    text = check.render_lockfile(codes)
+    lock_path: Path = check.LOCK_PATH
     # newline="\n" keeps the file LF on every platform so a Windows regenerate
     # produces byte-identical output to the committed (LF) lockfile.
     lock_path.write_text(text, encoding="utf-8", newline="\n")

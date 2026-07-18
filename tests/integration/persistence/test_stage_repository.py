@@ -145,6 +145,45 @@ async def test_empty_json_contexts_round_trip(
     assert loaded.email_body_context_json is None
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AGGR-018")
+async def test_email_body_position_round_trips(
+    repo: SqliteStageRepository, conn: aiosqlite.Connection
+) -> None:
+    """L3-AGGR-018: the resolved email_body_position SHALL round-trip through storage."""
+    stage = _make_stage(
+        state=StageState.SUBMITTED,
+        email_body_context_json='{"summary": "ok"}',
+        email_body_position=EmailBodyPosition.BEFORE_STAGES_SUMMARY,
+        submitted_at=_T0,
+    )
+    await repo.save(stage)
+    await conn.commit()
+
+    loaded = await repo.get(stage.run_id, stage.stage_id)
+    assert loaded.email_body_position is EmailBodyPosition.BEFORE_STAGES_SUMMARY
+    assert loaded == stage
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AGGR-018")
+async def test_no_email_body_contribution_stores_null_position(
+    repo: SqliteStageRepository, conn: aiosqlite.Connection
+) -> None:
+    """A stage with no email body contribution SHALL store NULL position."""
+    stage = _make_stage(
+        state=StageState.SUBMITTED,
+        report_context_json='{"metric": 1}',
+        email_body_context_json=None,
+        submitted_at=_T0,
+    )
+    await repo.save(stage)
+    await conn.commit()
+
+    loaded = await repo.get(stage.run_id, stage.stage_id)
+    assert loaded.email_body_position is None
+
+
 # -----------------------------------------------------------------------------
 # get() misses
 # -----------------------------------------------------------------------------

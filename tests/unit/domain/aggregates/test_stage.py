@@ -102,3 +102,52 @@ def test_stage_report_and_email_body_contexts_are_independent() -> None:
     )
     assert s_report_only.email_body_context_json is None
     assert s_body_only.report_context_json is None
+
+
+# -----------------------------------------------------------------------------
+# email_body_position pairing invariant (L3-AGGR-018)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-AGGR-018")
+def test_position_without_context_raises() -> None:
+    """A position with no email body context violates the pairing invariant."""
+    with pytest.raises(ValueError, match="email_body_position must be set iff"):
+        _stage(
+            state=StageState.SUBMITTED,
+            submitted_at=_T0,
+            email_body_context_json=None,
+            email_body_position=EmailBodyPosition.AFTER_STAGES_SUMMARY,
+        )
+
+
+@pytest.mark.requirement("L3-AGGR-018")
+def test_context_without_position_raises() -> None:
+    """An email body context with no position violates the pairing invariant."""
+    with pytest.raises(ValueError, match="email_body_position must be set iff"):
+        _stage(
+            state=StageState.SUBMITTED,
+            submitted_at=_T0,
+            email_body_context_json='{"y": 2}',
+            email_body_position=None,
+        )
+
+
+@pytest.mark.requirement("L3-AGGR-018")
+def test_empty_struct_context_still_requires_position() -> None:
+    """An empty ``"{}"`` context is present (L3-STAGE-010), so it needs a position."""
+    with pytest.raises(ValueError, match="email_body_position must be set iff"):
+        _stage(
+            state=StageState.SUBMITTED,
+            submitted_at=_T0,
+            email_body_context_json="{}",
+            email_body_position=None,
+        )
+    # ... and is valid once paired.
+    s = _stage(
+        state=StageState.SUBMITTED,
+        submitted_at=_T0,
+        email_body_context_json="{}",
+        email_body_position=EmailBodyPosition.BEFORE_STAGES_SUMMARY,
+    )
+    assert s.email_body_position is EmailBodyPosition.BEFORE_STAGES_SUMMARY

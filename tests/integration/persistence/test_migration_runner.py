@@ -62,6 +62,63 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-AGGR-018")
+async def test_004_adds_email_body_position_column(tmp_path: Path) -> None:
+    """004 SHALL add an ``email_body_position`` TEXT column to ``stages``."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute("PRAGMA table_info(stages)") as cur:
+            rows = await cur.fetchall()
+        cols = {row[1]: row[2] for row in rows}
+        assert "email_body_position" in cols
+        assert cols["email_body_position"] == "TEXT"
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AGGR-018")
+async def test_004_backfills_pre_existing_context_rows(tmp_path: Path) -> None:
+    """004 SHALL backfill context-bearing rows to AFTER_STAGES_SUMMARY, NULL others.
+
+    Applies the shipped 004 SQL to a pre-004-shaped ``stages`` table
+    carrying legacy rows, proving the ALTER + backfill do exactly what
+    L3-AGGR-018 requires.
+    """
+    from message_service.infrastructure.persistence import migrations as _migrations
+
+    migration_sql = (Path(_migrations.__file__).parent / "004_email_body_position.sql").read_text(
+        encoding="utf-8"
+    )
+
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        # Minimal pre-004 stages shape with two legacy rows: one with an
+        # email body context, one without.
+        await conn.executescript(
+            "CREATE TABLE stages (run_id TEXT, stage_id TEXT, email_body_context_json TEXT);"
+            "INSERT INTO stages VALUES ('r', 'has_body', '{\"k\": 1}');"
+            "INSERT INTO stages VALUES ('r', 'no_body', NULL);"
+        )
+        await conn.commit()
+
+        await conn.executescript(migration_sql)
+        await conn.commit()
+
+        async with conn.execute(
+            "SELECT stage_id, email_body_position FROM stages ORDER BY stage_id"
+        ) as cur:
+            got = {row[0]: row[1] for row in await cur.fetchall()}
+        assert got["has_body"] == "AFTER_STAGES_SUMMARY"
+        assert got["no_body"] is None
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L3-PERS-005")
 async def test_reapply_is_noop(tmp_path: Path) -> None:
     db = tmp_path / "test.db"

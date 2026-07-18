@@ -42,6 +42,7 @@ from message_service.application.use_cases.assemble_and_deliver import (
 )
 from message_service.domain.aggregates.audit_event import AuditAction, AuditOutcome
 from message_service.domain.aggregates.declared_stage import DeclaredStage
+from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
@@ -108,17 +109,23 @@ def _stage(
     state: StageState = StageState.SUBMITTED,
     report_template_ref: TemplateRef = _TPL_EXT,
     report_context_json: str | None = '{"metric": 42}',
+    email_body_context_json: str | None = None,
+    email_body_position: EmailBodyPosition | None = None,
 ) -> Stage:
     # PENDING stages must not carry a submitted_at timestamp; every
     # other state MUST.
     submitted_at = None if state is StageState.PENDING else _T0
+    # L3-AGGR-018: position is set iff an email body contribution is present.
+    if email_body_position is None and email_body_context_json is not None:
+        email_body_position = EmailBodyPosition.AFTER_STAGES_SUMMARY
     return Stage(
         run_id=_RID,
         stage_id=StageId(stage_id),
         state=state,
         report_template_ref=report_template_ref,
         report_context_json=report_context_json,
-        email_body_context_json=None,
+        email_body_context_json=email_body_context_json,
+        email_body_position=email_body_position,
         submitted_at=submitted_at,
     )
 
@@ -424,6 +431,80 @@ async def test_per_stage_produces_one_attachment_per_non_empty_stage(
     filenames = {a.filename for a in email.attachments}
     assert f"etl-nightly_{_RID}_extract.html" in filenames
     assert f"etl-nightly_{_RID}_transform.html" in filenames
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AGGR-005")
+@pytest.mark.requirement("L1-AGGR-001")
+async def test_email_body_contributions_bucketed_and_ordered(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+    renderer: MagicMock,
+) -> None:
+    """L3-AGGR-005: contributions split into before/after buckets, each
+    sorted by (stage_order, stage_id); non-contributing stages excluded.
+    """
+    _, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run = Run(
+        run_id=_RID,
+        pipeline_type="etl-nightly",
+        tags=frozenset({"production"}),
+        declared_stages=(
+            DeclaredStage(stage_id=StageId("extract"), stage_order=0, report_template_ref=_TPL_EXT),
+            DeclaredStage(
+                stage_id=StageId("transform"), stage_order=1, report_template_ref=_TPL_XFM
+            ),
+            DeclaredStage(stage_id=StageId("load"), stage_order=2, report_template_ref=_TPL_EXT),
+            DeclaredStage(
+                stage_id=StageId("validate"), stage_order=3, report_template_ref=_TPL_EXT
+            ),
+        ),
+        state=RunState.READY,
+        attachment_mode=AttachmentMode.PER_STAGE,
+        aggregation_template_ref=None,
+        subscription_predicate_tags=frozenset({"production"}),
+        created_at=_T0,
+        updated_at=_T0,
+    )
+    run_repo.set_initial(run)
+    # Returned scrambled to prove the use case sorts by (stage_order, stage_id):
+    # extract(0)=BEFORE, transform(1)=AFTER, load(2)=BEFORE, validate(3)=no contribution.
+    stage_repo.list_by_run.return_value = [
+        _stage(
+            "load",
+            email_body_context_json='{"c": 3}',
+            email_body_position=EmailBodyPosition.BEFORE_STAGES_SUMMARY,
+        ),
+        _stage("validate"),
+        _stage(
+            "transform",
+            report_template_ref=_TPL_XFM,
+            email_body_context_json='{"b": 2}',
+            email_body_position=EmailBodyPosition.AFTER_STAGES_SUMMARY,
+        ),
+        _stage(
+            "extract",
+            email_body_context_json='{"a": 1}',
+            email_body_position=EmailBodyPosition.BEFORE_STAGES_SUMMARY,
+        ),
+    ]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+
+    await use_case.execute(_RID)
+
+    # Grab the context passed to the email body template render.
+    body_ctx = next(
+        call.args[1] for call in renderer.render.call_args_list if call.args[0] == _TPL_BODY
+    )
+    # BEFORE bucket: extract(order 0) then load(order 2), by (stage_order, stage_id).
+    assert body_ctx["before_contributions"] == [
+        {"stage_id": "extract", "stage_order": 0, "context": {"a": 1}},
+        {"stage_id": "load", "stage_order": 2, "context": {"c": 3}},
+    ]
+    # AFTER bucket: transform only. 'validate' (no contribution) is in neither.
+    assert body_ctx["after_contributions"] == [
+        {"stage_id": "transform", "stage_order": 1, "context": {"b": 2}},
+    ]
 
 
 @pytest.mark.asyncio

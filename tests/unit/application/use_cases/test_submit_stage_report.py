@@ -21,6 +21,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from message_service.application.ports.audit_log import AuditLog
 from message_service.application.ports.clock import Clock
@@ -595,3 +596,55 @@ async def test_uow_entered_even_when_run_not_found(
     uow.__aenter__.assert_awaited_once()
     # __aexit__ receives the exception and the UoW rolls back.
     uow.__aexit__.assert_awaited_once()
+
+
+# -----------------------------------------------------------------------------
+# Command email-body position pairing (L3-AGGR-018)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-AGGR-018")
+def test_command_rejects_position_without_context() -> None:
+    """A position with no email body context SHALL fail command validation."""
+    with pytest.raises(ValidationError, match="email_body_position must be set iff"):
+        SubmitStageReportCommand(
+            run_id=_RID,
+            stage_id=_SID_EXTRACT,
+            email_body_context=None,
+            email_body_position=EmailBodyPosition.AFTER_STAGES_SUMMARY,
+        )
+
+
+@pytest.mark.requirement("L3-AGGR-018")
+def test_command_rejects_context_without_position() -> None:
+    """An email body context with no position SHALL fail command validation."""
+    with pytest.raises(ValidationError, match="email_body_position must be set iff"):
+        SubmitStageReportCommand(
+            run_id=_RID,
+            stage_id=_SID_EXTRACT,
+            email_body_context={"summary": "ok"},
+            email_body_position=None,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AGGR-018")
+async def test_submitted_stage_persists_command_position(
+    use_case: SubmitStageReportUseCase,
+    uow_bundle: tuple[MagicMock, Any, AsyncMock, AsyncMock, Any],
+) -> None:
+    """The use case SHALL persist the command's resolved position verbatim."""
+    _, _, run_repo, stage_repo, _ = uow_bundle
+    run_repo.get.return_value = _sample_run(state=RunState.AGGREGATING)
+    stage_repo.get.return_value = _sample_stage(state=StageState.PENDING)
+
+    await use_case.execute(
+        _valid_cmd(
+            email_body_context={"summary": "ok"},
+            email_body_position=EmailBodyPosition.BEFORE_STAGES_SUMMARY,
+        )
+    )
+
+    saved: Stage = stage_repo.save.call_args.args[0]
+    assert saved.email_body_position is EmailBodyPosition.BEFORE_STAGES_SUMMARY
+    assert saved.email_body_context_json == '{"summary":"ok"}'

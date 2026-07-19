@@ -442,6 +442,13 @@ single source of truth for live status.
 **Rationale**: Independent control allows operators to tune each limit without side effects on the other.
 **Verification Method**: Inspection (I)
 
+#### L2-TMPL-015
+
+**Parent**: L1-TMPL-001
+**Statement**: The email body template rendered for a finalized run SHALL default to the service-wide `templates.email_body_template_ref`. An operator MAY override it per pipeline via the optional `pipelines.email_body_template_overrides` configuration mapping (`pipeline_type` → a `(name, version)` template reference): when the run's `pipeline_type` has an entry, assembly SHALL render the email body from the override reference, and otherwise from the service-wide default. Each override reference SHALL name a `(name, version)` pair present in the template manifest — validated at startup per L1-TMPL-001, failing service start when a referenced template is absent — and each key SHALL be a member of `pipelines.registered`. Override references use the same explicit-version model as the service-wide default (the `"latest"` sentinel is resolved only for request-supplied refs at `BeginRun` initiation per L2-TMPL-007, not for the service-configured body template).
+**Rationale**: Different pipelines often want visually distinct notification emails; a per-pipeline override keeps that operator-configurable without a proto change or a per-run declaration. Reusing the manifest-reference model preserves L1-TMPL-001's guarantee that every rendered template is a manifest-registered one, and startup validation surfaces a misconfigured override before any run is finalized. Additive: pipelines without an override are byte-identical to the prior single-template behavior.
+**Verification Method**: Test (T), Inspection (I)
+
 ---
 
 ## L2-AGGR: Aggregation and composition
@@ -1589,3 +1596,4 @@ single source of truth for live status.
 | Date       | Author | Change            |
 |------------|--------|-------------------|
 | 2026-04-18 | Joey   | Initial L2 draft  |
+| 2026-07-18 | Joey   | R-TMPL-001: added L2-TMPL-015 under L1-TMPL-001 (optional per-pipeline `pipelines.email_body_template_overrides`); reworded L2-MAIL-014 earlier for R-MAIL-001. |

@@ -364,6 +364,15 @@ At service start, during template renderer construction, every `context_schema_p
 **L3-TMPL-032** · Parent: L2-TMPL-011 · Verification: T
 The `json_pointer` value in `ContextSchemaViolationError.details` SHALL be derived from `jsonschema.ValidationError.absolute_path` formatted as a slash-prefixed pointer (e.g., `["foo", "bar", 0]` → `"/foo/bar/0"`); a root-level violation (empty `absolute_path`) SHALL render as `""`. The `details` dict SHALL also include `validator` (the failing keyword name, e.g., `"required"`, `"type"`), `template_name`, and `template_version`.
 
+**L3-TMPL-033** · Parent: L2-TMPL-015 · Verification: T
+`PipelinesConfig` SHALL expose an optional `email_body_template_overrides` mapping from `pipeline_type` to a `(name, version)` template reference (a `TemplateRefConfig`), defaulting to an empty mapping so that an unset mapping preserves the single-template behavior exactly. A Pydantic `model_validator` SHALL reject at configuration-load time (surfaced as the standard schema `ValidationError` per L3-CFG-006) any key that is not a member of `pipelines.registered` — a body-template override for an unregistered `pipeline_type` can never fire. A test SHALL assert the empty default, a valid mapping, and the unregistered-key rejection.
+
+**L3-TMPL-034** · Parent: L2-TMPL-015 · Verification: T
+At startup the composition root SHALL validate every `email_body_template_overrides` reference against the loaded template manifest via `TemplateRepository.exists`, raising `ConfigurationError` (before any use case is constructed or request served) when a referenced `(name, version)` is absent — the same "reject references not in the manifest" obligation L1-TMPL-001 places on request-supplied refs, applied here at configuration time. A test SHALL assert that an override naming a manifest-present template validates and one naming an absent template raises `ConfigurationError` carrying the offending `pipeline_type`, `name`, and `version` in `details`.
+
+**L3-TMPL-035** · Parent: L2-TMPL-015 · Verification: T
+`AssembleAndDeliverUseCase._render_email_body` SHALL render the email body from `email_body_template_overrides[run.pipeline_type]` when that key is present and from the service-wide `templates.email_body_template_ref` otherwise. Because both the first-delivery path and the resend path (`prepare_email`) route through `_render_email_body`, the override SHALL apply identically to resends. A test SHALL assert that a configured pipeline renders from its override reference, that an unconfigured pipeline renders from the default, and that a resend of a configured pipeline uses the override.
+
 ---
 
 ## L3-AGGR: Aggregation and composition
@@ -1314,3 +1323,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 | 2026-04-27 | Joey   | Refined L3-TMPL-018; added L3-TMPL-029..032 (4 stmts) for L1-TMPL-004 (timing/optionality/load-time/JSON Pointer). Total: 390. |
 | 2026-04-28 | Joey   | Increment 32h: added L3-RUN-031..033 (3 stmts) under L2-RUN-016 (Clock chokepoint, SystemClock impl, FakeClock substitution); closes L1-RUN-005. Total: 393. |
 | 2026-07-18 | Joey   | R-MAIL-001: added L3-MAIL-032..033 (2 stmts) under L2-MAIL-014 for optional per-pipeline `pipelines.subject_templates` override (render + load-time validation); reworded L2-MAIL-014. Total: 395. |
+| 2026-07-18 | Joey   | R-TMPL-001: added L3-TMPL-033..035 (3 stmts) under new L2-TMPL-015 for optional per-pipeline `pipelines.email_body_template_overrides` (config validation, startup manifest validation, render selection). Total: 398. |

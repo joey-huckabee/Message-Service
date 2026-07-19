@@ -447,7 +447,7 @@ the single source of truth.
 | L1-CICD-001 | L2-CICD-001, L2-CICD-002, L2-CICD-003 | Implemented |
 | L1-CICD-002 | L2-CICD-004, L2-CICD-005 | Implemented |
 | L1-CICD-003 | L2-CICD-006, L2-CICD-007 | Implemented |
-| L1-CICD-004 | L2-CICD-008, L2-CICD-009 | Implemented |
+| L1-CICD-004 | L2-CICD-008, L2-CICD-009, L2-CICD-016 | Implemented |
 | L1-CICD-005 | L2-CICD-010, L2-CICD-011 | Implemented |
 | L1-CICD-006 | L2-CICD-012, L2-CICD-013 | Implemented |
 | L1-CICD-007 | L2-CICD-014, L2-CICD-015 | Implemented |
@@ -471,6 +471,7 @@ the single source of truth.
 | L2-CICD-013 | L3-CICD-015 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_runs_poetry_check_lock` | Implemented |
 | L2-CICD-014 | L3-CICD-016 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_provenance_log_present` | Implemented |
 | L2-CICD-015 | L3-CICD-017 | `tests/conformance/test_deploy_artifacts.py::test_ci_workflow_artifact_retention_days_explicit` | Implemented |
+| L2-CICD-016 | L3-CICD-018, L3-CICD-019 | `tests/conformance/test_requirement_coverage.py::test_committed_allowlist_parses`<br>`tests/conformance/test_requirement_coverage.py::test_main_passes_against_the_repo`<br>`tests/conformance/test_requirement_coverage.py::test_only_draft_counts_as_uncovered`<br>`tests/conformance/test_requirement_coverage.py::test_parse_allowlist_rejects_malformed_id`<br>`tests/conformance/test_requirement_coverage.py::test_parse_allowlist_rejects_reasonless_entry`<br>`tests/conformance/test_requirement_coverage.py::test_parse_allowlist_returns_id_set`<br>`tests/conformance/test_requirement_coverage.py::test_parse_l1_statuses_extracts_each_l1_row`<br>`tests/conformance/test_requirement_coverage.py::test_script_exists`<br>`tests/conformance/test_requirement_coverage.py::test_uncovered_excludes_allowlisted_draft` | Implemented |
 
 ---
 
@@ -493,10 +494,10 @@ the single source of truth.
 | ERR | 4 | 10 | 22 | 0 | 22 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
-| CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **194** | **402** | **66** | **400** |
+| CICD | 7 | 16 | 19 | 1 | 19 |
+| **Total** | **67** | **195** | **404** | **66** | **402** |
 
-**Requirements verified by at least one test**: 466 of 596 (78.2%).
+**Requirements verified by at least one test**: 468 of 599 (78.1%).
 
 ### Orphan check
 

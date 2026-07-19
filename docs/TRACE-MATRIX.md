@@ -29,6 +29,7 @@ the single source of truth.
 | L1-API-002 | L2-API-004, L2-API-005 | Implemented |
 | L1-API-003 | L2-API-006, L2-API-007 | Implemented |
 | L1-API-004 | L2-API-008, L2-API-009, L2-API-010, L2-API-011 | Implemented |
+| L1-API-005 | L2-API-012 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -45,6 +46,7 @@ the single source of truth.
 | L2-API-009 | L3-API-013 | `tests/integration/grpc/test_servicer.py::test_submit_to_unknown_run_translates_to_not_found` | Implemented |
 | L2-API-010 | L3-API-014, L3-API-015, L3-API-016 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_returns_internal_with_correlation_id` | Implemented |
 | L2-API-011 | L3-API-017, L3-API-018 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_assert_error_codes_match_proto_enum_passes_for_real_proto`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_proto_error_code_zero_is_unspecified` | Implemented |
+| L2-API-012 | L3-API-019, L3-API-020 | `tests/unit/config/test_schema.py::test_grpc_config_max_in_flight_rpcs_default_is_zero`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_in_flight_rpcs_negative_rejected`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_in_flight_rpcs_positive_accepted`<br>`tests/unit/interfaces/grpc/test_concurrency_limit_interceptor.py::test_non_positive_limit_rejected`<br>`tests/unit/interfaces/grpc/test_concurrency_limit_interceptor.py::test_rejects_rpc_over_limit_with_resource_exhausted`<br>`tests/unit/interfaces/grpc/test_concurrency_limit_interceptor.py::test_slot_released_after_completion_allows_next_rpc`<br>`tests/unit/interfaces/grpc/test_concurrency_limit_interceptor.py::test_slot_released_even_when_handler_raises` | Implemented |
 
 ### L1-RUN: Run lifecycle
 
@@ -480,7 +482,7 @@ the single source of truth.
 
 | Category | L1 | L2 | L3 | L2s with tests | L3s with tests |
 |----------|----|----|-----|----------------|----------------|
-| API | 4 | 11 | 18 | 3 | 18 |
+| API | 5 | 12 | 20 | 3 | 20 |
 | RUN | 5 | 16 | 33 | 9 | 33 |
 | STAGE | 4 | 9 | 18 | 8 | 18 |
 | TMPL | 5 | 15 | 35 | 8 | 35 |
@@ -496,9 +498,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **67** | **196** | **409** | **66** | **409** |
+| **Total** | **68** | **197** | **411** | **66** | **411** |
 
-**Requirements verified by at least one test**: 475 of 605 (78.5%).
+**Requirements verified by at least one test**: 477 of 608 (78.5%).
 
 ### Orphan check
 

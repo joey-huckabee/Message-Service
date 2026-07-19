@@ -290,6 +290,32 @@ def test_grpc_config_max_concurrent_rpcs_override_accepted() -> None:
 
 
 # -----------------------------------------------------------------------------
+# L3-API-019: GrpcConfig max_in_flight_rpcs (rejecting concurrency limit)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-API-019")
+def test_grpc_config_max_in_flight_rpcs_default_is_zero() -> None:
+    """L3-API-019: ``max_in_flight_rpcs`` default SHALL be 0 (limit disabled)."""
+    cfg = GrpcConfig.model_validate({})
+    assert cfg.max_in_flight_rpcs == 0
+
+
+@pytest.mark.requirement("L3-API-019")
+def test_grpc_config_max_in_flight_rpcs_negative_rejected() -> None:
+    """L3-API-019: a negative value SHALL be rejected at load time (floor 0)."""
+    with pytest.raises(ValidationError):
+        GrpcConfig.model_validate({"max_in_flight_rpcs": -1})
+
+
+@pytest.mark.requirement("L3-API-019")
+def test_grpc_config_max_in_flight_rpcs_positive_accepted() -> None:
+    """L3-API-019: a positive value SHALL be honored (enables the limit)."""
+    cfg = GrpcConfig.model_validate({"max_in_flight_rpcs": 8})
+    assert cfg.max_in_flight_rpcs == 8
+
+
+# -----------------------------------------------------------------------------
 # Log level (L3-OBS-021)
 # -----------------------------------------------------------------------------
 

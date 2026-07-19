@@ -411,6 +411,28 @@ class AssembleAndDeliverUseCase:
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
         self._report_store = report_store or NoOpReportStore()
 
+    def build_subject(self, run: Run) -> str:
+        """Compose the Subject header for a run (L2-MAIL-014 / L3-MAIL-034).
+
+        The single subject chokepoint shared by the first-delivery path
+        (:meth:`execute`) and the manual-resend path
+        (:class:`~message_service.application.use_cases.resend_run.ResendRunUseCase`),
+        so the ``L3-MAIL-027`` default format, the ``L3-MAIL-032`` per-pipeline
+        ``subject_templates`` override, and the ``L3-MAIL-028`` sanitization
+        apply identically regardless of which path sends the email.
+
+        Args:
+            run: The run whose Subject header to build.
+
+        Returns:
+            The Subject header string.
+        """
+        return _build_subject(
+            run.pipeline_type,
+            run.run_id,
+            self._subject_templates.get(run.pipeline_type),
+        )
+
     async def execute(self, run_id: RunId) -> None:
         """Drive the assembly-and-delivery workflow for ``run_id``.
 
@@ -508,17 +530,14 @@ class AssembleAndDeliverUseCase:
             self._metrics.record_email_delivery_outcome("success")
             return
 
-        # Non-empty recipients: deliver or fail. Subject format pinned
-        # by L2-MAIL-014; pipeline_type sanitization (L3-MAIL-028)
-        # reuses the same helper that builds attachment filenames so
-        # both surfaces share one chokepoint. A per-pipeline override
-        # from pipelines.subject_templates (L3-MAIL-032) takes precedence
-        # when present; otherwise the default format is used.
+        # Non-empty recipients: deliver or fail. The subject comes from the
+        # shared build_subject chokepoint (L2-MAIL-014 / L3-MAIL-034) so the
+        # default format, the per-pipeline subject_templates override
+        # (L3-MAIL-032), and pipeline_type sanitization (L3-MAIL-028) apply
+        # identically here and on the resend path.
         outbound = OutboundEmail(
             recipients=recipients,
-            subject=_build_subject(
-                run.pipeline_type, run_id, self._subject_templates.get(run.pipeline_type)
-            ),
+            subject=self.build_subject(run),
             body_html=email_body_html,
             from_address=self._from_address,
             attachments=attachments,

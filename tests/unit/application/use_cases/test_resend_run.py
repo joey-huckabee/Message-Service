@@ -26,7 +26,10 @@ import pytest
 
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.mailer import EmailAttachment, OutboundEmail
-from message_service.application.use_cases.assemble_and_deliver import PreparedEmail
+from message_service.application.use_cases.assemble_and_deliver import (
+    PreparedEmail,
+    _build_subject,
+)
 from message_service.application.use_cases.resend_run import ResendRunUseCase
 from message_service.domain.aggregates.audit_event import AuditAction, AuditOutcome
 from message_service.domain.aggregates.declared_stage import DeclaredStage
@@ -88,11 +91,27 @@ class _RecordingMailer:
 
 
 class _StubAssemble:
-    """Stand-in for AssembleAndDeliverUseCase exposing prepare_email only."""
+    """Stand-in for AssembleAndDeliverUseCase exposing prepare_email + build_subject.
 
-    def __init__(self, *, body_html: str = "<p>x</p>") -> None:
+    ``build_subject`` mirrors the real chokepoint (default format + per-pipeline
+    ``subject_templates`` override) so resend tests can assert the resend path
+    delegates to it (L3-MAIL-034). The real method's behavior is verified in
+    ``test_assemble_and_deliver``.
+    """
+
+    def __init__(
+        self, *, body_html: str = "<p>x</p>", subject_templates: dict[str, str] | None = None
+    ) -> None:
         self._body_html = body_html
         self.prepare_calls: list[RunId] = []
+        self._subject_templates = dict(subject_templates or {})
+        self.build_subject_calls: list[Run] = []
+
+    def build_subject(self, run: Run) -> str:
+        self.build_subject_calls.append(run)
+        return _build_subject(
+            run.pipeline_type, run.run_id, self._subject_templates.get(run.pipeline_type)
+        )
 
     async def prepare_email(self, run_id: RunId) -> PreparedEmail:
         self.prepare_calls.append(run_id)

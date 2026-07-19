@@ -168,9 +168,13 @@ class ResendRunUseCase:
         else:
             from message_service.application.ports.mailer import OutboundEmail
 
+            # Subject comes from the shared AssembleAndDeliverUseCase chokepoint
+            # (L2-MAIL-014 / L3-MAIL-034) so resend honors the same default
+            # format, per-pipeline subject_templates override, and sanitization
+            # as the first-delivery path — not a resend-only format.
             outbound = OutboundEmail(
                 recipients=recipients,
-                subject=f"Run {run_id} -- {run.pipeline_type}",
+                subject=self._assemble.build_subject(run),
                 body_html=prepared.body_html,
                 from_address=self._from_address,
                 attachments=prepared.attachments,

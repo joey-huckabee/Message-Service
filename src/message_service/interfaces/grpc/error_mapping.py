@@ -129,8 +129,17 @@ async def _translate_unexpected(
 
     Client receives ``INTERNAL`` with only a correlation id; the stack trace
     never leaves the server (L2-API-010).
+
+    The correlation id reuses the per-RPC id bound by
+    :class:`~message_service.interfaces.grpc.correlation_interceptor.CorrelationIdInterceptor`
+    when one is present (so the client-facing id matches this RPC's log
+    records, L3-API-002); a fresh id is minted only when none is bound — e.g.
+    a unit test calling this translator directly, outside the interceptor.
     """
-    correlation_id = uuid.uuid4().hex
+    bound_correlation_id = structlog.contextvars.get_contextvars().get("correlation_id")
+    correlation_id = (
+        bound_correlation_id if isinstance(bound_correlation_id, str) else uuid.uuid4().hex
+    )
     logger.error(
         "unexpected_internal_error",
         correlation_id=correlation_id,

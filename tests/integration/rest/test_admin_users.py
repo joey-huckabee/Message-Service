@@ -948,3 +948,47 @@ async def test_list_users_rejects_out_of_range_params(
     await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
     response = await http_client.get(f"/admin/users?{query}")
     assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# GET /admin/console -- admin recipient console page (L3-DASH-041)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-041")
+async def test_admin_console_requires_authentication(http_client: httpx.AsyncClient) -> None:
+    """Unauthenticated GET /admin/console SHALL return 401."""
+    response = await http_client.get("/admin/console")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-041")
+async def test_admin_console_forbidden_for_non_admin(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """A non-admin session SHALL get 403."""
+    await _login_as(http_client, uow_factory, hasher, email="user@example.com", is_admin=False)
+    response = await http_client.get("/admin/console")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-041")
+async def test_admin_console_returns_html_with_admin_email(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """An admin gets the self-contained console page with their email in the bar."""
+    await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
+    response = await http_client.get("/admin/console")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    body = response.text
+    assert body.startswith("<!doctype html>")
+    assert 'id="rows"' in body
+    assert "admin@example.com" in body

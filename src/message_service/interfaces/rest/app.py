@@ -48,6 +48,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from message_service.application.use_cases.login import AuthenticationError
 from message_service.domain.aggregates.password import Password
+from message_service.interfaces.rest.admin_console import render_admin_console
 from message_service.interfaces.rest.login_page import render_login_page
 from message_service.interfaces.rest.metrics_dashboard import render_metrics_dashboard
 from message_service.observability.logging_setup import (
@@ -454,10 +455,10 @@ def create_app(service: Service) -> FastAPI:
     # Embedded metrics dashboard (L1-DASH-004 / L2-DASH-010 / L2-DASH-011)
     # -------------------------------------------------------------------------
 
-    _require_admin_for_metrics = require_admin_factory(service)
+    _require_admin_html = require_admin_factory(service)
 
     @app.get("/admin/metrics", response_class=HTMLResponse)
-    async def admin_metrics(_admin_id: int = Depends(_require_admin_for_metrics)) -> HTMLResponse:
+    async def admin_metrics(_admin_id: int = Depends(_require_admin_html)) -> HTMLResponse:
         """Admin-only embedded metrics dashboard (L3-DASH-016).
 
         Server-side obtains the current Prometheus exposition from the same
@@ -470,6 +471,20 @@ def create_app(service: Service) -> FastAPI:
         from prometheus_client import generate_latest
 
         return HTMLResponse(content=render_metrics_dashboard(generate_latest().decode("utf-8")))
+
+    @app.get("/admin/console", response_class=HTMLResponse)
+    async def admin_console(admin_id: int = Depends(_require_admin_html)) -> HTMLResponse:
+        """Admin-only recipient-management console (L3-DASH-041).
+
+        Admin-gated (401 unauth / 403 non-admin). Returns a self-contained HTML
+        page whose client fetches the roster from ``GET /admin/users`` and drives
+        the existing admin account routes. The signed-in admin's email is looked
+        up for the top bar; it is escaped before embedding.
+        """
+        async with service.uow_factory() as uow:
+            admin = await uow.user_repo.get_by_id(admin_id)
+        admin_email = admin.email if admin is not None else ""
+        return HTMLResponse(content=render_admin_console(admin_email))
 
     # -------------------------------------------------------------------------
     # Login / Logout

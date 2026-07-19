@@ -7,11 +7,6 @@
 # is a promise to revisit, and its diff is where reviewers notice a gap being
 # excused.
 #
-# Currently allowlisted: the v0.15.0 admin-console + login L1s. Their spec has
-# landed (sub-step a); the implementation follows in later sub-steps, and each
-# entry is removed as its L1 reaches Implemented. The list returns to empty at
-# the v0.15.0 release cut.
-
-[[allowed]]
-id = "L1-DASH-008"
-reason = "v0.15.0 in progress: admin recipient console — spec landed sub-step a, implemented in sub-steps c/e"
+# Empty again as of the v0.15.0 cut: the admin-console + login L1s
+# (L1-AUTH-004 / L1-DASH-007 / L1-DASH-008) are all Implemented, so every L1
+# requirement once again has at least one linked verification artifact.

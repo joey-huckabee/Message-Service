@@ -225,6 +225,7 @@ the single source of truth.
 | L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Implemented |
 | L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Implemented |
 | L1-AUTH-003 | L2-AUTH-007, L2-AUTH-008, L2-AUTH-009 | Implemented |
+| L1-AUTH-004 | L2-AUTH-010, L2-AUTH-011 | Draft |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -239,6 +240,8 @@ the single source of truth.
 | L2-AUTH-007 | L3-AUTH-014, L3-AUTH-015 | `tests/integration/rest/test_admin_users.py::test_create_user_duplicate_email_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_create_user_extra_fields_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201`<br>`tests/integration/rest/test_admin_users.py::test_create_user_invalid_email_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_non_admin_returns_403`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_does_not_accept_email_field`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_empty_body_is_no_op_success`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_non_positive_id_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_single_field_mutation`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_unknown_id_returns_404`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_happy_path_returns_204`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_unknown_user_returns_404` | Implemented |
 | L2-AUTH-008 | L3-AUTH-016 | `tests/integration/rest/test_admin_users.py::test_create_user_persists_argon2id_hash`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_login_succeeds_with_new_password`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_persists_new_argon2id_hash` | Implemented |
 | L2-AUTH-009 | L3-AUTH-017 | `tests/integration/rest/test_admin_users.py::test_create_user_emits_create_user_audit`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_multi_field_mutated_fields_sorted`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_deadmin_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_disable_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_emits_update_user_audit_with_password_hash_field` | Implemented |
+| L2-AUTH-010 | L3-AUTH-018 | _(TBD)_ | Draft |
+| L2-AUTH-011 | L3-AUTH-019 | _(TBD)_ | Draft |
 
 ### L1-MAIL: Email delivery
 
@@ -283,6 +286,8 @@ the single source of truth.
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Implemented |
 | L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Implemented |
 | L1-DASH-006 | L2-DASH-017, L2-DASH-018 | Implemented |
+| L1-DASH-007 | L2-DASH-019 | Draft |
+| L1-DASH-008 | L2-DASH-020, L2-DASH-021 | Draft |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -306,6 +311,9 @@ the single source of truth.
 | L2-DASH-016 | L3-DASH-035 | `tests/integration/rest/test_admin_audit.py::test_details_empty_dict_is_accepted`<br>`tests/integration/rest/test_admin_audit.py::test_details_returned_as_parsed_json_object_not_string`<br>`tests/integration/rest/test_admin_audit.py::test_response_shape_includes_full_projection`<br>`tests/integration/rest/test_admin_audit.py::test_route_does_not_redact_marker_string_in_details` | Implemented |
 | L2-DASH-017 | L3-DASH-037 | `tests/integration/rest/test_runs.py::test_runs_board_path_resolves_to_board_not_detail`<br>`tests/integration/rest/test_runs.py::test_runs_board_renders_html_including_in_flight_runs`<br>`tests/integration/rest/test_runs.py::test_runs_board_renders_with_no_runs`<br>`tests/integration/rest/test_runs.py::test_runs_board_requires_session`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_embeds_the_run_projection_as_parseable_json`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_handles_empty_run_list`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_neutralizes_script_close_in_payload`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_returns_self_contained_html_document` | Implemented |
 | L2-DASH-018 | L3-DASH-038, L3-DASH-039 | `tests/unit/interfaces/rest/test_runs_board.py::test_board_html_shell_provides_filter_and_summary_containers`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_board_js_implements_required_rendering_structure`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_static_asset_has_no_external_reference` | Implemented |
+| L2-DASH-019 | L3-DASH-040 | _(TBD)_ | Draft |
+| L2-DASH-020 | L3-DASH-041 | _(TBD)_ | Draft |
+| L2-DASH-021 | L3-DASH-042, L3-DASH-043 | _(TBD)_ | Draft |
 
 ### L1-PERS: Persistence
 
@@ -492,18 +500,18 @@ the single source of truth.
 | AGGR | 4 | 10 | 20 | 5 | 20 |
 | SWEEP | 3 | 11 | 24 | 6 | 24 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
-| AUTH | 3 | 9 | 17 | 5 | 17 |
+| AUTH | 4 | 11 | 19 | 5 | 17 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
-| DASH | 6 | 18 | 39 | 1 | 39 |
+| DASH | 8 | 21 | 43 | 1 | 39 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 19 | 43 | 3 | 43 |
 | ERR | 4 | 10 | 23 | 0 | 23 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **69** | **199** | **414** | **66** | **414** |
+| **Total** | **72** | **204** | **420** | **66** | **414** |
 
-**Requirements verified by at least one test**: 480 of 613 (78.3%).
+**Requirements verified by at least one test**: 480 of 624 (76.9%).
 
 ### Orphan check
 

@@ -362,6 +362,14 @@ single source of truth for live status; the source docs in this file,
 
 **Verification Method**: Test (T)
 
+### L1-AUTH-004
+
+**Statement**: The service SHALL support a configurable local administrator account, provisioned from configuration at service startup, so that an operator can authenticate to the dashboard without a pre-existing account. When the admin account is configured, startup SHALL ensure a corresponding local account exists with administrator privilege and enabled (non-disabled) status; the configured secret SHALL be hashed via the same Argon2id chokepoint as all other passwords (per L1-AUTH-001) and SHALL NOT be stored, logged, or echoed in plaintext. Reconciliation SHALL be fail-safe: it SHALL create the account if absent, and if the account already exists it SHALL re-assert administrator privilege and enabled status without overwriting a password that may have been rotated through the admin API (L1-AUTH-003).
+
+**Rationale**: Every account-creation path in L1-AUTH-003 already requires an authenticated administrator, so a fresh deployment has no way to create its first admin through the API — a bootstrap chicken-and-egg. A configuration-provisioned local admin breaks that cycle and guarantees the operator can always reach the dashboard even if the account were accidentally de-privileged or disabled. Not overwriting an existing (possibly rotated) password on restart avoids config drift silently resetting credentials, while still guaranteeing the account is present, privileged, and enabled. This account remains local-auth even after federated login lands (ROADMAP), so an unreachable identity provider can never lock the operator out.
+
+**Verification Method**: Test (T)
+
 ---
 
 ## L1-MAIL: Email delivery
@@ -455,6 +463,22 @@ single source of truth for live status; the source docs in this file,
 **Statement**: The dashboard SHALL present run status — including in-flight runs — as an embedded browser page, in addition to exposing the run data at the JSON runs API. The page SHALL let an authenticated user see runs grouped by state (distinguishing in-flight states from terminal states), filter by state, and drill into a single run's declared stages and their submission states.
 
 **Rationale**: The JSON runs API (`L1-DASH-003` / `L2-DASH-012`/`L2-DASH-013`) is machine-facing and defaults to *terminal* runs — a history view. Operators also need at-a-glance visibility into work *currently in flight* (which runs are `INITIATED`/`AGGREGATING`/`READY`/`SENDING` right now, and where a stalled run is stuck) without composing query strings by hand. An embedded browser page — rendered by the same hand-authored, dependency-free approach as the metrics dashboard (`L1-DASH-004`) — gives that visibility offline, with no external charting library and no separate tooling to deploy.
+
+**Verification Method**: Test (T), Demonstration (D)
+
+### L1-DASH-007
+
+**Statement**: The dashboard SHALL provide a browser login page — a server-rendered HTML page served over HTTP — through which a local account authenticates and, on success, reaches the administrator console. The page SHALL establish an authenticated session through the existing session mechanism (L1-AUTH-002) and SHALL NOT place credentials in the URL or persist them beyond the authentication exchange.
+
+**Rationale**: Authentication is JSON-API-only today; there is no page a human can use to sign in from a browser, yet a login page is the entry point to every other dashboard page. Reusing the existing session/credential exchange (rather than adding a second login path) keeps a single authentication chokepoint and preserves the storage and audit guarantees already proven around it.
+
+**Verification Method**: Test (T), Demonstration (D)
+
+### L1-DASH-008
+
+**Statement**: The dashboard SHALL provide an administrator console — a browser page restricted to administrators — for managing notification recipients: listing local accounts with their email address, role, and status; creating accounts; updating them (`display_name`, `is_admin`, `disabled`); and resetting passwords. The console SHALL be a presentation layer over the administrator account APIs (L1-AUTH-003) and SHALL enforce the same administrator authorization.
+
+**Rationale**: Notification recipients are local accounts — a subscription's delivery address is the owning account's email. An administrator needs a browser view to manage that roster without issuing raw SQL: onboarding recipients, correcting details, disabling departed ones, and helping with lost passwords. Building the console as a thin page over the existing admin account APIs keeps authorization and validation in a single place rather than duplicating them in the presentation layer. (Assigning which notifications each recipient receives — subscription management — is a subsequent capability recorded on the ROADMAP.)
 
 **Verification Method**: Test (T), Demonstration (D)
 
@@ -705,3 +729,4 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 | 2026-07-19 | Joey   | Audit archival: reworded L1-OBS-003 to add optional archive-before-delete of expired audit records (see L2-OBS-019). No new L1. |
 | 2026-07-19 | Joey   | Rate limiting: added L1-API-005 (bound concurrently-executing RPCs to a configurable limit; reject excess with RESOURCE_EXHAUSTED rather than queue unboundedly). Total L1: 68. |
 | 2026-07-19 | Joey   | Run-status board: added L1-DASH-006 (embedded browser page presenting run status incl. in-flight runs, with state filter + per-run stage drill-in; hand-authored, dependency-free like L1-DASH-004). Total L1: 69. |
+| 2026-07-19 | Joey   | Admin console + login (v0.15.0): added L1-AUTH-004 (configurable local admin provisioned from config at startup), L1-DASH-007 (browser login page), L1-DASH-008 (admin recipient-roster console over the L1-AUTH-003 account APIs). Total L1: 72. |

@@ -782,6 +782,22 @@ single source of truth for live status.
 **Rationale**: Self-protection is an operational safety belt: a single admin who accidentally PATCHes themselves to non-admin or disabled would lock the system out of administrative recovery without operators having to issue raw SQL. The 409-without-audit rule matches the project's existing convention that audit records reflect successful actions, while still leaving an operator-visible WARNING log for forensics.
 **Verification Method**: Test (T)
 
+### Derivations of L1-AUTH-004 (configurable local admin)
+
+#### L2-AUTH-010
+
+**Parent**: L1-AUTH-004
+**Statement**: The configurable local admin SHALL be read from an optional `[auth.admin]` configuration section carrying `email` and `password`, both substitutable from the environment (like the SMTP credentials). When the section is absent, no admin is provisioned and startup proceeds unchanged (backward compatible). When present, `email` SHALL be a valid email address and `password` SHALL be non-empty; the plaintext secret SHALL be hashed via the Argon2id chokepoint (L1-AUTH-001) before storage and SHALL NOT be written to logs, audit records, or any response.
+**Rationale**: An optional section keeps existing deployments unaffected while giving operators a declarative way to guarantee an admin exists. Environment substitution keeps the secret out of the committed config file, matching the posture already used for `smtp.password`.
+**Verification Method**: Test (T)
+
+#### L2-AUTH-011
+
+**Parent**: L1-AUTH-004
+**Statement**: At service startup, after migrations and before the listeners accept traffic, the composition root SHALL reconcile the configured admin against the account store: if no account with the configured `email` exists, it SHALL create one with `is_admin=True`, `disabled=False`, and the hashed configured password; if an account with that `email` already exists, it SHALL re-assert `is_admin=True` and `disabled=False` but SHALL NOT overwrite the stored password. The reconciliation SHALL be idempotent across restarts and SHALL emit a structured log event recording whether the account was created or re-asserted (never the secret).
+**Rationale**: Reconciling before traffic guarantees the operator can log in on the very first request. Re-asserting privilege and enabled status (but not the password) makes the config a durable guarantee of access without letting a stale config value silently reset a password rotated through the admin API (L1-AUTH-003). Idempotence keeps restarts safe.
+**Verification Method**: Test (T)
+
 ---
 
 ## L2-MAIL: Email delivery
@@ -1019,6 +1035,31 @@ single source of truth for live status.
 **Statement**: The run-status board SHALL be rendered by hand-authored client-side code (HTML/CSS/JS) that ships as packaged static assets with no third-party library and no external CDN or network dependency, identical in posture to the metrics dashboard's `L2-DASH-011`. The rendering SHALL group runs by state with an in-flight-versus-terminal distinction, provide a state filter, and expand a run row to show its stages; it SHALL reference no external origin.
 **Rationale**: Consistent with `L2-DASH-011` and `L2-DASH-003` — deployments must be offline-capable, so the board carries zero external dependencies. Hand-authoring the table, badges, and filter keeps the dependency surface at zero rather than vendoring a UI framework.
 **Verification Method**: Inspection (I)
+
+### Derivations of L1-DASH-007 (browser login page)
+
+#### L2-DASH-019
+
+**Parent**: L1-DASH-007
+**Statement**: The service SHALL expose an unauthenticated `GET /login` route returning a self-contained HTML login page (hand-authored, packaged static assets, no third-party library and no external/CDN reference — identical posture to `L2-DASH-011`). The page's client code SHALL submit the entered credentials to the existing `POST /login` JSON endpoint (leaving that endpoint's request/response and cookie behavior unchanged), redirect the browser to the admin console (`GET /admin/console`) on a `200`, and display a generic error on a `401` without revealing whether the email or the password was wrong.
+**Rationale**: A `GET` page paired with the existing JSON `POST /login` reuses the single tested authentication chokepoint rather than adding a second login path. The generic error mirrors `L3-AUTH-013`'s existing "same failure for unknown-email / disabled / bad-password" posture, so the browser page leaks no more than the API already does.
+**Verification Method**: Test (T)
+
+### Derivations of L1-DASH-008 (admin recipient console)
+
+#### L2-DASH-020
+
+**Parent**: L1-DASH-008
+**Statement**: The service SHALL expose an admin-gated `GET /admin/console` route (same `require_admin` dependency as `GET /admin/metrics`) returning a self-contained HTML console (hand-authored, packaged static assets, no external dependency). The page's client code SHALL render the recipient roster from `GET /admin/users` (L2-DASH-021) and drive create / update / disable / reset-password through the existing admin account routes (`POST /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/password`), echoing the `msp_csrf` cookie as the `X-CSRF-Token` header on each state-changing call; on a `401` it SHALL redirect to `GET /login`.
+**Rationale**: A thin presentation layer over the existing admin account APIs keeps authorization, validation, and audit in one place (no console-specific write path). Reusing the double-submit CSRF scheme the middleware already enforces means the console introduces no new state-change surface.
+**Verification Method**: Test (T)
+
+#### L2-DASH-021
+
+**Parent**: L1-DASH-008
+**Statement**: The service SHALL expose an admin-gated `GET /admin/users` route returning a paginated list of local accounts, each projecting exactly `user_id`, `email`, `display_name`, `is_admin`, `disabled`, and `created_at` (never `password_hash`). Query parameters SHALL be `limit` (int, `[1, 200]`, default 50) and `offset` (int, `>= 0`, default 0), mirroring the past-runs listing (L2-DASH-012). Ordering SHALL be deterministic. This is backed by a new `UserRepository` list query; it is a read-only projection and adds no write path.
+**Rationale**: The admin console needs to enumerate recipients, but the `UserRepository` has no list method today (v1 anticipated listing via raw SQL on the dashboard page). A dedicated read endpoint with the same pagination shape as the runs listing keeps the dashboard's paging UX uniform and keeps `password_hash` off the wire.
+**Verification Method**: Test (T)
 
 ### Derivations of L1-DASH-005 (admin audit-log viewer)
 
@@ -1649,4 +1690,5 @@ single source of truth for live status.
 | 2026-07-19 | Joey   | Audit archival: added L2-OBS-019 under L1-OBS-003 (opt-in archive-before-delete of expired audit rows via `observability.audit.archive_directory`); reworded L1-OBS-003. |
 | 2026-07-19 | Joey   | Rate limiting: added L2-API-012 under new L1-API-005 (`grpc.max_in_flight_rpcs` rejecting interceptor; RESOURCE_EXHAUSTED + R-ERR-001 ErrorInfo reason, no proto enum bump). |
 | 2026-07-19 | Joey   | Run-status board: added L2-DASH-017 (`GET /runs/board` route + server-side summary projection, session-gated, lazy stage fetch) and L2-DASH-018 (hand-authored, dependency-free rendering) under new L1-DASH-006. |
+| 2026-07-19 | Joey   | Admin console + login (v0.15.0): added L2-AUTH-010/011 (`[auth.admin]` config + startup reconciliation) under new L1-AUTH-004; L2-DASH-019 (`GET /login` page) under new L1-DASH-007; L2-DASH-020 (`GET /admin/console` over the admin account APIs) + L2-DASH-021 (`GET /admin/users` list) under new L1-DASH-008. |
 | 2026-07-19 | Joey   | R-DASH-004: reworded L2-DASH-011 (hand-authored inline-SVG rendering, no third-party charting library / CDN — dropped the Chart.js example). |

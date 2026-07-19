@@ -7,6 +7,19 @@
 # is a promise to revisit, and its diff is where reviewers notice a gap being
 # excused.
 #
-# As of v0.12.0 every L1 requirement has at least one linked verification
-# artifact (L1-DASH-004, the last deferral, shipped in v0.12.0 as the embedded
-# metrics dashboard), so the allowlist is intentionally empty.
+# Currently allowlisted: the v0.15.0 admin-console + login L1s. Their spec has
+# landed (sub-step a); the implementation follows in later sub-steps, and each
+# entry is removed as its L1 reaches Implemented. The list returns to empty at
+# the v0.15.0 release cut.
+
+[[allowed]]
+id = "L1-AUTH-004"
+reason = "v0.15.0 in progress: configurable local admin — spec landed sub-step a, implemented in sub-step b"
+
+[[allowed]]
+id = "L1-DASH-007"
+reason = "v0.15.0 in progress: browser login page — spec landed sub-step a, implemented in sub-step d"
+
+[[allowed]]
+id = "L1-DASH-008"
+reason = "v0.15.0 in progress: admin recipient console — spec landed sub-step a, implemented in sub-steps c/e"

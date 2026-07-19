@@ -122,6 +122,8 @@ module = [
     "aiosmtplib.*",
     "aiosmtpd.*",
     "google.protobuf.*",
+    "google.rpc.*",
+    "grpc_status.*",
     "message_service_proto.*",
 ]
 ignore_missing_imports = true

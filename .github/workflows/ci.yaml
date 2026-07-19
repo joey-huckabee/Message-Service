@@ -190,6 +190,12 @@ jobs:
       - name: Verify trace matrix coherence (--check)
         run: poetry run python scripts/build-trace-matrix.py --check
 
+      - name: Verify per-L1 requirement coverage
+        # L2-CICD-016 / L3-CICD-018: fail if any L1 is Draft (no linked
+        # verification artifact) and not on docs/uncovered-l1-allowlist.toml.
+        # Runs after --check so it reads a matrix already proven fresh.
+        run: poetry run python scripts/check-requirement-coverage.py
+
       - name: Upload trace matrix artifact
         # L2-CICD-015: the committed matrix is part of build provenance,
         # uploaded regardless of pass/fail so reviewers can inspect a

@@ -110,7 +110,7 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003 | Implemented |
+| L1-TMPL-001 | L2-TMPL-001, L2-TMPL-002, L2-TMPL-003, L2-TMPL-015 | Implemented |
 | L1-TMPL-002 | L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 | Implemented |
 | L1-TMPL-003 | L2-TMPL-007, L2-TMPL-008, L2-TMPL-009 | Implemented |
 | L1-TMPL-004 | L2-TMPL-010, L2-TMPL-011 | Implemented |
@@ -134,6 +134,7 @@ the single source of truth.
 | L2-TMPL-012 | L3-TMPL-021, L3-TMPL-022 | `tests/unit/infrastructure/templating/test_renderer.py::test_oversized_context_raises_before_template_invoked`<br>`tests/unit/infrastructure/templating/test_renderer_schema_validation.py::test_size_check_runs_before_schema_validation` | Implemented |
 | L2-TMPL-013 | L3-TMPL-023, L3-TMPL-024 | `tests/unit/infrastructure/templating/test_renderer.py::test_oversized_render_raises` | Implemented |
 | L2-TMPL-014 | L3-TMPL-025, L3-TMPL-026 | `tests/unit/config/test_templates_config_shape.py::test_max_context_bytes_default_is_1_mib`<br>`tests/unit/config/test_templates_config_shape.py::test_max_context_bytes_rejects_non_positive`<br>`tests/unit/config/test_templates_config_shape.py::test_max_rendered_bytes_default_is_10_mib`<br>`tests/unit/config/test_templates_config_shape.py::test_max_rendered_bytes_rejects_non_positive`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_non_json_serializable_context_raises_template_render_error`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_context_raises_before_template_invoked`<br>`tests/unit/infrastructure/templating/test_renderer.py::test_oversized_render_raises` | Implemented |
+| L2-TMPL-015 | L3-TMPL-033, L3-TMPL-034, L3-TMPL-035 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_email_body_renders_from_default_when_pipeline_not_overridden`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_email_body_renders_from_pipeline_override`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_resend_email_body_uses_pipeline_override`<br>`tests/unit/bootstrap/test_service.py::test_build_service_wires_valid_body_override`<br>`tests/unit/bootstrap/test_service.py::test_resolve_body_template_overrides_absent_raises_configuration_error`<br>`tests/unit/bootstrap/test_service.py::test_resolve_body_template_overrides_empty_is_empty`<br>`tests/unit/bootstrap/test_service.py::test_resolve_body_template_overrides_manifest_present_resolves`<br>`tests/unit/config/test_schema.py::test_body_template_overrides_defaults_to_empty`<br>`tests/unit/config/test_schema.py::test_body_template_overrides_rejects_unregistered_pipeline_key`<br>`tests/unit/config/test_schema.py::test_body_template_overrides_valid_mapping_loads` | Implemented |
 
 ### L1-AGGR: Aggregation and composition
 
@@ -479,7 +480,7 @@ the single source of truth.
 | API | 4 | 11 | 18 | 3 | 16 |
 | RUN | 5 | 16 | 33 | 9 | 33 |
 | STAGE | 4 | 9 | 18 | 8 | 18 |
-| TMPL | 5 | 14 | 32 | 8 | 32 |
+| TMPL | 5 | 15 | 35 | 8 | 35 |
 | AGGR | 4 | 10 | 20 | 5 | 20 |
 | SWEEP | 3 | 10 | 21 | 6 | 21 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
@@ -492,9 +493,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **192** | **395** | **66** | **389** |
+| **Total** | **67** | **193** | **398** | **66** | **392** |
 
-**Requirements verified by at least one test**: 455 of 587 (77.5%).
+**Requirements verified by at least one test**: 458 of 591 (77.5%).
 
 ### Orphan check
 

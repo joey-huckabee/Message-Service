@@ -404,6 +404,111 @@ async def test_delivery_applies_per_pipeline_subject_override(
 
 
 # -----------------------------------------------------------------------------
+# Per-pipeline email body template override (L3-TMPL-035)
+# -----------------------------------------------------------------------------
+
+
+def _body_render_ref(renderer: MagicMock) -> TemplateRef:
+    """Return the TemplateRef the email-body render call used.
+
+    The email body is the only render whose context carries the
+    ``before_contributions`` bucket key; per-stage fragment renders do not.
+    """
+    body_calls = [
+        call for call in renderer.render.call_args_list if "before_contributions" in call.args[1]
+    ]
+    assert body_calls, "no email-body render call was recorded"
+    ref = body_calls[-1].args[0]
+    assert isinstance(ref, TemplateRef)
+    return ref
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-035")
+async def test_email_body_renders_from_pipeline_override(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+) -> None:
+    """L3-TMPL-035: a configured pipeline renders the body from its override ref."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+    override = TemplateRef(name="nightly_body", version="2.0")
+    use_case = AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        email_body_template_overrides={"etl-nightly": override},
+    )
+
+    await use_case.execute(_RID)
+
+    assert _body_render_ref(renderer) == override
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-035")
+async def test_email_body_renders_from_default_when_pipeline_not_overridden(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+) -> None:
+    """L3-TMPL-035: an unconfigured pipeline renders from the service-wide default."""
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+    use_case = AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        email_body_template_overrides={"other-pipeline": TemplateRef(name="x", version="1.0")},
+    )
+
+    await use_case.execute(_RID)
+
+    assert _body_render_ref(renderer) == _TPL_BODY
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-035")
+async def test_resend_email_body_uses_pipeline_override(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+) -> None:
+    """L3-TMPL-035: prepare_email (resend path) also honors the override."""
+    factory, _, run_repo, stage_repo, _, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.SENT))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    override = TemplateRef(name="nightly_body", version="2.0")
+    use_case = AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        email_body_template_overrides={"etl-nightly": override},
+    )
+
+    await use_case.prepare_email(_RID)
+
+    assert _body_render_ref(renderer) == override
+
+
+# -----------------------------------------------------------------------------
 # Happy path — SINGLE_AGGREGATED mode with subscribers
 # -----------------------------------------------------------------------------
 

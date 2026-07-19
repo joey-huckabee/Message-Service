@@ -451,3 +451,39 @@ def test_subject_templates_rejects_raw_crlf() -> None:
             registered=["etl-nightly"],
             subject_templates={"etl-nightly": "run {run_id}\r\nBcc: x@example.com"},
         )
+
+
+# -----------------------------------------------------------------------------
+# Per-pipeline email body template overrides (L3-TMPL-033)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-TMPL-033")
+def test_body_template_overrides_defaults_to_empty() -> None:
+    """Omitting email_body_template_overrides yields an empty mapping."""
+    assert PipelinesConfig(registered=["etl-nightly"]).email_body_template_overrides == {}
+
+
+@pytest.mark.requirement("L3-TMPL-033")
+def test_body_template_overrides_valid_mapping_loads() -> None:
+    """A (name, version) ref for a registered pipeline validates."""
+    cfg = PipelinesConfig(
+        registered=["etl-nightly", "backup-daily"],
+        email_body_template_overrides={
+            "etl-nightly": {"name": "nightly_body", "version": "2.0"},
+        },
+    )
+    ref = cfg.email_body_template_overrides["etl-nightly"]
+    assert (ref.name, ref.version) == ("nightly_body", "2.0")
+
+
+@pytest.mark.requirement("L3-TMPL-033")
+def test_body_template_overrides_rejects_unregistered_pipeline_key() -> None:
+    """An override keyed on an unregistered pipeline_type is dead config → reject."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            email_body_template_overrides={
+                "not-registered": {"name": "x", "version": "1.0"},
+            },
+        )

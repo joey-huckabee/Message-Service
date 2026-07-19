@@ -12,13 +12,19 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from message_service.application.ports.template_repository import TemplateRepository
 from message_service.bootstrap import Service, build_service, shutdown_service
-from message_service.bootstrap.service import _ensure_report_directory
+from message_service.bootstrap.service import (
+    _ensure_report_directory,
+    _resolve_body_template_overrides,
+)
 from message_service.config.loader import load_config
+from message_service.config.schema import TemplateRefConfig
+from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import ConfigurationError
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
 from message_service.infrastructure.persistence.filesystem.report_store import (
@@ -421,3 +427,70 @@ async def test_migrations_applied_at_startup(service: Service) -> None:
         assert row is not None
         assert row[0] == 0
     await shutdown_service(service, timeout=1.0)
+
+
+# -----------------------------------------------------------------------------
+# Per-pipeline email-body template overrides — startup manifest validation
+# (L3-TMPL-034)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-TMPL-034")
+def test_resolve_body_template_overrides_empty_is_empty() -> None:
+    """An empty override mapping resolves to an empty mapping (no manifest hits)."""
+    repo = MagicMock(spec=TemplateRepository)
+    assert _resolve_body_template_overrides({}, repo) == {}
+    repo.exists.assert_not_called()
+
+
+@pytest.mark.requirement("L3-TMPL-034")
+def test_resolve_body_template_overrides_manifest_present_resolves() -> None:
+    """A ref present in the manifest resolves to a TemplateRef."""
+    repo = MagicMock(spec=TemplateRepository)
+    repo.exists.return_value = True
+    overrides = {"etl-nightly": TemplateRefConfig(name="nightly_body", version="2.0")}
+
+    resolved = _resolve_body_template_overrides(overrides, repo)
+
+    assert resolved == {"etl-nightly": TemplateRef(name="nightly_body", version="2.0")}
+    repo.exists.assert_called_once_with(TemplateRef(name="nightly_body", version="2.0"))
+
+
+@pytest.mark.requirement("L3-TMPL-034")
+def test_resolve_body_template_overrides_absent_raises_configuration_error() -> None:
+    """A ref absent from the manifest raises ConfigurationError with details."""
+    repo = MagicMock(spec=TemplateRepository)
+    repo.exists.return_value = False
+    overrides = {"etl-nightly": TemplateRefConfig(name="missing", version="9.9")}
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        _resolve_body_template_overrides(overrides, repo)
+
+    assert exc_info.value.details["pipeline_type"] == "etl-nightly"
+    assert exc_info.value.details["name"] == "missing"
+    assert exc_info.value.details["version"] == "9.9"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-TMPL-034")
+async def test_build_service_wires_valid_body_override(tmp_path: Path) -> None:
+    """build_service resolves a manifest-present override into the use case.
+
+    Proves the config → _resolve_body_template_overrides → use-case path end
+    to end (the minimal manifest declares email_body@1.0 and registers
+    etl-nightly).
+    """
+    config_path = _write_config(tmp_path)
+    with config_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "\n[pipelines.email_body_template_overrides]\n"
+            'etl-nightly = { name = "email_body", version = "1.0" }\n'
+        )
+    config = load_config(config_path)
+    svc = await build_service(config)
+    try:
+        assert svc.assemble_and_deliver._email_body_template_overrides == {
+            "etl-nightly": TemplateRef(name="email_body", version="1.0")
+        }
+    finally:
+        await shutdown_service(svc, timeout=1.0)

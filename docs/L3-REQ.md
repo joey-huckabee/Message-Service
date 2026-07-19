@@ -504,6 +504,15 @@ Stuck-claim recovery. The dispatcher SHALL re-claim `sweeper_actions` rows whose
 **L3-SWEEP-021** · Parent: L2-SWEEP-008 · Verification: T
 Abandonment after retry exhaustion. When a stuck row's `attempts` has reached `sweeper.max_dispatch_attempts`, the dispatcher SHALL NOT reclaim it. Instead it SHALL emit one `DISPATCHER_ACTION_ABANDONED` audit event per such row (resource = `sweeper_action:<action_id>`, details = `run_id`, `action_name`, `attempts`, `last_error`) and SHALL set `completed_at` so the row is terminal and excluded from future scans. Operators SHALL be able to identify abandoned actions by querying the audit log for this action type.
 
+**L3-SWEEP-022** · Parent: L2-SWEEP-011 · Verification: T
+`PipelinesConfig` SHALL expose an optional `orphan_disposition_overrides` mapping from `pipeline_type` to a list of `DispositionAction` identifiers, defaulting to an empty mapping (so an unset mapping preserves the global-only behavior). A Pydantic `model_validator` SHALL reject at configuration-load time (surfaced as the standard schema `ValidationError` per L3-CFG-006) any key that is not a member of `pipelines.registered`; the `DispositionAction` `Literal` type rejects unknown action identifiers at parse time. A test SHALL assert the empty default, a valid mapping, and the unregistered-key rejection.
+
+**L3-SWEEP-023** · Parent: L2-SWEEP-011 · Verification: T
+When orphaning a run, `SweeperUseCase` SHALL resolve the disposition action list as `orphan_disposition_overrides[run.pipeline_type]` when that key is present and the global `sweeper.disposition_actions` otherwise, and SHALL use the resolved list uniformly for: the `SWEEP_ORPHAN` audit `enqueued_actions` field, the outbox rows enqueued (one per action, in order per L2-SWEEP-009), and the tick's `enqueued_actions` total. An override that is an empty list SHALL orphan the run and enqueue zero actions while still counting the run in `orphaned_count` (the resolution SHALL distinguish "committed with zero actions" from "not committed"). A test SHALL assert that a run of a configured pipeline enqueues the override actions, a run of an unconfigured pipeline enqueues the global actions, and an empty override orphans the run with zero enqueued actions.
+
+**L3-SWEEP-024** · Parent: L2-SWEEP-011 · Verification: T
+The startup handler-registration validation SHALL cover override actions: `SweeperUseCase` construction SHALL raise `ConfigurationError` when any action identifier appearing in any `orphan_disposition_overrides` value has no registered disposition handler (the same check applied to `sweeper.disposition_actions`, and the mechanism by which the reserved-but-unimplemented `SEND_PARTIAL_FLAGGED` / `NOTIFY_SUBSCRIBERS` ids are rejected in overrides). A test SHALL assert that an override referencing an unregistered action raises `ConfigurationError`.
+
 ---
 
 ## L3-SUB: Subscriptions and tags
@@ -1328,3 +1337,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 | 2026-07-18 | Joey   | R-MAIL-001: added L3-MAIL-032..033 (2 stmts) under L2-MAIL-014 for optional per-pipeline `pipelines.subject_templates` override (render + load-time validation); reworded L2-MAIL-014. Total: 395. |
 | 2026-07-18 | Joey   | R-TMPL-001: added L3-TMPL-033..035 (3 stmts) under new L2-TMPL-015 for optional per-pipeline `pipelines.email_body_template_overrides` (config validation, startup manifest validation, render selection). Total: 398. |
 | 2026-07-18 | Joey   | L2-MAIL-014 conformance: added L3-MAIL-034 (1 stmt) — single shared subject construction so manual resend honors the L2-MAIL-014 default/override/sanitization (fixes the resend-only hardcoded subject). Total: 399. |
+| 2026-07-18 | Joey   | R-SWEEP-001: added L3-SWEEP-022..024 (3 stmts) under new L2-SWEEP-011 for optional per-pipeline `pipelines.orphan_disposition_overrides` (config validation, per-run resolution, override handler validation). Total: 402. |

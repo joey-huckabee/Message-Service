@@ -284,9 +284,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-SWEEP-003
 
-**Statement**: The service SHALL apply to every orphaned run a globally configured disposition policy consisting of any combination of the following action identifiers: `SEND_PARTIAL_FLAGGED`, `DISCARD_SILENTLY`, `NOTIFY_SUBSCRIBERS`, and `NOTIFY_ADMINS`. v1 SHALL implement only `DISCARD_SILENTLY` and `NOTIFY_ADMINS`; the other two identifiers SHALL remain reserved in the namespace, and configurations referencing them SHALL fail validation at startup with `ConfigurationError` (see L3 derivation under L2-SWEEP-007 / L2-SWEEP-008) until their handlers are implemented (see ROADMAP).
+**Statement**: The service SHALL apply to every orphaned run a configured disposition policy — a global default policy, optionally overridden per `pipeline_type` — consisting of any combination of the following action identifiers: `SEND_PARTIAL_FLAGGED`, `DISCARD_SILENTLY`, `NOTIFY_SUBSCRIBERS`, and `NOTIFY_ADMINS`. When an orphaned run's `pipeline_type` has a configured override the override policy SHALL apply; otherwise the global default policy SHALL apply. v1 SHALL implement only `DISCARD_SILENTLY` and `NOTIFY_ADMINS`; the other two identifiers SHALL remain reserved in the namespace, and configurations referencing them (in the global policy or any override) SHALL fail validation at startup with `ConfigurationError` (see L3 derivation under L2-SWEEP-007 / L2-SWEEP-008 / L2-SWEEP-011) until their handlers are implemented (see ROADMAP).
 
-**Rationale**: Different deployment contexts require different orphan behaviors; combining actions in a set permits, for example, both notifying administrators and sending a partial report flagged as incomplete. Reserving the two deferred identifiers in the namespace — rather than introducing them later — keeps the configuration surface stable when the v2 implementations land. Failing fast at startup on an unknown handler prevents the deferred action ids from silently no-op'ing through misconfiguration.
+**Rationale**: Different deployment contexts — and different pipelines within one deployment — require different orphan behaviors; combining actions in a set permits, for example, both notifying administrators and sending a partial report flagged as incomplete, while a per-pipeline override lets a noisy test pipeline discard silently even as a production pipeline notifies admins. Reserving the two deferred identifiers in the namespace — rather than introducing them later — keeps the configuration surface stable when the v2 implementations land. Failing fast at startup on an unknown handler prevents the deferred action ids from silently no-op'ing through misconfiguration.
 
 **Verification Method**: Test (T)
 
@@ -684,3 +684,4 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 | Date       | Author | Change            |
 |------------|--------|-------------------|
 | 2026-04-18 | Joey   | Initial L1 draft  |
+| 2026-07-18 | Joey   | R-SWEEP-001: reworded L1-SWEEP-003 to allow a per-`pipeline_type` orphan-disposition override with the global policy as fallback (no new L1). |

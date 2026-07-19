@@ -611,6 +611,13 @@ single source of truth for live status.
 **Rationale**: Deterministic ordering makes the observable behavior reproducible across environments and test runs.
 **Verification Method**: Test (T)
 
+#### L2-SWEEP-011
+
+**Parent**: L1-SWEEP-003
+**Statement**: The disposition policy MAY be overridden per pipeline via the optional configuration mapping `pipelines.orphan_disposition_overrides` (`pipeline_type` → array of action identifiers, same identifier set and ordering semantics as `sweeper.disposition_actions`). When an orphaned run's `pipeline_type` is a key in the mapping, the sweeper SHALL enqueue that pipeline's action list (in order, per L2-SWEEP-009), record the resolved list in the `SWEEP_ORPHAN` audit `enqueued_actions`, and count it toward the tick's enqueued-action total; when the `pipeline_type` is absent (the default when the mapping is empty or unset) the global `sweeper.disposition_actions` SHALL apply, so an empty mapping preserves the pre-override behavior exactly. Every action identifier appearing in any override SHALL be subject to the same startup handler-registration validation as the global policy (`ConfigurationError` if an override references an action with no registered handler, including the reserved-but-unimplemented ids), and each override key SHALL be a member of `pipelines.registered`. An override MAY be an empty array, meaning "orphan this pipeline's runs but take no disposition action" (equivalent to the empty global policy per L3-SWEEP-011).
+**Rationale**: Per-pipeline disposition lets one deployment apply different orphan-handling to different pipelines — e.g. `NOTIFY_ADMINS` for a production pipeline but `DISCARD_SILENTLY` for a high-churn test pipeline — without a second service instance. Locating the mapping under `[pipelines]` (keyed by `pipeline_type`, validated against `registered`) mirrors the existing per-pipeline override surfaces (`subject_templates`, `email_body_template_overrides`); the global default remains in `[sweeper]`. Reusing the global policy's handler-registration validation keeps the fail-fast guarantee uniform across global and per-pipeline configuration.
+**Verification Method**: Test (T), Inspection (I)
+
 ---
 
 ## L2-SUB: Subscriptions and tags
@@ -1598,3 +1605,4 @@ single source of truth for live status.
 | 2026-04-18 | Joey   | Initial L2 draft  |
 | 2026-07-18 | Joey   | R-TMPL-001: added L2-TMPL-015 under L1-TMPL-001 (optional per-pipeline `pipelines.email_body_template_overrides`); reworded L2-MAIL-014 earlier for R-MAIL-001. |
 | 2026-07-18 | Joey   | L2-MAIL-014 conformance: reworded to state the subject construction applies to manual resend too (no separate resend format / no override bypass). No new L2. |
+| 2026-07-18 | Joey   | R-SWEEP-001: added L2-SWEEP-011 under L1-SWEEP-003 (optional per-pipeline `pipelines.orphan_disposition_overrides`); reworded L1-SWEEP-003. |

@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from message_service.config.schema import (
     SUBSTITUTABLE_MARKER,
+    AdminAccountConfig,
     Argon2Config,
     AuditConfig,
     AuthConfig,
@@ -313,6 +314,52 @@ def test_grpc_config_max_in_flight_rpcs_positive_accepted() -> None:
     """L3-API-019: a positive value SHALL be honored (enables the limit)."""
     cfg = GrpcConfig.model_validate({"max_in_flight_rpcs": 8})
     assert cfg.max_in_flight_rpcs == 8
+
+
+# -----------------------------------------------------------------------------
+# L3-AUTH-018: AdminAccountConfig ([auth.admin])
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-AUTH-018")
+def test_auth_admin_defaults_to_absent() -> None:
+    """L3-AUTH-018: `[auth.admin]` is optional; absent → `auth.admin is None`."""
+    from message_service.config.schema import AuthConfig
+
+    cfg = AuthConfig.model_validate({})
+    assert cfg.admin is None
+
+
+@pytest.mark.requirement("L3-AUTH-018")
+def test_auth_admin_present_parses() -> None:
+    """L3-AUTH-018: a valid admin section parses to email + password."""
+    admin = AdminAccountConfig.model_validate({"email": "admin@example.com", "password": "s3cret"})
+    assert admin.email == "admin@example.com"
+    assert admin.password == "s3cret"
+
+
+@pytest.mark.requirement("L3-AUTH-018")
+@pytest.mark.parametrize("password", ["", "   ", "\t"])
+def test_auth_admin_empty_password_rejected(password: str) -> None:
+    """L3-AUTH-018: an empty/whitespace password is rejected at load time."""
+    with pytest.raises(ValidationError):
+        AdminAccountConfig.model_validate({"email": "admin@example.com", "password": password})
+
+
+@pytest.mark.requirement("L3-AUTH-018")
+def test_auth_admin_invalid_email_rejected() -> None:
+    """L3-AUTH-018: `email` is validated as an email address."""
+    with pytest.raises(ValidationError):
+        AdminAccountConfig.model_validate({"email": "not-an-email", "password": "s3cret"})
+
+
+@pytest.mark.requirement("L3-AUTH-018")
+def test_auth_admin_forbids_extra_keys() -> None:
+    """The admin section rejects unknown keys (frozen/forbid, like the rest)."""
+    with pytest.raises(ValidationError):
+        AdminAccountConfig.model_validate(
+            {"email": "admin@example.com", "password": "s3cret", "role": "superuser"}
+        )
 
 
 # -----------------------------------------------------------------------------

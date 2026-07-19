@@ -225,7 +225,7 @@ the single source of truth.
 | L1-AUTH-001 | L2-AUTH-001, L2-AUTH-002, L2-AUTH-003 | Implemented |
 | L1-AUTH-002 | L2-AUTH-004, L2-AUTH-005, L2-AUTH-006 | Implemented |
 | L1-AUTH-003 | L2-AUTH-007, L2-AUTH-008, L2-AUTH-009 | Implemented |
-| L1-AUTH-004 | L2-AUTH-010, L2-AUTH-011 | Draft |
+| L1-AUTH-004 | L2-AUTH-010, L2-AUTH-011 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -240,8 +240,8 @@ the single source of truth.
 | L2-AUTH-007 | L3-AUTH-014, L3-AUTH-015 | `tests/integration/rest/test_admin_users.py::test_create_user_duplicate_email_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_create_user_extra_fields_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201`<br>`tests/integration/rest/test_admin_users.py::test_create_user_invalid_email_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_create_user_non_admin_returns_403`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_does_not_accept_email_field`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_empty_body_is_no_op_success`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_non_positive_id_returns_422`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_single_field_mutation`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_unknown_id_returns_404`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_happy_path_returns_204`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_unknown_user_returns_404` | Implemented |
 | L2-AUTH-008 | L3-AUTH-016 | `tests/integration/rest/test_admin_users.py::test_create_user_persists_argon2id_hash`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_login_succeeds_with_new_password`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_persists_new_argon2id_hash` | Implemented |
 | L2-AUTH-009 | L3-AUTH-017 | `tests/integration/rest/test_admin_users.py::test_create_user_emits_create_user_audit`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_multi_field_mutated_fields_sorted`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_deadmin_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_patch_user_self_disable_returns_409`<br>`tests/integration/rest/test_admin_users.py::test_reset_password_emits_update_user_audit_with_password_hash_field` | Implemented |
-| L2-AUTH-010 | L3-AUTH-018 | _(TBD)_ | Draft |
-| L2-AUTH-011 | L3-AUTH-019 | _(TBD)_ | Draft |
+| L2-AUTH-010 | L3-AUTH-018 | `tests/unit/config/test_schema.py::test_auth_admin_defaults_to_absent`<br>`tests/unit/config/test_schema.py::test_auth_admin_empty_password_rejected`<br>`tests/unit/config/test_schema.py::test_auth_admin_forbids_extra_keys`<br>`tests/unit/config/test_schema.py::test_auth_admin_invalid_email_rejected`<br>`tests/unit/config/test_schema.py::test_auth_admin_present_parses` | Implemented |
+| L2-AUTH-011 | L3-AUTH-019 | `tests/unit/bootstrap/test_admin_reconcile.py::test_build_service_provisions_configured_admin`<br>`tests/unit/bootstrap/test_admin_reconcile.py::test_build_service_without_admin_section_provisions_nobody`<br>`tests/unit/bootstrap/test_admin_reconcile.py::test_reconcile_creates_admin_when_absent`<br>`tests/unit/bootstrap/test_admin_reconcile.py::test_reconcile_is_idempotent`<br>`tests/unit/bootstrap/test_admin_reconcile.py::test_reconcile_reasserts_without_touching_password` | Implemented |
 
 ### L1-MAIL: Email delivery
 
@@ -500,7 +500,7 @@ the single source of truth.
 | AGGR | 4 | 10 | 20 | 5 | 20 |
 | SWEEP | 3 | 11 | 24 | 6 | 24 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
-| AUTH | 4 | 11 | 19 | 5 | 17 |
+| AUTH | 4 | 11 | 19 | 5 | 19 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 8 | 21 | 43 | 1 | 39 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
@@ -509,9 +509,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **72** | **204** | **420** | **66** | **414** |
+| **Total** | **72** | **204** | **420** | **66** | **416** |
 
-**Requirements verified by at least one test**: 480 of 624 (76.9%).
+**Requirements verified by at least one test**: 482 of 624 (77.2%).
 
 ### Orphan check
 

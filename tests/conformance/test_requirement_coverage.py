@@ -127,4 +127,4 @@ def test_committed_allowlist_parses() -> None:
     and their implementation, and the list returns to empty at the release cut.
     """
     allowed = _M.parse_allowlist(_ALLOWLIST.read_text(encoding="utf-8"))
-    assert allowed == {"L1-AUTH-004", "L1-DASH-007", "L1-DASH-008"}
+    assert allowed == {"L1-DASH-007", "L1-DASH-008"}

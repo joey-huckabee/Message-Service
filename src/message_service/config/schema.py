@@ -412,11 +412,32 @@ class Argon2Config(_FrozenForbid):
     salt_len: int = Field(default=16, ge=8)
 
 
+class AdminAccountConfig(_FrozenForbid):
+    """Configurable local administrator account (L2-AUTH-010).
+
+    Provisioned at startup by the composition root (L2-AUTH-011). ``password``
+    is substitutable from the environment like the SMTP credentials, so the
+    secret stays out of the committed config file; an empty password (after
+    substitution) is rejected at load time.
+    """
+
+    email: EmailStr
+    password: SubstitutableStr
+
+    @model_validator(mode="after")
+    def _password_non_empty(self) -> AdminAccountConfig:
+        """Reject an empty/whitespace password (L3-AUTH-018)."""
+        if not self.password.strip():
+            raise ValueError("auth.admin.password must not be empty")
+        return self
+
+
 class AuthConfig(_FrozenForbid):
     """Authentication parameters (L1-AUTH-002)."""
 
     session_idle_timeout_seconds: int = Field(default=3_600, ge=60)
     argon2: Argon2Config = Field(default_factory=Argon2Config)
+    admin: AdminAccountConfig | None = Field(default=None)
 
 
 # -----------------------------------------------------------------------------
@@ -509,6 +530,7 @@ class Config(_FrozenForbid):
 
 __all__ = [
     "SUBSTITUTABLE_MARKER",
+    "AdminAccountConfig",
     "Argon2Config",
     "AuditConfig",
     "AuthConfig",

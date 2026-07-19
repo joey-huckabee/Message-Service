@@ -13,10 +13,6 @@
 # the v0.15.0 release cut.
 
 [[allowed]]
-id = "L1-AUTH-004"
-reason = "v0.15.0 in progress: configurable local admin — spec landed sub-step a, implemented in sub-step b"
-
-[[allowed]]
 id = "L1-DASH-007"
 reason = "v0.15.0 in progress: browser login page — spec landed sub-step a, implemented in sub-step d"
 

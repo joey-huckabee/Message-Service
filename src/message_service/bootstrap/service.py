@@ -73,8 +73,15 @@ from message_service.application.use_cases.sweeper_action_dispatcher import (
     SweeperActionDispatcherUseCase,
 )
 from message_service.application.use_cases.unsubscribe import UnsubscribeUseCase
-from message_service.config.schema import Config, DispositionAction, TemplateRefConfig
+from message_service.config.schema import (
+    AdminAccountConfig,
+    Config,
+    DispositionAction,
+    TemplateRefConfig,
+)
+from message_service.domain.aggregates.password import Password
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.domain.aggregates.user import User
 from message_service.domain.errors import (
     ConfigurationError,
     assert_error_codes_match_proto_enum,
@@ -321,6 +328,52 @@ class Service:
     create_user: CreateUserUseCase
     update_user: UpdateUserUseCase
     reset_password: ResetPasswordUseCase
+
+
+async def _reconcile_admin_account(
+    admin: AdminAccountConfig,
+    *,
+    uow_factory: SqliteUnitOfWorkFactory,
+    password_hasher: Argon2PasswordHasher,
+    clock: Clock,
+) -> None:
+    """Provision the configurable local admin at startup (L2-AUTH-011 / L3-AUTH-019).
+
+    Fail-safe reconciliation against the account store, keyed by the configured
+    email: create the account if absent (with the hashed configured password,
+    ``is_admin=True``, ``disabled=False``); if it already exists, re-assert
+    administrator privilege and enabled status but leave the stored password
+    untouched (so a password rotated through the admin API is never clobbered
+    by a stale config value). Idempotent across restarts. Uses the repository
+    directly — this is a system-startup action, not an admin action, so it emits
+    no audit record and is not subject to the self-protection guards.
+
+    Args:
+        admin: The configured admin account (email + plaintext secret).
+        uow_factory: Unit-of-work factory over the shared connection.
+        password_hasher: The Argon2id chokepoint (L1-AUTH-001).
+        clock: Injected clock for the created-at stamp.
+    """
+    async with uow_factory() as uow:
+        existing = await uow.user_repo.get_by_email(admin.email)
+        if existing is None:
+            await uow.user_repo.save(
+                User(
+                    email=admin.email,
+                    display_name=admin.email,
+                    password_hash=password_hasher.hash(Password(admin.password)),
+                    created_at=clock.now(),
+                    is_admin=True,
+                    disabled=False,
+                )
+            )
+            created = True
+        else:
+            assert existing.user_id is not None
+            await uow.user_repo.update(existing.user_id, is_admin=True, disabled=False)
+            created = False
+        await uow.commit()
+    _log.info("admin_account_reconciled", email=admin.email, created=created)
 
 
 async def build_service(config: Config) -> Service:
@@ -625,6 +678,17 @@ async def build_service(config: Config) -> Service:
         clock=clock,
         password_hasher=password_hasher,
     )
+
+    # L2-AUTH-011: provision the configurable local admin before the listeners
+    # accept traffic, so the operator can authenticate on the very first request.
+    # No-op when [auth.admin] is absent (backward compatible).
+    if config.auth.admin is not None:
+        await _reconcile_admin_account(
+            config.auth.admin,
+            uow_factory=uow_factory,
+            password_hasher=password_hasher,
+            clock=clock,
+        )
 
     _log.info("bootstrap_complete")
 

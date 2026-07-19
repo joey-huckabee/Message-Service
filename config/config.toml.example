@@ -250,6 +250,17 @@ memory_cost = 65_536                 # KiB
 time_cost = 3
 parallelism = 4
 
+# Optional configurable local administrator account (L1-AUTH-004). When this
+# section is present, the service provisions a local admin at startup: it
+# creates the account if absent (admin privilege, enabled, password hashed with
+# Argon2id) and, if it already exists, re-asserts admin + enabled WITHOUT
+# resetting a password rotated through the admin console. Omit the section
+# entirely to disable this bootstrap. Keep the secret out of this file by
+# substituting it from the environment, exactly like smtp.password.
+# [auth.admin]
+# email = "admin@example.com"
+# password = "${env:MESSAGE_SERVICE_ADMIN_PASSWORD}"
+
 # --- Observability -----------------------------------------------------------
 
 [observability]

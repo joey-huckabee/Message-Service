@@ -35,6 +35,7 @@ from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import TERMINAL_STATES, RunState
 from message_service.domain.state_machines.stage_states import StageState
 from message_service.interfaces.rest.app import require_session
+from message_service.interfaces.rest.runs_board import render_runs_board
 
 if TYPE_CHECKING:
     from message_service.bootstrap import Service
@@ -45,6 +46,10 @@ if TYPE_CHECKING:
 # regex returns 422 for non-matching values, satisfying the validator
 # obligation.
 _UUID4_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+
+# Cap on runs embedded in the run-status board page (L3-DASH-037). Matches the
+# JSON list endpoint's max page size; the client filters within this window.
+_BOARD_LIMIT = 200
 
 
 # -----------------------------------------------------------------------------
@@ -161,6 +166,29 @@ def build_runs_router(service: Service) -> APIRouter:
             states=effective_states,
         )
         return [_project_run_summary(r) for r in runs]
+
+    @router.get("/board", response_class=HTMLResponse)
+    async def runs_board(
+        _user_id: int = Depends(require_session),
+    ) -> HTMLResponse:
+        """L3-DASH-037: embedded run-status board.
+
+        Retrieves run summaries across the full ``RunState`` set (so in-flight
+        and terminal runs both appear), projects them to the JSON summary field
+        set, and returns a self-contained HTML page embedding that projection.
+        Declared *before* ``/{run_id}`` so the literal path ``/runs/board`` is
+        matched here rather than routed to the detail handler as a run id.
+        Per-run stage detail is fetched lazily by the client from
+        ``GET /runs/{run_id}``.
+        """
+        del _user_id  # auth gate only
+        runs = await service.list_past_runs.execute(
+            limit=_BOARD_LIMIT,
+            offset=0,
+            states=frozenset(RunState),
+        )
+        summaries = [_project_run_summary(r).model_dump(mode="json") for r in runs]
+        return HTMLResponse(content=render_runs_board(summaries))
 
     @router.get("/{run_id}")
     async def get_run(

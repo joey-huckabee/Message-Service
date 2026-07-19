@@ -84,6 +84,9 @@ from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMai
 from message_service.infrastructure.observability.metrics import (
     PrometheusMetricsRecorder,
 )
+from message_service.infrastructure.persistence.audit_archive_writer import (
+    FilesystemAuditArchiveWriter,
+)
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.audit_log_pruner_loop import (
     AuditLogPrunerLoop,
@@ -139,42 +142,48 @@ from message_service.observability.logging_setup import configure_logging
 _log = structlog.get_logger(__name__)
 
 
-def _ensure_report_directory(report_directory: Path) -> None:
-    """Verify the rendered-report directory exists and is writable.
+def _ensure_writable_directory(directory: Path, *, label: str) -> None:
+    """Create ``directory`` if missing and verify it is writable (create-and-probe).
 
-    Implements L3-PERS-010 (create-on-demand) + L3-PERS-011 (writable
-    probe). Both failure modes raise :class:`ConfigurationError` so the
-    process exits before any I/O-shaped use case runs.
+    Shared by the rendered-report directory (L3-PERS-010/011) and the optional
+    audit-archive directory (L3-OBS-041). Both failure modes raise
+    :class:`ConfigurationError` so the process exits before any I/O-shaped use
+    case runs.
 
     Args:
-        report_directory: ``persistence.filesystem.report_directory``.
+        directory: The directory to create/probe.
+        label: Human-readable role for the error message (e.g. ``"report"``).
 
     Raises:
-        ConfigurationError: ``mkdir`` failed (permission denied,
-            invalid path, etc.) or the directory exists but a probe
-            write fails.
+        ConfigurationError: ``mkdir`` failed (permission denied, invalid path,
+            etc.) or the directory exists but a probe write fails.
     """
     try:
-        report_directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise ConfigurationError(
-            f"failed to create report directory: {report_directory}",
-            details={"path": str(report_directory), "os_error": str(exc)},
+            f"failed to create {label} directory: {directory}",
+            details={"path": str(directory), "os_error": str(exc)},
         ) from exc
 
-    probe = report_directory / ".write_probe"
+    probe = directory / ".write_probe"
     try:
         probe.write_text("", encoding="utf-8")
     except OSError as exc:
         raise ConfigurationError(
-            f"report directory is not writable: {report_directory}",
-            details={"path": str(report_directory), "os_error": str(exc)},
+            f"{label} directory is not writable: {directory}",
+            details={"path": str(directory), "os_error": str(exc)},
         ) from exc
     finally:
         # Best-effort cleanup; if we cannot remove the probe the next
         # startup will overwrite it anyway.
         with contextlib.suppress(OSError):
             probe.unlink(missing_ok=True)
+
+
+def _ensure_report_directory(report_directory: Path) -> None:
+    """Verify the rendered-report directory exists and is writable (L3-PERS-010/011)."""
+    _ensure_writable_directory(report_directory, label="report")
 
 
 def _resolve_body_template_overrides(
@@ -548,11 +557,20 @@ async def build_service(config: Config) -> Service:
     # the structured INFO log per tick is the operational signal,
     # and the L3-OBS-039 sole-deleter conformance test provides
     # forensic-grade auditability.
+    # L2-OBS-019: optional audit-archive writer. When archive_directory is
+    # configured, validate it writable (fail-fast) and archive expired rows
+    # before the pruner deletes them; unset means delete without archiving.
+    audit_archive_writer: FilesystemAuditArchiveWriter | None = None
+    audit_archive_dir = config.observability.audit.archive_directory
+    if audit_archive_dir is not None:
+        _ensure_writable_directory(audit_archive_dir, label="audit archive")
+        audit_archive_writer = FilesystemAuditArchiveWriter(root=audit_archive_dir)
     audit_log_pruner = AuditLogPrunerUseCase(
         uow_factory=uow_factory,
         clock=clock,
         retention_days=config.observability.audit.retention_days,
         cleanup_batch_size=config.observability.audit.cleanup_batch_size,
+        archive_writer=audit_archive_writer,
     )
     audit_log_pruner_loop = AuditLogPrunerLoop(
         pruner=audit_log_pruner,

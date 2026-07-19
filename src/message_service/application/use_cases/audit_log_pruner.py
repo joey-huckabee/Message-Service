@@ -69,6 +69,7 @@ from message_service.application.ports.clock import iso_z
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from message_service.application.ports.audit_archive_writer import AuditArchiveWriter
     from message_service.application.ports.clock import Clock
     from message_service.application.ports.unit_of_work import UnitOfWork
 
@@ -98,6 +99,7 @@ class AuditLogPrunerUseCase:
         clock: Clock,
         retention_days: int,
         cleanup_batch_size: int = 10_000,
+        archive_writer: AuditArchiveWriter | None = None,
     ) -> None:
         """Construct a pruner bound to its collaborators.
 
@@ -115,6 +117,12 @@ class AuditLogPrunerUseCase:
             cleanup_batch_size: Per-tick DELETE row cap (per
                 L3-OBS-016). Sourced from
                 ``config.observability.audit.cleanup_batch_size``.
+            archive_writer: Optional archive writer (L2-OBS-019). When
+                provided (``observability.audit.archive_directory`` is
+                configured), each tick fetches the expired batch, archives
+                it, and only then deletes it; an archive failure aborts the
+                tick's deletion. When ``None`` (the default) the pruner
+                deletes without archiving, unchanged.
 
         Raises:
             ValueError: ``retention_days`` or ``cleanup_batch_size``
@@ -129,6 +137,7 @@ class AuditLogPrunerUseCase:
         self._retention = timedelta(days=retention_days)
         self._retention_days = retention_days
         self._batch_size = cleanup_batch_size
+        self._archive_writer = archive_writer
 
     async def run_once(self) -> AuditPruneResult:
         """Run one polling iteration.
@@ -145,6 +154,27 @@ class AuditLogPrunerUseCase:
         now = self._clock.now()
         cutoff = now - self._retention
         cutoff_iso = iso_z(cutoff)
+
+        # L2-OBS-019: when an archive writer is configured, fetch the expired
+        # batch and archive it BEFORE deleting. On an archive failure, skip the
+        # delete this tick — the rows are retained and re-attempted next tick, so
+        # no audit record is ever deleted without first being archived.
+        if self._archive_writer is not None:
+            async with self._uow_factory() as uow:
+                expired = list(
+                    await uow.audit_log.fetch_older_than(cutoff, batch_size=self._batch_size)
+                )
+            if expired:
+                try:
+                    self._archive_writer.archive(expired, as_of=now)
+                except OSError as exc:
+                    _log.warning(
+                        "audit_log_archive_write_failed",
+                        error=str(exc),
+                        candidate_rows=len(expired),
+                        cutoff_iso_z=cutoff_iso,
+                    )
+                    return AuditPruneResult(rows_deleted=0)
 
         async with self._uow_factory() as uow:
             rows_deleted = await uow.audit_log.delete_older_than(

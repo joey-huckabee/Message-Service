@@ -16,9 +16,8 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.8.0** (`R-API-001` — per-RPC/per-request
-correlation ids + proto-version gate, closing the `L1-API-001` and `L1-OBS-001`
-partials); the next cut is **v0.9.0** — nothing is scheduled into it yet. Pull
+each release cut. The last cut was **v0.9.0** (per-L1 requirement-coverage CI
+gate); the next cut is **v0.10.0** — nothing is scheduled into it yet. Pull
 items from the **Deferred features** backlog below, promote each to real
 L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
 result under a new dated section in `CHANGELOG.md`.
@@ -42,23 +41,19 @@ correlation ids + proto-version gate). That leaves **one**:
 | L1-DASH-004 | Embedded Chart.js metrics dashboard (scrape endpoint already ships) | R-DASH-004 |
 
 It is not a missing-functionality bug — the operationally important half (the
-Prometheus `/metrics` scrape endpoint) already ships; only the embedded
-in-service visualization is deferred, gated on standing up a browser-based test
-harness (see the `R-DASH-004` entry below). `docs/TRACE-MATRIX.md` shows it as
-Partial because the matrix has no "Deferred to v2" state.
+Prometheus `/metrics` scrape endpoint) already ships and is verified under the
+`L1-OBS` requirements; only the embedded in-service visualization is deferred,
+gated on standing up a browser-based test harness (see the `R-DASH-004` entry
+below). `docs/TRACE-MATRIX.md` shows `L1-DASH-004` itself as **Draft** (its own
+subtree — `L2-DASH-010`/`L2-DASH-011` — carries no verification artifact yet),
+and it is recorded on `docs/uncovered-l1-allowlist.toml` so the v0.9.0
+requirement-coverage gate tolerates the deferral without letting a *new*
+uncovered L1 slip in.
 
 ## Deferred features
 
 Each entry is a candidate, not a commitment. `R-XXX-NNN`-tagged items are
 referenced by spec docs and code comments; keep the tags stable.
-
-### Testing and verification
-
-- **Requirement-level coverage enforcement** — a CI gate requiring every approved
-  L1 requirement to have at least one linked verification artifact before a
-  release. The `--cov-fail-under` gate enforces *aggregate* line/branch coverage;
-  requirement-level coverage tracking (via the trace matrix) is a separate, finer
-  gate.
 
 ### Performance and profiling
 

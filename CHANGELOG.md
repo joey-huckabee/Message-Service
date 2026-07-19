@@ -12,6 +12,35 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-07-19
+
+Per-L1 requirement-coverage gate — the "requirement-level coverage enforcement"
+backlog item promoted to a real CI gate. A release can no longer ship an L1
+requirement with *zero* linked verification artifacts (a gap the aggregate
+line/branch coverage number cannot see) unless that L1 is explicitly recorded,
+with a rationale, on a deferral allowlist. Building the gate surfaced that
+`L1-DASH-004` is genuinely `Draft` (both dashboard L2 children are uncovered) —
+now recorded honestly on the allowlist rather than loosely called "Partial".
+**66 of 67 L1 requirements Implemented** at **95.14% branch coverage** over
+**1457 tests**.
+
+### Added
+
+- **Requirement-coverage CI gate (`L2-CICD-016` / `L3-CICD-018`).**
+  `scripts/check-requirement-coverage.py` reads the committed
+  `docs/TRACE-MATRIX.md`, collects every L1 whose rolled-up status is `Draft`
+  (no linked verification artifact anywhere in its subtree), and fails the build
+  on any such L1 not present on `docs/uncovered-l1-allowlist.toml`. Exit 0 / 1 /
+  2 for clean / uncovered / unreadable. Wired into the existing trace-matrix CI
+  job (after the freshness `--check`), so it reads a matrix already proven fresh.
+  Reworded `L1-CICD-004` to add the coverage obligation; added `L2-CICD-016` +
+  `L3-CICD-018`/`-019`.
+- **Deferral allowlist (`L3-CICD-019`).** `docs/uncovered-l1-allowlist.toml` — a
+  TOML `[[allowed]]` list where each tolerated `Draft` L1 carries an `id` and a
+  mandatory `reason` (a reason-less entry is a parse failure). Its one entry is
+  `L1-DASH-004` (`R-DASH-004`, the embedded Chart.js dashboard gated on a browser
+  test harness; the `/metrics` scrape half ships under `L1-OBS`).
+
 ## [0.8.0] — 2026-07-18
 
 Per-RPC / per-request correlation ids + proto-version gate (`R-API-001`) —
@@ -274,7 +303,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.5.0...v0.6.0

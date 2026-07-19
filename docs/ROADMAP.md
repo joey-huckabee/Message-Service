@@ -29,7 +29,7 @@ result under a new dated section in `CHANGELOG.md`.
 |---------|-------|
 | 0.14.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
 | 1.0.0 | The stable single-node, trusted-ISOLAN feature-complete release. All v1 partials are resolved and all L1 requirements are Implemented (as of v0.13.0). The precise 1.0.0 feature line is being (re)defined — see **Toward 1.0.0** below; it deliberately excludes the 2.0.0 hardening items. |
-| 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. See **Toward 2.0.0** below. |
+| 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, **federated user login (OIDC via Keycloak, plus LDAP/AD)** so end users can authenticate and self-serve, per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. The **local admin account continues to use local authentication** even after federated login lands. See **Toward 2.0.0** below. |
 
 ## The v1 partials (all resolved)
 
@@ -46,12 +46,23 @@ envelope — **68 of 68 L1 Implemented**. There are no requirement gaps.
 
 1.0.0 is the **stable single-node, trusted-ISOLAN feature-complete** release. It
 is deliberately *not* gated on the trust-boundary hardening — those items moved
-to **2.0.0** (below). The positive 1.0.0 feature line is being (re)defined. One
-of the user-facing browser-UI gaps closed in **v0.14.0**: the run-status board
-(`L1-DASH-006`) turned the JSON-only runs API into a browser page. The remaining
-obvious candidate is a **self-service subscription page** (subscriptions are
-still JSON-API-only). Pull the agreed items from the backlog, promote each to
-real L1/L2/L3 requirements, ship, then cut 1.0.0.
+to **2.0.0** (below). The positive 1.0.0 feature line is being built out as a
+usable browser dashboard:
+
+- **v0.14.0** closed the first gap: the run-status board (`L1-DASH-006`) turned
+  the JSON-only runs API into a browser page.
+- **v0.15.0 (planned)** adds the **admin notification console** plus the
+  service's first **browser login page**, backed by a **configurable local admin
+  account**. In the 1.0.0 line the model is *admin-managed*: a single local admin
+  logs in and manages notification recipients (user accounts + email addresses)
+  and the subscriptions that register them. The existing JSON subscription API
+  (self-scoped) stays; **per-user self-service** — where end users log in and
+  manage their own subscriptions — depends on federated login and is therefore a
+  **2.0.0** item (below). The local admin login remains local-auth even after
+  federated login lands.
+
+Pull the agreed items from the backlog, promote each to real L1/L2/L3
+requirements, ship, then cut 1.0.0.
 
 ## Toward 2.0.0 — trust-boundary crossing + multi-tenant hardening
 
@@ -64,6 +75,12 @@ tagged `→ 2.0.0`:
 - **Mutual TLS on gRPC** — transport encryption + client-cert auth for ingest.
 - **Dashboard RBAC (`R-DASH-001`)** — viewer / operator / admin roles with
   per-action gates (today every authenticated user can do everything).
+- **Federated user login (OIDC via Keycloak, plus LDAP/AD)** — lets end users
+  authenticate (and eventually self-serve their own subscriptions) through an
+  external identity provider rather than local accounts. The **local admin
+  account keeps using local authentication** so the service is never locked out
+  if the IdP is unreachable. Pairs naturally with RBAC and with promoting the
+  v0.15.0 admin notification console into per-user self-service.
 - **Per-pipeline concurrency caps / per-RPC weighting** — per-tenant fairness on
   top of the global rejecting limit shipped in v0.13.0.
 - **Backup & restore tooling** — atomic snapshot/restore of the SQLite database
@@ -111,9 +128,14 @@ referenced by spec docs and code comments; keep the tags stable.
 - **Mutual TLS on gRPC → 2.0.0** — v1 uses plaintext TCP on the trusted ISOLAN
   network. Promote when gRPC ingest crosses trust boundaries or when compliance
   requirements demand transport encryption. Collected under the **2.0.0** milestone.
-- **Additional authentication backends** — LDAP/AD and OIDC. Current scope is
-  local accounts only. LDAP is the likely first addition, consistent with broader
-  ISOLAN architecture patterns.
+- **Federated user login → 2.0.0** — current scope is local accounts only. Add
+  OIDC (via **Keycloak**) and LDAP/AD so end users authenticate through an
+  external identity provider. The **local admin account continues to use local
+  authentication** — the browser login page shipped for the admin console
+  (v0.15.0) stays local-auth-backed so an unreachable IdP can never lock the
+  operator out. Federated login is the precondition for turning the v0.15.0
+  admin-managed notification console into per-user self-service. Collected under
+  the **2.0.0** milestone; likely sequenced with RBAC (`R-DASH-001`).
 - **Secrets handling review** — SMTP credentials and any future API keys currently
   live in the TOML configuration file. Consider integration with Vault CE if
   secret rotation becomes operationally significant.

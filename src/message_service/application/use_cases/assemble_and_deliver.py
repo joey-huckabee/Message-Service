@@ -337,8 +337,9 @@ class AssembleAndDeliverUseCase:
         from_address: Configured ``mail.from_address`` value; threaded
             through to each :class:`OutboundEmail`.
         email_body_template_ref: Configured
-            ``templates.email_body_template_ref`` (service-wide in v1;
-            see ROADMAP R-TMPL-001 for per-pipeline option).
+            ``templates.email_body_template_ref`` — the default email body
+            template, used for any pipeline without an entry in
+            ``email_body_template_overrides`` (L2-TMPL-015).
     """
 
     def __init__(
@@ -352,6 +353,7 @@ class AssembleAndDeliverUseCase:
         email_body_template_ref: TemplateRef,
         admin_recipients: tuple[str, ...] = (),
         subject_templates: Mapping[str, str] | None = None,
+        email_body_template_overrides: Mapping[str, TemplateRef] | None = None,
         metrics_recorder: MetricsRecorder | None = None,
         report_store: ReportStore | None = None,
     ) -> None:
@@ -376,6 +378,14 @@ class AssembleAndDeliverUseCase:
                 whose ``pipeline_type`` is a key renders its subject from
                 the template; all others use the default format. Defaults
                 to an empty mapping (no overrides).
+            email_body_template_overrides: Configured
+                ``pipelines.email_body_template_overrides`` mapping
+                (``pipeline_type`` → ``TemplateRef``, L2-TMPL-015). A run
+                whose ``pipeline_type`` is a key renders its email body from
+                the override reference; all others use
+                ``email_body_template_ref``. References are validated against
+                the manifest at startup (L3-TMPL-034). Defaults to an empty
+                mapping (no overrides).
             metrics_recorder: L1-OBS-002 metrics port (run state
                 transitions, email delivery outcome, email size,
                 run duration). Defaults to a NoOp instance for tests.
@@ -395,6 +405,9 @@ class AssembleAndDeliverUseCase:
         self._email_body_template_ref = email_body_template_ref
         self._admin_recipients = admin_recipients
         self._subject_templates: dict[str, str] = dict(subject_templates or {})
+        self._email_body_template_overrides: dict[str, TemplateRef] = dict(
+            email_body_template_overrides or {}
+        )
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
         self._report_store = report_store or NoOpReportStore()
 
@@ -816,7 +829,14 @@ class AssembleAndDeliverUseCase:
             "before_contributions": _bucket(EmailBodyPosition.BEFORE_STAGES_SUMMARY),
             "after_contributions": _bucket(EmailBodyPosition.AFTER_STAGES_SUMMARY),
         }
-        return self._template_renderer.render(self._email_body_template_ref, body_context)
+        # L3-TMPL-035: a per-pipeline override (pipelines.email_body_template_overrides)
+        # takes precedence when configured; otherwise the service-wide default. Both
+        # first-delivery and resend (prepare_email) route through here, so the override
+        # applies identically to resends.
+        body_template_ref = self._email_body_template_overrides.get(
+            run.pipeline_type, self._email_body_template_ref
+        )
+        return self._template_renderer.render(body_template_ref, body_context)
 
     def _save_fragments(self, run_id: RunId, fragments: Sequence[_RenderedFragment]) -> None:
         """Persist each rendered fragment to the report store.

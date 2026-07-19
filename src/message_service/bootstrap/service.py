@@ -44,6 +44,7 @@ from message_service.application.ports.clock import Clock
 from message_service.application.ports.disposition_handler import DispositionHandler
 from message_service.application.ports.mailer import Mailer
 from message_service.application.ports.report_store import ReportStore
+from message_service.application.ports.template_repository import TemplateRepository
 from message_service.application.use_cases.admin_users import (
     CreateUserUseCase,
     ResetPasswordUseCase,
@@ -72,7 +73,7 @@ from message_service.application.use_cases.sweeper_action_dispatcher import (
     SweeperActionDispatcherUseCase,
 )
 from message_service.application.use_cases.unsubscribe import UnsubscribeUseCase
-from message_service.config.schema import Config, DispositionAction
+from message_service.config.schema import Config, DispositionAction, TemplateRefConfig
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
     ConfigurationError,
@@ -174,6 +175,47 @@ def _ensure_report_directory(report_directory: Path) -> None:
         # startup will overwrite it anyway.
         with contextlib.suppress(OSError):
             probe.unlink(missing_ok=True)
+
+
+def _resolve_body_template_overrides(
+    overrides: dict[str, TemplateRefConfig],
+    repository: TemplateRepository,
+) -> dict[str, TemplateRef]:
+    """Resolve and validate per-pipeline email-body template overrides (L3-TMPL-034).
+
+    Translates the config ``(name, version)`` refs into :class:`TemplateRef`
+    values and asserts each is present in the loaded manifest, honoring
+    L1-TMPL-001's "reject references not in the manifest" obligation at
+    configuration time so a misconfigured override fails startup rather than
+    the first finalized run of the affected pipeline.
+
+    Args:
+        overrides: The ``pipelines.email_body_template_overrides`` mapping.
+        repository: The template repository loaded from the manifest.
+
+    Returns:
+        A mapping of ``pipeline_type`` to the validated :class:`TemplateRef`.
+
+    Raises:
+        ConfigurationError: An override references a ``(name, version)`` not
+            present in the manifest. The ``details`` carry the offending
+            ``pipeline_type``, ``name``, and ``version``.
+    """
+    resolved: dict[str, TemplateRef] = {}
+    for pipeline_type, ref_config in overrides.items():
+        ref = TemplateRef(name=ref_config.name, version=ref_config.version)
+        if not repository.exists(ref):
+            raise ConfigurationError(
+                f"email body template override for pipeline {pipeline_type!r} references "
+                f"template {ref.name!r}@{ref.version!r}, which is not in the manifest",
+                details={
+                    "pipeline_type": pipeline_type,
+                    "name": ref.name,
+                    "version": ref.version,
+                },
+            )
+        resolved[pipeline_type] = ref
+    return resolved
 
 
 @dataclass(frozen=True, slots=True)
@@ -394,6 +436,12 @@ async def build_service(config: Config) -> Service:
         name=config.templates.email_body_template_ref.name,
         version=config.templates.email_body_template_ref.version,
     )
+    # L3-TMPL-034: validate per-pipeline email-body overrides against the
+    # loaded manifest here (fail-fast) before any use case is constructed.
+    email_body_template_overrides = _resolve_body_template_overrides(
+        dict(config.pipelines.email_body_template_overrides),
+        template_repo,
+    )
     assemble_and_deliver = AssembleAndDeliverUseCase(
         uow_factory=uow_factory,
         clock=clock,
@@ -403,6 +451,7 @@ async def build_service(config: Config) -> Service:
         email_body_template_ref=email_body_ref,
         admin_recipients=tuple(str(addr) for addr in config.mail.admin_recipients),
         subject_templates=dict(config.pipelines.subject_templates),
+        email_body_template_overrides=email_body_template_overrides,
         metrics_recorder=metrics_recorder,
         report_store=report_store,
     )

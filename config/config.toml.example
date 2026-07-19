@@ -128,6 +128,16 @@ registered = [
 # etl-nightly = "[NIGHTLY:{pipeline_type}] run {run_id}"
 # backup-daily = "Backup {pipeline_type} completed (run {run_id})"
 
+# Optional per-pipeline email BODY template override (L2-TMPL-015 / R-TMPL-001).
+# Maps a registered pipeline_type to a manifest-registered template (name +
+# explicit version). The referenced template must exist in the manifest (checked
+# at startup). A pipeline with no entry renders the body from the service-wide
+# templates.email_body_template_ref, so omitting this table preserves the
+# single-template behavior. Keys must be in `registered`.
+# [pipelines.email_body_template_overrides]
+# etl-nightly = { name = "nightly_email_body", version = "1.0" }
+# backup-daily = { name = "backup_email_body", version = "2.1" }
+
 # --- Sweeper -----------------------------------------------------------------
 # The orphan sweeper periodically transitions runs stuck in active
 # states (INITIATED, AGGREGATING, READY, SENDING) to ORPHANED and

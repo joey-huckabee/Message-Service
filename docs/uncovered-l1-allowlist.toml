@@ -1,0 +1,17 @@
+# Deferral allowlist for the requirement-coverage gate (L2-CICD-016 / L3-CICD-019).
+#
+# `scripts/check-requirement-coverage.py` fails CI if any L1 requirement rolls up
+# to `Draft` in docs/TRACE-MATRIX.md (no linked verification artifact anywhere in
+# its subtree) UNLESS it is listed here with a rationale. Each entry needs an
+# `id` (L1-<CAT>-<NNN>) and a non-empty `reason`. Keep this list short: an entry
+# is a promise to revisit, and its diff is where reviewers notice a gap being
+# excused.
+
+[[allowed]]
+id = "L1-DASH-004"
+reason = """Embedded Chart.js metrics dashboard deferred (ROADMAP R-DASH-004); \
+its L2 children (L2-DASH-010/011) are the in-service visualization, gated on \
+standing up a browser-based test harness (Playwright) not yet in place. The \
+operationally important half — the Prometheus /metrics scrape endpoint — ships \
+and is verified under the L1-OBS requirements, so nothing functional is missing; \
+only L1-DASH-004's own subtree is uncovered."""

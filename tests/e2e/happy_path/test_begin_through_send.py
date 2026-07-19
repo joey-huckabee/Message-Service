@@ -121,16 +121,24 @@ async def test_happy_path_full_pipeline_delivers_one_email(
             )
         )
 
-    # 3. FinalizeRun.
+    # 3. FinalizeRun — schedules the asynchronous AssembleAndDeliver task on the
+    #    service's background scheduler (registered synchronously, so it is
+    #    in-flight by the time this call returns).
     await running_service.grpc_stub.FinalizeRun(pb.FinalizeRunRequest(run_id=begin_resp.run_id))
 
-    # 4. Wait for the asynchronous AssembleAndDeliver to fire and
-    #    the SMTP message to land in the capture.
-    await running_service.smtp_capture.wait_for(1, timeout_seconds=10.0)
+    # 4. Deterministically drain that background task. When ``await_all`` returns,
+    #    AssembleAndDeliver has fully completed — the email has been sent AND the
+    #    run's SENDING->SENT transition has committed. This is the correct sync
+    #    point: waiting only on the SMTP-capture signal is racy, because the
+    #    capture receives the message *before* the same task commits the terminal
+    #    state (the flake this replaces: run observed at SENDING when SENT was
+    #    asserted). Structural sequencing, not a longer timeout.
+    await running_service.service.scheduler.await_all(timeout=10.0)
 
-    # 5. Assert on the captured email. The mailer uses To=From per
-    #    its "undisclosed recipients" convention and puts subscribers
-    #    on Bcc, so both addresses appear at the SMTP envelope level.
+    # 5. Assert on the captured email (already delivered by the drained task). The
+    #    mailer uses To=From per its "undisclosed recipients" convention and puts
+    #    subscribers on Bcc, so both addresses appear at the SMTP envelope level.
+    assert len(running_service.smtp_capture.messages) == 1
     msg = running_service.smtp_capture.messages[0]
     assert msg.mail_from == "svc@example.com"
     assert "alice@example.com" in msg.rcpt_tos

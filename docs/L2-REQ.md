@@ -129,6 +129,15 @@ single source of truth for live status.
 **Rationale**: Co-locating error codes with the proto definition prevents client/server drift.
 **Verification Method**: Inspection (I)
 
+### Derivations of L1-API-005 (concurrency rate limiting)
+
+#### L2-API-012
+
+**Parent**: L1-API-005
+**Statement**: The maximum number of concurrently-executing RPCs SHALL be read from configuration key `grpc.max_in_flight_rpcs`, where `0` (the default) disables the rejecting limit and any positive value enables it. When enabled, a `grpc.aio.ServerInterceptor` SHALL count in-flight RPCs and reject any request that would exceed the limit with gRPC status code `RESOURCE_EXHAUSTED`, releasing its slot when the RPC completes. Because this is a saturation condition rather than one of the proto `ErrorCode` enum values, the fine-grained cause SHALL be conveyed additively via the R-ERR-001 `google.rpc.ErrorInfo` envelope (a `reason` string) rather than by adding a new proto enum value.
+**Rationale**: A distinct config key keeps the rejecting limit orthogonal to the queue-depth control (`grpc.max_concurrent_rpcs`); defaulting to disabled preserves existing behavior until an operator opts in. The standard `RESOURCE_EXHAUSTED` status code is the signal every gRPC client already backs off on, while the ErrorInfo `reason` gives operators the specific cause without freezing a new value into the external proto enum.
+**Verification Method**: Test (T)
+
 ---
 
 ## L2-RUN: Run lifecycle
@@ -1622,4 +1631,5 @@ single source of truth for live status.
 | 2026-07-18 | Joey   | R-SWEEP-001: added L2-SWEEP-011 under L1-SWEEP-003 (optional per-pipeline `pipelines.orphan_disposition_overrides`); reworded L1-SWEEP-003. |
 | 2026-07-19 | Joey   | Requirement-coverage: added L2-CICD-016 under L1-CICD-004 (per-L1 coverage gate via `check-requirement-coverage.py` + `uncovered-l1-allowlist.toml`); reworded L1-CICD-004. |
 | 2026-07-19 | Joey   | Audit archival: added L2-OBS-019 under L1-OBS-003 (opt-in archive-before-delete of expired audit rows via `observability.audit.archive_directory`); reworded L1-OBS-003. |
+| 2026-07-19 | Joey   | Rate limiting: added L2-API-012 under new L1-API-005 (`grpc.max_in_flight_rpcs` rejecting interceptor; RESOURCE_EXHAUSTED + R-ERR-001 ErrorInfo reason, no proto enum bump). |
 | 2026-07-19 | Joey   | R-DASH-004: reworded L2-DASH-011 (hand-authored inline-SVG rendering, no third-party charting library / CDN — dropped the Chart.js example). |

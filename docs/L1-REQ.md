@@ -102,6 +102,14 @@ single source of truth for live status; the source docs in this file,
 
 **Verification Method**: Test (T)
 
+### L1-API-005
+
+**Statement**: The service SHALL bound the number of concurrently-executing RPCs to a configurable limit and, when the limit is reached, SHALL reject further requests with gRPC status code `RESOURCE_EXHAUSTED` rather than accepting them into an unbounded queue.
+
+**Rationale**: `maximum_concurrent_rpcs` alone only *queues* excess work; under a burst it lets the queue and its associated resources grow without a fast-fail signal, so a saturated server degrades silently instead of shedding load. An explicit rejecting limit gives pipeline clients the standard `RESOURCE_EXHAUSTED` backpressure signal they already know how to back off on, protecting the single-tenant ETL deployment from pathological concurrency. The limit is configurable and disabled by default so existing deployments are unaffected until an operator opts in.
+
+**Verification Method**: Test (T)
+
 ---
 
 ## L1-RUN: Run lifecycle
@@ -687,3 +695,4 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 | 2026-07-18 | Joey   | R-SWEEP-001: reworded L1-SWEEP-003 to allow a per-`pipeline_type` orphan-disposition override with the global policy as fallback (no new L1). |
 | 2026-07-19 | Joey   | Requirement-coverage: reworded L1-CICD-004 to add a per-L1 verification-coverage gate (every L1 needs a linked artifact unless allowlisted). No new L1. |
 | 2026-07-19 | Joey   | Audit archival: reworded L1-OBS-003 to add optional archive-before-delete of expired audit records (see L2-OBS-019). No new L1. |
+| 2026-07-19 | Joey   | Rate limiting: added L1-API-005 (bound concurrently-executing RPCs to a configurable limit; reject excess with RESOURCE_EXHAUSTED rather than queue unboundedly). Total L1: 68. |

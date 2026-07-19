@@ -103,6 +103,12 @@ The proto `ErrorCode` enum SHALL reserve value 0 as `ERROR_CODE_UNSPECIFIED`; no
 **L3-API-018** · Parent: L2-API-011 · Verification: A
 A static analysis SHALL verify that every concrete subclass of `MessageServiceError` has an `error_code` attribute matching a value in the proto `ErrorCode` enum.
 
+**L3-API-019** · Parent: L2-API-012 · Verification: T
+Configuration key `grpc.max_in_flight_rpcs` SHALL be an integer with a floor of `0` and a default of `0`. A value of `0` disables the rejecting concurrency limit (the server behaves exactly as before this feature); any positive value `N` caps concurrently-executing RPCs at `N`. The field SHALL be validated by the pydantic `GrpcConfig` schema (`ge=0`), and a test SHALL assert both the default and that a negative value is rejected at load time.
+
+**L3-API-020** · Parent: L2-API-012 · Verification: T
+When `grpc.max_in_flight_rpcs > 0`, the gRPC server SHALL be constructed with a `ConcurrencyLimitInterceptor` that maintains an in-flight counter: at RPC entry, if the counter is already at the limit it SHALL reject the RPC with `grpc.StatusCode.RESOURCE_EXHAUSTED` without invoking the handler; otherwise it SHALL increment the counter, invoke the handler, and decrement in a `finally` (so a slot is released even when the handler raises). The check-and-increment SHALL be atomic with respect to the event loop (no `await` between them). The interceptor SHALL be ordered *after* the correlation-id interceptor so a rejection log record carries the RPC's `correlation_id`. The rejection SHALL carry the additive R-ERR-001 `grpc-status-details-bin` envelope (`L3-ERR-023`) with `ErrorInfo.reason = "RESOURCE_EXHAUSTED_CONCURRENCY"`, `domain = "message-service"`, and `metadata = {limit, in_flight}`; because this saturation cause is not a proto `ErrorCode` enum value, no `x-message-service-error-code` key is emitted for it. A test SHALL assert that the `(limit+1)`-th concurrent RPC is rejected with `RESOURCE_EXHAUSTED` and the expected `reason`, and that slots are released after RPCs complete.
+
 ---
 
 ## L3-RUN: Run lifecycle
@@ -1364,3 +1370,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 | 2026-07-19 | Joey   | Audit archival: added L3-OBS-041 (archive_directory config + writable probe), L3-OBS-042 (fetch_older_than == delete_older_than batch + audit_id tiebreak), L3-OBS-043 (archive-before-delete JSONL flow + fail-safe) under new L2-OBS-019. Total: 407. |
 | 2026-07-19 | Joey   | R-DASH-004: promoted L3-DASH-016 (GET /admin/metrics route: server-side retrieve+parse+embed) and L3-DASH-017 (inline-SVG hand-authored rendering, no-external-ref conformance) from deferred stubs; added L3-DASH-036 (DOM-free Prometheus-exposition parser) under L2-DASH-010. Total: 408. |
 | 2026-07-19 | Joey   | R-ERR-001: added L3-ERR-023 under L2-ERR-007 (additive google.rpc.Status + ErrorInfo envelope in grpc-status-details-bin, alongside the retained x-message-service-error-code); reworded the L3-ERR-015 deferral note. Total: 409. |
+| 2026-07-19 | Joey   | Rate limiting: added L3-API-019 (`grpc.max_in_flight_rpcs` config field, 0=disabled) and L3-API-020 (`ConcurrencyLimitInterceptor`: RESOURCE_EXHAUSTED rejection + R-ERR-001 ErrorInfo reason RESOURCE_EXHAUSTED_CONCURRENCY, ordered after correlation) under new L2-API-012. Total: 411. |

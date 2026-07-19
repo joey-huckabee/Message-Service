@@ -175,6 +175,20 @@ class TagsConfig(_FrozenForbid):
     vocabulary_path: Path
 
 
+DispositionAction = Literal[
+    "SEND_PARTIAL_FLAGGED",
+    "DISCARD_SILENTLY",
+    "NOTIFY_SUBSCRIBERS",
+    "NOTIFY_ADMINS",
+]
+"""Permitted orphan-disposition action identifiers (L1-SWEEP-003).
+
+Defined here (above :class:`PipelinesConfig`) because both the global
+``sweeper.disposition_actions`` and the per-pipeline
+``pipelines.orphan_disposition_overrides`` reference it.
+"""
+
+
 class PipelinesConfig(_FrozenForbid):
     """Registry of known pipeline_type values (L2-RUN-007).
 
@@ -198,11 +212,20 @@ class PipelinesConfig(_FrozenForbid):
             render the email body from the service-wide
             ``templates.email_body_template_ref``, so an empty mapping (the
             default) preserves the single-template behavior exactly.
+        orphan_disposition_overrides: Optional per-pipeline orphan
+            disposition policy override (L2-SWEEP-011 / L3-SWEEP-022). Maps a
+            registered ``pipeline_type`` to an ordered list of
+            ``DispositionAction`` identifiers applied by the sweeper when a
+            run of that pipeline orphans; pipelines without an entry use the
+            global ``sweeper.disposition_actions``. An empty list means
+            "orphan but take no action". Handler registration for each action
+            is validated at startup (L3-SWEEP-024).
     """
 
     registered: list[str] = Field(default_factory=list)
     subject_templates: dict[str, str] = Field(default_factory=dict)
     email_body_template_overrides: dict[str, TemplateRefConfig] = Field(default_factory=dict)
+    orphan_disposition_overrides: dict[str, list[DispositionAction]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_subject_templates(self) -> PipelinesConfig:
@@ -264,18 +287,36 @@ class PipelinesConfig(_FrozenForbid):
                 )
         return self
 
+    @model_validator(mode="after")
+    def _validate_orphan_disposition_override_keys(self) -> PipelinesConfig:
+        """Validate per-pipeline orphan-disposition override keys at load (L3-SWEEP-022).
+
+        Handler registration for each override action is validated separately
+        at sweeper construction (L3-SWEEP-024); the ``DispositionAction``
+        ``Literal`` rejects unknown identifiers at parse time. This check only
+        rejects overrides keyed on a non-registered ``pipeline_type``.
+
+        Returns:
+            The validated model instance.
+
+        Raises:
+            ValueError: An override key is not a member of ``registered``.
+                Pydantic surfaces this as a schema ``ValidationError`` per
+                L3-CFG-006.
+        """
+        registered = set(self.registered)
+        for pipeline_type in self.orphan_disposition_overrides:
+            if pipeline_type not in registered:
+                raise ValueError(
+                    f"orphan_disposition_overrides key {pipeline_type!r} is not a registered "
+                    f"pipeline_type; an override for an unregistered pipeline can never fire"
+                )
+        return self
+
 
 # -----------------------------------------------------------------------------
 # Sweeper
 # -----------------------------------------------------------------------------
-
-
-DispositionAction = Literal[
-    "SEND_PARTIAL_FLAGGED",
-    "DISCARD_SILENTLY",
-    "NOTIFY_SUBSCRIBERS",
-    "NOTIFY_ADMINS",
-]
 
 
 class SweeperConfig(_FrozenForbid):

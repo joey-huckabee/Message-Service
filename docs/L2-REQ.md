@@ -991,8 +991,8 @@ single source of truth for live status.
 #### L2-DASH-011
 
 **Parent**: L1-DASH-004
-**Statement**: Metric visualizations SHALL be rendered using a charting library that ships as a static asset without external CDN dependencies (e.g., Chart.js served from packaged static assets).
-**Rationale**: Consistent with L2-DASH-003 — air-gapped deployments require offline-capable visualization.
+**Statement**: Metric visualizations SHALL be rendered by hand-authored client-side code (inline SVG) that ships as packaged static assets with no third-party charting library and no external CDN or network dependency. The rendering code SHALL be self-contained: served from the service's own package and referencing no external origin.
+**Rationale**: Consistent with L2-DASH-003 — deployments must be offline-capable, so the visualization carries zero external dependencies. Hand-authoring the chart rendering (axes, gridlines, bars/lines/gauges as inline SVG) keeps the dependency surface at zero rather than vendoring a third-party charting bundle.
 **Verification Method**: Inspection (I)
 
 ### Derivations of L1-DASH-005 (admin audit-log viewer)
@@ -1622,3 +1622,4 @@ single source of truth for live status.
 | 2026-07-18 | Joey   | R-SWEEP-001: added L2-SWEEP-011 under L1-SWEEP-003 (optional per-pipeline `pipelines.orphan_disposition_overrides`); reworded L1-SWEEP-003. |
 | 2026-07-19 | Joey   | Requirement-coverage: added L2-CICD-016 under L1-CICD-004 (per-L1 coverage gate via `check-requirement-coverage.py` + `uncovered-l1-allowlist.toml`); reworded L1-CICD-004. |
 | 2026-07-19 | Joey   | Audit archival: added L2-OBS-019 under L1-OBS-003 (opt-in archive-before-delete of expired audit rows via `observability.audit.archive_directory`); reworded L1-OBS-003. |
+| 2026-07-19 | Joey   | R-DASH-004: reworded L2-DASH-011 (hand-authored inline-SVG rendering, no third-party charting library / CDN — dropped the Chart.js example). |

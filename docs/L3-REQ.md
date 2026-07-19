@@ -797,10 +797,10 @@ Template inspection routes accept only GET; POST/PATCH/DELETE against `/template
 Template listing SHALL expose `name`, `version`, repo-relative `schema_path` and `source_path`, and schema contents; it SHALL NOT expose rendered contents of any past report.
 
 **L3-DASH-016** · Parent: L2-DASH-010 · Verification: T
-*(Deferred to v2 — see ROADMAP `R-DASH-004`.)* The embedded Chart.js metrics dashboard page is the visualization half of `L1-DASH-004`; v1 ships only the scrape-endpoint half (`GET /metrics` per `L3-OBS-007`). The dashboard page (server-side fetch, Chart.js wiring, Playwright e2e tests) is deferred until the test-harness infrastructure for browser-based UI testing exists.
+The service SHALL expose `GET /admin/metrics` behind the `require_admin` dependency. The handler SHALL, server-side, obtain the current Prometheus exposition from the same source `GET /metrics` serves (so the dashboard's view is byte-consistent with what external scrapers see, satisfying L2-DASH-010's intent), parse it via the `L3-DASH-036` parser into a structured model, and return an HTML page that embeds that model as JSON for the client-side renderer. A test SHALL assert the route is admin-gated (401/403 without an admin session) and that an authenticated admin receives an HTML document embedding the parsed metric model.
 
 **L3-DASH-017** · Parent: L2-DASH-011 · Verification: I
-*(Deferred to v2 — see ROADMAP `R-DASH-004`.)* Chart.js bundling lands as part of the embedded-dashboard work in `L3-DASH-016`'s deferral; v1 has no Chart.js dependency.
+The dashboard page SHALL render the embedded metric model as inline SVG using hand-authored, packaged static CSS/JS assets — no third-party charting library, no CDN, no external network reference of any kind. A conformance test SHALL scan the dashboard's shipped assets (the HTML template and the static CSS/JS) and assert they contain no external-origin references (`http://` / `https://` / protocol-relative `//` src/href / known CDN or charting-library markers), so the offline/no-dependency guarantee is enforced mechanically rather than by review. The visual correctness of the rendering is verified by Demonstration under `L1-DASH-004`.
 
 **L3-DASH-018** · Parent: L2-DASH-001 · Verification: T
 CSRF protection SHALL apply to POST/PATCH/DELETE via double-submit cookie or equivalent; a test verifies a POST without the CSRF token returns HTTP 403.
@@ -855,6 +855,9 @@ The SQL adapter backing the listing SHALL include `ORDER BY audit_log.audit_id D
 
 **L3-DASH-035** · Parent: L2-DASH-016 · Verification: T
 Response items SHALL conform to a pydantic model with `extra="forbid"` exposing exactly the fields enumerated in `L2-DASH-016`. The `details` field SHALL be deserialized from the `audit_log.details_json` column into a JSON object (Python `dict`) before serialization to the response body — the route SHALL NOT pass through the raw stringified form. Tests SHALL exercise both a non-empty-`details` row (e.g., `CREATE_USER`) and an empty-`details` row (legitimately absent in some legacy categories) and assert each round-trips correctly. A test SHALL also verify the route's "no extra redaction" invariant by writing an audit record carrying a marker string in `details` and asserting the same marker appears verbatim in the response — proving the viewer is faithful to the table contents and that any redaction obligation lives upstream.
+
+**L3-DASH-036** · Parent: L2-DASH-010 · Verification: T
+The service SHALL provide a pure, DOM-free parser that turns the Prometheus text exposition format into a structured metric model — one entry per metric family carrying its name, type (`counter` / `gauge` / `histogram`), `HELP` text, and its samples (each with its label set and value; histogram families additionally exposing their bucket boundaries, `_sum`, and `_count`). The parser SHALL ignore comment lines other than `# HELP` / `# TYPE`, tolerate label values containing `=`/`,`, and be implemented server-side in Python so it is unit-testable without a browser. Tests SHALL cover a counter with labels, a histogram (buckets + sum + count), and malformed/empty input.
 
 ---
 
@@ -1356,3 +1359,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 | 2026-07-18 | Joey   | R-API-001: promoted 4 deferred stubs to real SHALLs — L3-API-002 (gRPC per-RPC correlation interceptor + error-id reuse), L3-API-004 (CI proto-version check), L3-OBS-003 (success-path logs carry correlation_id), L3-OBS-004 (FastAPI per-request correlation middleware). Closes L1-API-001 + L1-OBS-001. Total: 402 (rewrites, no new ids). |
 | 2026-07-19 | Joey   | Requirement-coverage: added L3-CICD-018 (coverage-check script + exit codes) and L3-CICD-019 (allowlist TOML format) under new L2-CICD-016. Total: 404. |
 | 2026-07-19 | Joey   | Audit archival: added L3-OBS-041 (archive_directory config + writable probe), L3-OBS-042 (fetch_older_than == delete_older_than batch + audit_id tiebreak), L3-OBS-043 (archive-before-delete JSONL flow + fail-safe) under new L2-OBS-019. Total: 407. |
+| 2026-07-19 | Joey   | R-DASH-004: promoted L3-DASH-016 (GET /admin/metrics route: server-side retrieve+parse+embed) and L3-DASH-017 (inline-SVG hand-authored rendering, no-external-ref conformance) from deferred stubs; added L3-DASH-036 (DOM-free Prometheus-exposition parser) under L2-DASH-010. Total: 408. |

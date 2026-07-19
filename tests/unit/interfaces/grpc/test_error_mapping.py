@@ -633,3 +633,67 @@ def test_validation_error_log_level_is_info() -> None:
 # the dataclass annotations above).
 _silenced: Any = None
 del _silenced
+
+
+# -----------------------------------------------------------------------------
+# R-ERR-001: additive google.rpc.Status + ErrorInfo envelope (L3-ERR-023)
+# -----------------------------------------------------------------------------
+
+
+def _parse_status_details(trailing_metadata: tuple[tuple[str, Any], ...]) -> Any:
+    """Parse the grpc-status-details-bin payload back into a google.rpc.Status."""
+    from google.rpc import status_pb2
+
+    blob = dict(trailing_metadata)["grpc-status-details-bin"]
+    assert isinstance(blob, bytes)
+    return status_pb2.Status.FromString(blob)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-ERR-023")
+async def test_translate_known_carries_rich_status_and_legacy_key() -> None:
+    """A known error emits both the legacy key and a parseable google.rpc.Status."""
+    from google.rpc import error_details_pb2
+
+    ctx = _FakeServicerContext()
+    exc = UnknownTagError("tag 'x' not allowed", details={"tag": "x", "allowed_tags": ["a", "b"]})
+    with pytest.raises(_AbortRaisedError):
+        await _translate_known(ctx, exc)
+    metadata = dict(ctx.aborts[0].trailing_metadata)
+
+    # Legacy shape retained (backward compatible).
+    assert metadata["x-message-service-error-code"] == "ERROR_CODE_UNKNOWN_TAG"
+
+    # Additive rich shape.
+    status = _parse_status_details(ctx.aborts[0].trailing_metadata)
+    assert status.code == grpc.StatusCode.INVALID_ARGUMENT.value[0]
+    assert status.message == "tag 'x' not allowed"
+    info = error_details_pb2.ErrorInfo()
+    status.details[0].Unpack(info)
+    assert info.reason == "ERROR_CODE_UNKNOWN_TAG"
+    assert info.domain == "message-service"
+    assert info.metadata["tag"] == "x"
+    # Non-string detail values are stringified (JSON) for the map<string,string>.
+    assert info.metadata["allowed_tags"] == '["a", "b"]'
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-ERR-023")
+async def test_translate_unexpected_carries_rich_status_with_correlation_id() -> None:
+    """An unexpected error's rich status carries INTERNAL + the correlation id."""
+    from google.rpc import error_details_pb2
+
+    ctx = _FakeServicerContext()
+    with pytest.raises(_AbortRaisedError):
+        await _translate_unexpected(ctx, RuntimeError("boom"))
+    metadata = dict(ctx.aborts[0].trailing_metadata)
+    correlation_id = metadata["x-message-service-correlation-id"]
+
+    status = _parse_status_details(ctx.aborts[0].trailing_metadata)
+    assert status.code == grpc.StatusCode.INTERNAL.value[0]
+    info = error_details_pb2.ErrorInfo()
+    status.details[0].Unpack(info)
+    assert info.reason == "ERROR_CODE_INTERNAL"
+    assert info.domain == "message-service"
+    # The same correlation id appears in the rich envelope and the legacy key.
+    assert info.metadata["correlation_id"] == correlation_id

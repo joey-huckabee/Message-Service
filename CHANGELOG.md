@@ -12,6 +12,41 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-07-18
+
+Per-RPC / per-request correlation ids + proto-version gate (`R-API-001`) —
+promoted to real requirements, **closing two of the three remaining v1 partials
+at once**: `L1-API-001` and `L1-OBS-001`. **66 of 67 L1 requirements
+Implemented** (was 64) at **95.14% branch coverage** over **1448 tests**. Only
+`L1-DASH-004` (the embedded Chart.js metrics dashboard) remains partial toward
+1.0.0.
+
+### Added
+
+- **gRPC per-RPC correlation interceptor (`L3-API-002` / `L3-OBS-003`).** A
+  `grpc.aio.ServerInterceptor` binds a fresh `correlation_id` into the structlog
+  context at the entry of every RPC (success *and* failure, not only the
+  unexpected-error path as before) and clears it in a `finally`, so every log
+  record emitted while handling an RPC carries the id and none leaks between
+  RPCs on a shared worker task. The unexpected-error translator now **reuses**
+  that bound id for its `x-message-service-correlation-id` trailing metadata, so
+  a failed RPC surfaces to the client the same id its server-side logs carry.
+- **FastAPI per-request correlation middleware (`L3-OBS-004`).** The dashboard
+  analogue: a middleware (registered outermost) binds a fresh `correlation_id`
+  per request and clears it afterward, so route logs carry it automatically.
+- **Proto-version pin gate (`L3-API-004`).** `scripts/check-proto-version.py`
+  asserts the installed `message_service_proto.__version__` matches the tag
+  pinned in `pyproject.toml` (exit 0 / 1 / 2 for match / mismatch /
+  undeterminable), wired as a new `proto-version` CI job — catching a lockfile
+  that resolves a different proto version than the manifest pins.
+
+### Fixed
+
+- **gRPC interceptor handler factory.** During development the interceptor was
+  written against the nonexistent `grpc.aio.unary_unary_rpc_method_handler`; the
+  method-handler factory is transport-agnostic (`grpc.unary_unary_rpc_method_handler`).
+  Corrected before release; caught by the new interceptor tests.
+
 ## [0.7.0] — 2026-07-18
 
 Per-pipeline orphan disposition overrides — the next deferred-feature item
@@ -239,7 +274,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.4.0...v0.5.0

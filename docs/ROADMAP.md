@@ -16,38 +16,36 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.7.0** (`R-SWEEP-001` — per-pipeline
-orphan disposition override); the next cut is **v0.8.0** — nothing is scheduled
-into it yet. Pull items from the **Deferred features** backlog below, promote
-each to real L1/L2/L3 requirements in the L-REQ docs, implement, and record the
-shipped result under a new dated section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.8.0** (`R-API-001` — per-RPC/per-request
+correlation ids + proto-version gate, closing the `L1-API-001` and `L1-OBS-001`
+partials); the next cut is **v0.9.0** — nothing is scheduled into it yet. Pull
+items from the **Deferred features** backlog below, promote each to real
+L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
+result under a new dated section in `CHANGELOG.md`.
 
 ## Planned
 
 | Version | Theme |
 |---------|-------|
 | 0.2.0 → | Work down the deferred-feature backlog toward feature-completeness; each release promotes one or more `R-XXX` items to real requirements. |
-| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-API-001` / `R-ERR-001` wire-contract upgrades) have either shipped or been explicitly scoped out, and the three remaining intentional v1 partials below are resolved. |
+| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-ERR-001` wire-contract upgrade) have either shipped or been explicitly scoped out, and the one remaining intentional v1 partial below is resolved. |
 
 ## The road to 1.0.0 — intentional v1 partials
 
-v0.1.0 shipped five L1 requirements **Partial**; v0.2.0 resolved `L1-AGGR-001`
-(`R-AGGR-001` — custom per-stage email body contributions) and v0.3.0 resolved
-`L1-ERR-002` (`R-ERR-002` — error-code stability lockfile), leaving **three**.
-None is a missing-functionality bug; each is a deliberate deferral with
-all-but-one L2 child Implemented and the deferred child carried as an `R-XXX`
-entry below. `docs/TRACE-MATRIX.md` shows them as Partial because the matrix has
-no "Deferred to v2" state.
+v0.1.0 shipped five L1 requirements **Partial**. Resolved since: `L1-AGGR-001`
+(v0.2.0, `R-AGGR-001`), `L1-ERR-002` (v0.3.0, `R-ERR-002`), and both
+`L1-API-001` and `L1-OBS-001` (v0.8.0, `R-API-001` — per-RPC/per-request
+correlation ids + proto-version gate). That leaves **one**:
 
 | L1 | Deferred piece | Deferral tag |
 |----|----------------|--------------|
-| L1-API-001 | Per-RPC correlation interceptor + CI proto-version check | R-API-001 |
 | L1-DASH-004 | Embedded Chart.js metrics dashboard (scrape endpoint already ships) | R-DASH-004 |
-| L1-OBS-001 | Per-RPC / per-route correlation interceptor (same as L1-API-001) | R-API-001 |
 
-These share a common trigger: the gRPC ingress crossing a stable trust boundary
-with external consumers depending on a versioned wire contract — the same
-condition that gates mTLS and RBAC below.
+It is not a missing-functionality bug — the operationally important half (the
+Prometheus `/metrics` scrape endpoint) already ships; only the embedded
+in-service visualization is deferred, gated on standing up a browser-based test
+harness (see the `R-DASH-004` entry below). `docs/TRACE-MATRIX.md` shows it as
+Partial because the matrix has no "Deferred to v2" state.
 
 ## Deferred features
 
@@ -150,19 +148,6 @@ referenced by spec docs and code comments; keep the tags stable.
   author L3 children for `L2-DASH-010`/`L2-DASH-011`, vendor `chart.min.js`,
   implement `GET /admin/metrics` behind `require_admin`, add Playwright e2e tests,
   and promote `L1-DASH-004` to Implemented. Strictly additive.
-- **R-API-001 — gRPC infrastructure hardening** — two remaining v1 carve-outs.
-  (The third — pinned-tag proto dependency — shipped in the v0.1.0
-  release-readiness pass.) (1) **Per-RPC structlog interceptor**: v1 binds
-  `correlation_id` only on the unexpected-error path. The richer shape — a
-  server-side interceptor binding a fresh correlation id at every RPC entry
-  (success and failure) and clearing it in a `finally` — is useful once the
-  service participates in a distributed tracing context; likely paired with
-  `R-OBS-001`. (2) **CI proto-version-mismatch check**: a CI step asserting
-  `message_service_proto.__version__` matches the Poetry-resolved version. Now
-  that the dependency is tag-pinned the check is meaningful, but the failure mode
-  is small enough to defer. Both trigger off the same condition: the gRPC ingress
-  crossing a stable trust boundary with external consumers on a versioned wire
-  contract.
 - **R-ERR-001 — gRPC error envelope upgrade to `google.rpc.Status` + `ErrorInfo`**
   — v1's error translator returns `context.abort(status, details=message,
   trailing_metadata=(("x-message-service-error-code", code),))`. The richer shape

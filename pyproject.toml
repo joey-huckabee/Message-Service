@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "message-service"
-version = "0.7.0"
+version = "0.8.0"
 description = "A Python service that collects per-stage reports from ETL pipelines, aggregates them into HTML reports, and delivers them to subscribed users via email."
 authors = ["Joey"]
 readme = "README.md"

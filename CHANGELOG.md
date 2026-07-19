@@ -12,6 +12,30 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-18
+
+Per-pipeline email body templates — the next deferred-feature item
+(`R-TMPL-001`) promoted to real requirements on the road to 1.0.0. Operators
+can now render a different email body template per pipeline via an optional
+configuration mapping, while pipelines without an override keep the service-wide
+`templates.email_body_template_ref`. Additive: no proto change, and behavior is
+byte-identical to v0.4.0 when the mapping is unset. **64 of 67 L1 requirements
+Implemented** at **95.05% branch coverage** over **1422 tests**; three
+intentional partials remain toward 1.0.0.
+
+### Added
+
+- **Per-pipeline email body templates (`L2-TMPL-015`).** A new optional
+  `pipelines.email_body_template_overrides` mapping (`pipeline_type` →
+  `(name, version)` template reference) overrides the email body template for
+  matching pipelines. Each override reference is validated against the template
+  manifest at startup (`L3-TMPL-034`) — a reference to a template absent from
+  the manifest fails service start with `ConfigurationError`, honoring
+  `L1-TMPL-001` at configuration time — and each key must be a registered
+  pipeline (`L3-TMPL-033`). Because both the first-delivery and resend paths
+  render through the same code, the override applies to resends too
+  (`L3-TMPL-035`). Adds `L2-TMPL-015` and `L3-TMPL-033`/`-034`/`-035`.
+
 ## [0.4.0] — 2026-07-18
 
 Per-pipeline email subject templates — the next deferred-feature item
@@ -153,7 +177,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.1.0...v0.2.0

@@ -68,9 +68,21 @@ DELETE FROM audit_log
 WHERE audit_id IN (
     SELECT audit_id FROM audit_log
     WHERE timestamp < ?
-    ORDER BY timestamp ASC
+    ORDER BY timestamp ASC, audit_id ASC
     LIMIT ?
 )
+"""
+
+# L3-OBS-042: the read the archival pruner uses to fetch the batch it is about
+# to delete. Selection MUST be identical to _SQL_DELETE_OLDER_THAN's sub-select
+# (same WHERE, same ORDER BY incl. the audit_id tiebreak, same LIMIT) so the
+# fetched batch equals the deleted batch even when timestamps tie at the cap.
+_SQL_FETCH_OLDER_THAN = """
+SELECT audit_id, timestamp, action, actor, resource, outcome, details_json
+FROM audit_log
+WHERE timestamp < ?
+ORDER BY timestamp ASC, audit_id ASC
+LIMIT ?
 """
 
 
@@ -161,6 +173,31 @@ class SqliteAuditLog(AuditLog):
             (iso_z(cutoff), batch_size),
         )
         return int(cursor.rowcount)
+
+    async def fetch_older_than(
+        self,
+        cutoff: datetime,
+        *,
+        batch_size: int,
+    ) -> Sequence[AuditEvent]:
+        """Return the rows :meth:`delete_older_than` would delete (L3-OBS-042).
+
+        Uses ``_SQL_FETCH_OLDER_THAN``, whose selection mirrors
+        ``_SQL_DELETE_OLDER_THAN`` exactly, so the returned batch is
+        identical to what a subsequent ``delete_older_than`` removes.
+        """
+        if cutoff.tzinfo is None:
+            raise ValueError(
+                f"fetch_older_than requires a timezone-aware cutoff; got naive {cutoff!r}"
+            )
+        if batch_size < 1:
+            raise ValueError(f"batch_size must be positive; got {batch_size}")
+        async with self._conn.execute(
+            _SQL_FETCH_OLDER_THAN,
+            (iso_z(cutoff), batch_size),
+        ) as cur:
+            rows = await cur.fetchall()
+        return [_row_to_event(r) for r in rows]
 
     async def list_paginated(  # noqa: D102
         self,

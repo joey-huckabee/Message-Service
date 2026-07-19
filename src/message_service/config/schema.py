@@ -434,6 +434,10 @@ class AuditConfig(_FrozenForbid):
     retention_days: int = Field(default=365, ge=1)
     cleanup_interval_hours: int = Field(default=24, ge=1)
     cleanup_batch_size: int = Field(default=10_000, ge=100, le=1_000_000)
+    # L2-OBS-019 / L3-OBS-041: optional archive location. When set, the pruner
+    # archives expired rows before deleting them; validated writable at startup.
+    # Unset (the default) means delete without archiving (prior behavior).
+    archive_directory: Path | None = None
 
 
 class ObservabilityConfig(_FrozenForbid):

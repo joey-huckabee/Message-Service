@@ -55,6 +55,9 @@ _PATH_FIELDS: tuple[tuple[str, ...], ...] = (
     ("persistence", "filesystem", "report_directory"),
     ("templates", "manifest_path"),
     ("tags", "vocabulary_path"),
+    # Optional (audit archival, L3-OBS-041); skipped when the section/key is
+    # absent by _resolve_one.
+    ("observability", "audit", "archive_directory"),
 )
 
 

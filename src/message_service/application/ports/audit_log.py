@@ -144,6 +144,38 @@ class AuditLog(ABC):
         """
 
     @abstractmethod
+    async def fetch_older_than(
+        self,
+        cutoff: datetime,
+        *,
+        batch_size: int,
+    ) -> Sequence[AuditEvent]:
+        """Return the rows :meth:`delete_older_than` would delete (L3-OBS-042).
+
+        The retention pruner uses this to read the expired batch for
+        archival *before* deleting it. It SHALL select exactly the same
+        rows :meth:`delete_older_than` removes for the same ``cutoff`` /
+        ``batch_size``: the ``timestamp < cutoff`` set, ordered
+        ``timestamp ASC, audit_id ASC``, capped at ``batch_size``. Both
+        share the ``audit_id`` tiebreak so a batch boundary landing on
+        tied timestamps cannot diverge between the two calls.
+
+        This is a read; it imposes no L3-OBS-039 sole-deleter obligation.
+        Returned events carry a populated ``audit_id``.
+
+        Args:
+            cutoff: Timezone-aware UTC cutoff (strict less-than).
+            batch_size: Maximum rows to return. MUST be positive.
+
+        Returns:
+            The expired batch in ``(timestamp, audit_id)`` ascending order.
+
+        Raises:
+            ValueError: ``batch_size`` is not positive.
+            PersistenceError: Infrastructure failure.
+        """
+
+    @abstractmethod
     async def list_paginated(
         self,
         *,

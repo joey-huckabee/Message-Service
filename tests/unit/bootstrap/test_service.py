@@ -27,6 +27,9 @@ from message_service.config.schema import TemplateRefConfig
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import ConfigurationError
 from message_service.infrastructure.email.aiosmtplib_mailer import AiosmtplibMailer
+from message_service.infrastructure.persistence.audit_archive_writer import (
+    FilesystemAuditArchiveWriter,
+)
 from message_service.infrastructure.persistence.filesystem.report_store import (
     FilesystemReportStore,
 )
@@ -492,5 +495,30 @@ async def test_build_service_wires_valid_body_override(tmp_path: Path) -> None:
         assert svc.assemble_and_deliver._email_body_template_overrides == {
             "etl-nightly": TemplateRef(name="email_body", version="1.0")
         }
+    finally:
+        await shutdown_service(svc, timeout=1.0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-041")
+async def test_audit_pruner_has_no_archive_writer_by_default(service: Service) -> None:
+    """With no archive_directory configured, the pruner archives nothing."""
+    assert service.audit_log_pruner._archive_writer is None
+    await shutdown_service(service, timeout=1.0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-041")
+async def test_build_service_wires_audit_archive_writer_and_creates_dir(tmp_path: Path) -> None:
+    """A configured archive_directory is created and wired into the pruner."""
+    config_path = _write_config(tmp_path)
+    archive_dir = tmp_path / "audit-archive"
+    with config_path.open("a", encoding="utf-8") as fh:
+        fh.write(f'\n[observability.audit]\narchive_directory = "{archive_dir.as_posix()}"\n')
+    config = load_config(config_path)
+    svc = await build_service(config)
+    try:
+        assert isinstance(svc.audit_log_pruner._archive_writer, FilesystemAuditArchiveWriter)
+        assert archive_dir.is_dir()  # created + probe-validated at startup
     finally:
         await shutdown_service(svc, timeout=1.0)

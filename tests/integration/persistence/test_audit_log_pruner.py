@@ -24,13 +24,15 @@ L3-OBS-040 (anti-recursion: no audit row for the prune action)
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import json
+from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import aiosqlite
 import pytest
 
+from message_service.application.ports.audit_archive_writer import AuditArchiveWriter
 from message_service.application.use_cases.audit_log_pruner import (
     AuditLogPrunerUseCase,
     AuditPruneResult,
@@ -39,6 +41,9 @@ from message_service.domain.aggregates.audit_event import (
     AuditAction,
     AuditEvent,
     AuditOutcome,
+)
+from message_service.infrastructure.persistence.audit_archive_writer import (
+    FilesystemAuditArchiveWriter,
 )
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
 from message_service.infrastructure.persistence.connection import open_connection
@@ -382,3 +387,102 @@ async def test_no_prune_audit_log_action_in_audit_action_enum() -> None:
     assert actual_values & forbidden == set(), (
         f"AuditAction must not include any of {forbidden}; found {actual_values & forbidden}"
     )
+
+
+# -----------------------------------------------------------------------------
+# Audit archival (L3-OBS-043): archive-before-delete + fail-safe
+# -----------------------------------------------------------------------------
+
+
+class _RaisingArchiveWriter(AuditArchiveWriter):
+    """Archive writer that always fails, to exercise the fail-safe path."""
+
+    def archive(self, events: Sequence[AuditEvent], *, as_of: datetime) -> None:
+        raise OSError("simulated archive failure")
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-043")
+async def test_archive_then_delete_writes_expired_rows_then_deletes(
+    uow_factory: SqliteUnitOfWorkFactory,
+    fake_clock_now: FakeClock,
+    db_conn: aiosqlite.Connection,
+    tmp_path: Path,
+) -> None:
+    """With an archive writer, expired rows are written then deleted; recent kept."""
+    archive_dir = tmp_path / "audit-archive"
+    archive_dir.mkdir()
+    for i in range(3):
+        await _seed_event(
+            uow_factory,
+            when=_NOW - timedelta(days=_RETENTION_DAYS + 1 + i),
+            actor=f"old:{i}",
+        )
+    await _seed_event(uow_factory, when=_NOW - timedelta(days=1), actor="keep:0")
+    await _seed_event(uow_factory, when=_NOW - timedelta(days=2), actor="keep:1")
+
+    pruner = AuditLogPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=fake_clock_now,
+        retention_days=_RETENTION_DAYS,
+        cleanup_batch_size=10_000,
+        archive_writer=FilesystemAuditArchiveWriter(root=archive_dir),
+    )
+    result = await pruner.run_once()
+
+    assert result.rows_deleted == 3
+    assert await _row_count(db_conn) == 2  # only the recent rows remain
+
+    # Filename is derived from the pruner's clock (_NOW), not the host clock.
+    archive_file = archive_dir / f"audit-archive-{_NOW.date().isoformat()}.jsonl"
+    assert archive_file.is_file()
+    records = [json.loads(line) for line in archive_file.read_text(encoding="utf-8").splitlines()]
+    assert len(records) == 3
+    assert {r["actor"] for r in records} == {"old:0", "old:1", "old:2"}  # exactly the deleted rows
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-043")
+async def test_archive_failure_aborts_deletion(
+    uow_factory: SqliteUnitOfWorkFactory,
+    fake_clock_now: FakeClock,
+    db_conn: aiosqlite.Connection,
+) -> None:
+    """If the archive write fails, the tick deletes nothing (fail-safe: retain)."""
+    await _seed_event(uow_factory, when=_NOW - timedelta(days=_RETENTION_DAYS + 3), actor="old")
+    await _seed_event(uow_factory, when=_NOW - timedelta(days=1), actor="keep")
+
+    pruner = AuditLogPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=fake_clock_now,
+        retention_days=_RETENTION_DAYS,
+        cleanup_batch_size=10_000,
+        archive_writer=_RaisingArchiveWriter(),
+    )
+    result = await pruner.run_once()
+
+    assert result.rows_deleted == 0
+    assert await _row_count(db_conn) == 2  # nothing deleted — the expired row is retained
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-043")
+async def test_no_archive_writer_deletes_without_archiving(
+    uow_factory: SqliteUnitOfWorkFactory,
+    fake_clock_now: FakeClock,
+    db_conn: aiosqlite.Connection,
+    tmp_path: Path,
+) -> None:
+    """The default (no archive writer) deletes as before and writes no archive."""
+    await _seed_event(uow_factory, when=_NOW - timedelta(days=_RETENTION_DAYS + 3), actor="old")
+    pruner = AuditLogPrunerUseCase(
+        uow_factory=uow_factory,
+        clock=fake_clock_now,
+        retention_days=_RETENTION_DAYS,
+        cleanup_batch_size=10_000,
+    )
+    result = await pruner.run_once()
+
+    assert result.rows_deleted == 1
+    assert await _row_count(db_conn) == 0
+    assert not list(tmp_path.glob("audit-archive-*.jsonl"))  # no archive artifacts written

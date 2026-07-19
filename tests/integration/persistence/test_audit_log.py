@@ -277,3 +277,70 @@ async def test_row_with_malformed_details_json_raises(
     log = SqliteAuditLog(conn)
     with pytest.raises(PersistenceError, match="decode persisted JSON"):
         await log.query()
+
+
+# -----------------------------------------------------------------------------
+# fetch_older_than — the archival read that mirrors delete_older_than (L3-OBS-042)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-042")
+async def test_fetch_older_than_returns_exactly_what_delete_removes(
+    log: SqliteAuditLog, conn: aiosqlite.Connection
+) -> None:
+    """For a dataset larger than batch_size, fetch returns exactly what delete removes."""
+    cutoff = _T0 + timedelta(days=10)
+    for i in range(5):  # old rows, strictly increasing timestamps
+        await log.record(_event(ts=_T0 + timedelta(hours=i), resource=f"old:{i}"))
+    for i in range(2):  # recent rows, after the cutoff
+        await log.record(_event(ts=cutoff + timedelta(hours=i), resource=f"new:{i}"))
+    await conn.commit()
+
+    batch = 3
+    fetched = await log.fetch_older_than(cutoff, batch_size=batch)
+    assert [e.resource for e in fetched] == ["old:0", "old:1", "old:2"]  # oldest-first
+    fetched_ids = {e.audit_id for e in fetched}
+
+    deleted = await log.delete_older_than(cutoff, batch_size=batch)
+    await conn.commit()
+    assert deleted == batch
+
+    remaining = await log.query(limit=100)
+    remaining_ids = {e.audit_id for e in remaining}
+    assert fetched_ids.isdisjoint(remaining_ids)  # every fetched row was deleted
+    assert {e.resource for e in remaining} == {"old:3", "old:4", "new:0", "new:1"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-042")
+async def test_fetch_and_delete_agree_on_tied_timestamps_at_batch_boundary(
+    log: SqliteAuditLog, conn: aiosqlite.Connection
+) -> None:
+    """With tied timestamps at the batch cap, the audit_id tiebreak keeps fetch==delete."""
+    cutoff = _T0 + timedelta(days=1)
+    for i in range(4):  # four rows sharing the SAME old timestamp
+        await log.record(_event(ts=_T0, resource=f"tie:{i}"))
+    await conn.commit()
+
+    batch = 2
+    fetched_ids = {e.audit_id for e in await log.fetch_older_than(cutoff, batch_size=batch)}
+    deleted = await log.delete_older_than(cutoff, batch_size=batch)
+    await conn.commit()
+    assert deleted == 2
+
+    remaining_ids = {e.audit_id for e in await log.query(limit=100)}
+    assert len(remaining_ids) == 2
+    assert fetched_ids.isdisjoint(remaining_ids)  # the exact fetched rows were deleted
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-OBS-042")
+async def test_fetch_older_than_rejects_naive_cutoff_and_bad_batch(
+    log: SqliteAuditLog,
+) -> None:
+    """fetch_older_than validates its arguments like delete_older_than."""
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await log.fetch_older_than(datetime(2026, 1, 1), batch_size=10)
+    with pytest.raises(ValueError, match="positive"):
+        await log.fetch_older_than(_T0, batch_size=0)

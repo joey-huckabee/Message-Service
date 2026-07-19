@@ -532,3 +532,21 @@ def test_orphan_disposition_overrides_rejects_unknown_action_id() -> None:
             registered=["etl-nightly"],
             orphan_disposition_overrides={"etl-nightly": ["BOGUS_ACTION"]},
         )
+
+
+# -----------------------------------------------------------------------------
+# Audit archive directory (L3-OBS-041)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-OBS-041")
+def test_audit_archive_directory_defaults_to_none() -> None:
+    """Omitting archive_directory yields None (no archival)."""
+    assert AuditConfig().archive_directory is None
+
+
+@pytest.mark.requirement("L3-OBS-041")
+def test_audit_archive_directory_accepts_a_path() -> None:
+    """A configured archive_directory parses to a Path."""
+    cfg = AuditConfig(archive_directory="/var/audit-archive")
+    assert cfg.archive_directory == Path("/var/audit-archive")

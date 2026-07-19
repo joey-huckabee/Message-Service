@@ -176,13 +176,14 @@ async def test_build_grpc_server_passes_max_concurrent_rpcs() -> None:
         return real_server(*args, **kwargs)
 
     # Build a minimal Service-shaped object — _build_grpc_server only
-    # touches `service.config.grpc.{host,port,max_concurrent_rpcs}` and
-    # passes the service to `register`. We patch register to a no-op so
-    # we don't need a fully constructed Service here.
+    # touches `service.config.grpc.{host,port,max_concurrent_rpcs,
+    # max_in_flight_rpcs}` and passes the service to `register`. We patch
+    # register to a no-op so we don't need a fully constructed Service here.
     class _Cfg:
         host = "127.0.0.1"
         port = 0
         max_concurrent_rpcs = 137
+        max_in_flight_rpcs = 0
 
     class _Service:
         config = type("C", (), {"grpc": _Cfg})()
@@ -196,3 +197,78 @@ async def test_build_grpc_server_passes_max_concurrent_rpcs() -> None:
             assert captured_kwargs.get("maximum_concurrent_rpcs") == 137
         finally:
             await server.stop(grace=0)
+
+
+# -----------------------------------------------------------------------------
+# L3-API-020: ConcurrencyLimitInterceptor installed only when limit > 0
+# -----------------------------------------------------------------------------
+
+
+async def _capture_interceptors(max_in_flight_rpcs: int) -> list[object]:
+    """Build the gRPC server and return the interceptor list it was given."""
+    import grpc
+
+    from message_service import __main__ as main_module
+
+    captured_kwargs: dict[str, object] = {}
+    real_server = grpc.aio.server
+
+    def _capturing_server(*args: object, **kwargs: object) -> object:
+        captured_kwargs.update(kwargs)
+        return real_server(*args, **kwargs)
+
+    cfg_type = type(
+        "_Cfg",
+        (),
+        {
+            "host": "127.0.0.1",
+            "port": 0,
+            "max_concurrent_rpcs": 100,
+            "max_in_flight_rpcs": max_in_flight_rpcs,
+        },
+    )
+
+    class _Service:
+        config = type("C", (), {"grpc": cfg_type})()
+
+    with (
+        patch.object(grpc.aio, "server", new=_capturing_server),
+        patch.object(main_module, "register", new=lambda server, service: None),
+    ):
+        server, _bind = await main_module._build_grpc_server(_Service())  # type: ignore[arg-type]
+        try:
+            interceptors = captured_kwargs.get("interceptors", [])
+            assert isinstance(interceptors, list)
+            return interceptors
+        finally:
+            await server.stop(grace=0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-API-020")
+async def test_concurrency_interceptor_absent_when_limit_disabled() -> None:
+    """L3-API-020: with ``max_in_flight_rpcs == 0`` no limiter is installed."""
+    from message_service.interfaces.grpc.concurrency_limit_interceptor import (
+        ConcurrencyLimitInterceptor,
+    )
+
+    interceptors = await _capture_interceptors(max_in_flight_rpcs=0)
+    assert not any(isinstance(i, ConcurrencyLimitInterceptor) for i in interceptors)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-API-020")
+async def test_concurrency_interceptor_installed_after_correlation_when_enabled() -> None:
+    """L3-API-020: with a positive limit the limiter is installed, ordered
+    after the correlation interceptor (so rejection logs carry correlation_id).
+    """
+    from message_service.interfaces.grpc.concurrency_limit_interceptor import (
+        ConcurrencyLimitInterceptor,
+    )
+    from message_service.interfaces.grpc.correlation_interceptor import CorrelationIdInterceptor
+
+    interceptors = await _capture_interceptors(max_in_flight_rpcs=5)
+    types = [type(i) for i in interceptors]
+    assert CorrelationIdInterceptor in types
+    assert ConcurrencyLimitInterceptor in types
+    assert types.index(CorrelationIdInterceptor) < types.index(ConcurrencyLimitInterceptor)

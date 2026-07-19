@@ -16,11 +16,11 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.6.0** (`L2-MAIL-014` resend-subject
-conformance fix — not a backlog item); the next cut is **v0.7.0** — nothing is
-scheduled into it yet. Pull items from the **Deferred features** backlog below,
-promote each to real L1/L2/L3 requirements in the L-REQ docs, implement, and
-record the shipped result under a new dated section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.7.0** (`R-SWEEP-001` — per-pipeline
+orphan disposition override); the next cut is **v0.8.0** — nothing is scheduled
+into it yet. Pull items from the **Deferred features** backlog below, promote
+each to real L1/L2/L3 requirements in the L-REQ docs, implement, and record the
+shipped result under a new dated section in `CHANGELOG.md`.
 
 ## Planned
 
@@ -175,9 +175,6 @@ referenced by spec docs and code comments; keep the tags stable.
 
 ### Feature extensions
 
-- **Per-pipeline-type orphan policy override** — v1 applies a single global orphan
-  disposition policy. Future work allows per-pipeline overrides, with the global
-  policy as fallback.
 - **Hot-reload of tag vocabulary** — v1 loads the tag configuration at service
   start. Hot-reload removes the need for restart to add tags.
 - **R-TMPL-002 — Hot-reload of templates** — the template manifest is loaded once

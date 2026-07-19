@@ -12,6 +12,45 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-07-18
+
+Per-pipeline orphan disposition overrides — the next deferred-feature item
+(`R-SWEEP-001`) promoted to real requirements, continuing the per-pipeline
+override theme (`subject_templates`, `email_body_template_overrides` → now
+`orphan_disposition_overrides`). Operators can give a pipeline its own orphan
+disposition policy — e.g. `NOTIFY_ADMINS` for a production pipeline but
+`DISCARD_SILENTLY` for a high-churn test pipeline — with the global policy as
+fallback. This release also fixes stale documentation left by the v0.6.0 resend
+change. **64 of 67 L1 requirements Implemented** at **95.07% branch coverage**
+over **1434 tests**; three intentional partials remain toward 1.0.0.
+
+### Added
+
+- **Per-pipeline orphan disposition policy override (`L2-SWEEP-011`).** A new
+  optional `pipelines.orphan_disposition_overrides` mapping (`pipeline_type` →
+  ordered list of disposition action ids) overrides the global
+  `sweeper.disposition_actions` for matching pipelines; pipelines without an
+  entry use the global policy (so an empty mapping preserves prior behavior),
+  and an empty list means "orphan but take no action". Override keys must be
+  registered pipelines (`L3-SWEEP-022`) and every override action must have a
+  registered handler — validated at startup with `ConfigurationError`, the same
+  fail-fast guarantee as the global policy, which also rejects the
+  reserved-but-unimplemented `SEND_PARTIAL_FLAGGED` / `NOTIFY_SUBSCRIBERS` ids in
+  overrides (`L3-SWEEP-024`). The sweeper resolves the action list per orphaned
+  run and uses it uniformly for the `SWEEP_ORPHAN` audit, the outbox rows, and
+  the tick's action count (`L3-SWEEP-023`). Reworded `L1-SWEEP-003` (previously
+  "globally configured") and added `L2-SWEEP-011` + `L3-SWEEP-022`/`-023`/`-024`.
+
+### Fixed
+
+- **`examples/07-manual-resend` documentation.** The README still described and
+  showed the pre-v0.6.0 resend subject (`Run <run_id> -- <pipeline>`) and framed
+  the demo around the two emails having different subjects — no longer true since
+  v0.6.0 made the resend share the first-delivery subject. Updated the narrative,
+  the expected-output block, and the "what to look for" notes; the resend is now
+  correctly described as distinguished by its `RESEND_REPORT` audit action rather
+  than its subject. (The demo's `run.py` was already correct.)
+
 ## [0.6.0] — 2026-07-18
 
 Resend subject conformance — a correctness fix closing a gap exposed by the
@@ -200,7 +239,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.3.0...v0.4.0

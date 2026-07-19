@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -47,6 +48,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from message_service.application.use_cases.login import AuthenticationError
 from message_service.domain.aggregates.password import Password
+from message_service.observability.logging_setup import (
+    bind_request_context,
+    clear_request_context,
+)
 
 if TYPE_CHECKING:
     from starlette.responses import Response as StarletteResponse
@@ -127,6 +132,30 @@ def _clear_auth_cookies(response: Response) -> None:
 # -----------------------------------------------------------------------------
 # Middleware: session authentication + idle-timeout enforcement
 # -----------------------------------------------------------------------------
+
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Bind a fresh ``correlation_id`` per request (L3-OBS-004).
+
+    Registered outermost so the id is bound before any authentication or CSRF
+    logging occurs; every structlog record emitted while handling the request
+    then carries it (via ``structlog.contextvars.merge_contextvars``, already in
+    the processor chain). The request context is cleared in a ``finally`` so no
+    id leaks between requests served by the same worker task — the REST analogue
+    of the gRPC ``CorrelationIdInterceptor``.
+    """
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[StarletteResponse]],
+    ) -> StarletteResponse:
+        """Bind the correlation id, dispatch, then clear the context."""
+        bind_request_context(correlation_id=uuid.uuid4().hex)
+        try:
+            return await call_next(request)
+        finally:
+            clear_request_context()
 
 
 class SessionAuthMiddleware(BaseHTTPMiddleware):
@@ -367,12 +396,13 @@ def create_app(service: Service) -> FastAPI:
 
     # Middleware registration: Starlette runs middleware in REVERSE
     # of registration order. We want:
-    #     request  ─▶ CsrfMiddleware ─▶ SessionAuthMiddleware ─▶ route
-    # so register session FIRST then CSRF (CSRF wraps session, runs
-    # outermost). CSRF needs no service state, so it's the simpler
-    # outer guard.
+    #     request ─▶ CorrelationIdMiddleware ─▶ CsrfMiddleware ─▶ SessionAuthMiddleware ─▶ route
+    # so register session FIRST, then CSRF, then correlation LAST so it runs
+    # outermost — the correlation id is bound before any auth/CSRF logging and
+    # cleared after everything else (L3-OBS-004).
     app.add_middleware(SessionAuthMiddleware, service=service)
     app.add_middleware(CsrfMiddleware)
+    app.add_middleware(CorrelationIdMiddleware)
 
     https_only = service.config.dashboard.https_only
 

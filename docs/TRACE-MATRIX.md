@@ -25,7 +25,7 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-API-001 | L2-API-001, L2-API-002, L2-API-003 | Partially Implemented |
+| L1-API-001 | L2-API-001, L2-API-002, L2-API-003 | Implemented |
 | L1-API-002 | L2-API-004, L2-API-005 | Implemented |
 | L1-API-003 | L2-API-006, L2-API-007 | Implemented |
 | L1-API-004 | L2-API-008, L2-API-009, L2-API-010, L2-API-011 | Implemented |
@@ -34,8 +34,8 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-API-001 | L3-API-001, L3-API-002 | `tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_default_is_100`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_must_be_positive`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_override_accepted`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_build_grpc_server_passes_max_concurrent_rpcs` | Partially Implemented |
-| L2-API-002 | L3-API-003, L3-API-004 | `tests/conformance/test_deploy_artifacts.py::test_proto_dependency_is_tag_pinned_git_url` | Partially Implemented |
+| L2-API-001 | L3-API-001, L3-API-002 | `tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_default_is_100`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_must_be_positive`<br>`tests/unit/config/test_schema.py::test_grpc_config_max_concurrent_rpcs_override_accepted`<br>`tests/unit/interfaces/grpc/test_correlation_interceptor.py::test_interceptor_binds_correlation_id_during_rpc_and_clears_after`<br>`tests/unit/interfaces/grpc/test_correlation_interceptor.py::test_interceptor_clears_context_even_when_handler_raises`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_unexpected_reuses_bound_correlation_id`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_build_grpc_server_passes_max_concurrent_rpcs` | Implemented |
+| L2-API-002 | L3-API-003, L3-API-004 | `tests/conformance/test_deploy_artifacts.py::test_proto_dependency_is_tag_pinned_git_url`<br>`tests/conformance/test_proto_version_check.py::test_evaluate_match_returns_exit_ok`<br>`tests/conformance/test_proto_version_check.py::test_evaluate_mismatch_returns_exit_mismatch`<br>`tests/conformance/test_proto_version_check.py::test_evaluate_undeterminable_returns_exit_2`<br>`tests/conformance/test_proto_version_check.py::test_main_passes_against_the_repo`<br>`tests/conformance/test_proto_version_check.py::test_normalize_tag_strips_leading_v`<br>`tests/conformance/test_proto_version_check.py::test_pinned_proto_tag_none_when_absent`<br>`tests/conformance/test_proto_version_check.py::test_pinned_proto_tag_parses_git_tag_dependency`<br>`tests/conformance/test_proto_version_check.py::test_script_exists` | Implemented |
 | L2-API-003 | L3-API-005 | `tests/integration/grpc/test_servicer.py::test_begin_run_happy_path`<br>`tests/integration/grpc/test_servicer.py::test_servicer_registers_exactly_three_rpc_methods` | Implemented |
 | L2-API-004 | L3-API-006 | `tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_is_async_def`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_signature_is_request_context` | Implemented |
 | L2-API-005 | L3-API-007 | `tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_returns_no_async_iterator`<br>`tests/unit/interfaces/grpc/test_grpc_server_construction.py::test_servicer_method_takes_no_async_iterator_param` | Implemented |
@@ -337,7 +337,7 @@ the single source of truth.
 
 | L1 ID | L2 Children | Status |
 |-------|-------------|--------|
-| L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Partially Implemented |
+| L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Implemented |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Implemented |
 | L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017, L2-OBS-018 | Implemented |
 | L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Implemented |
@@ -347,7 +347,7 @@ the single source of truth.
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
 | L2-OBS-001 | L3-OBS-001, L3-OBS-002, L3-OBS-018 | `tests/unit/observability/test_logging_setup_shape.py::test_configure_logging_callable_in_logging_setup`<br>`tests/unit/observability/test_logging_setup_shape.py::test_configure_logging_takes_level_argument`<br>`tests/unit/observability/test_logging_setup_shape.py::test_logging_setup_uses_json_renderer`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
-| L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/persistence/test_audit_log.py::test_record_persists_event`<br>`tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events` | Partially Implemented |
+| L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/persistence/test_audit_log.py::test_record_persists_event`<br>`tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events`<br>`tests/unit/interfaces/grpc/test_correlation_interceptor.py::test_interceptor_binds_correlation_id_during_rpc_and_clears_after`<br>`tests/unit/interfaces/grpc/test_correlation_interceptor.py::test_log_record_during_rpc_carries_correlation_id`<br>`tests/unit/interfaces/rest/test_correlation_middleware.py::test_middleware_binds_fresh_correlation_id_per_request`<br>`tests/unit/interfaces/rest/test_correlation_middleware.py::test_middleware_clears_context_after_dispatch` | Implemented |
 | L2-OBS-003 | L3-OBS-005, L3-OBS-006 | `tests/unit/observability/test_logging_setup_shape.py::test_redact_is_case_insensitive_on_key_names`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
 | L2-OBS-004 | L3-OBS-007 | `tests/integration/rest/test_app.py::test_metrics_endpoint_emits_recorded_counter`<br>`tests/integration/rest/test_app.py::test_metrics_endpoint_is_unauthenticated`<br>`tests/integration/rest/test_app.py::test_metrics_endpoint_returns_prometheus_content_type` | Implemented |
 | L2-OBS-005 | L3-OBS-008 | `tests/unit/infrastructure/observability/test_metrics.py::test_all_module_metrics_use_message_service_prefix` | Implemented |
@@ -478,7 +478,7 @@ the single source of truth.
 
 | Category | L1 | L2 | L3 | L2s with tests | L3s with tests |
 |----------|----|----|-----|----------------|----------------|
-| API | 4 | 11 | 18 | 3 | 16 |
+| API | 4 | 11 | 18 | 3 | 18 |
 | RUN | 5 | 16 | 33 | 9 | 33 |
 | STAGE | 4 | 9 | 18 | 8 | 18 |
 | TMPL | 5 | 15 | 35 | 8 | 35 |
@@ -489,14 +489,14 @@ the single source of truth.
 | MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 5 | 16 | 35 | 1 | 33 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
-| OBS | 4 | 18 | 40 | 3 | 38 |
+| OBS | 4 | 18 | 40 | 3 | 40 |
 | ERR | 4 | 10 | 22 | 0 | 22 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **194** | **402** | **66** | **396** |
+| **Total** | **67** | **194** | **402** | **66** | **400** |
 
-**Requirements verified by at least one test**: 462 of 596 (77.5%).
+**Requirements verified by at least one test**: 466 of 596 (78.2%).
 
 ### Orphan check
 

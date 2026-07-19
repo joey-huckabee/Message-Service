@@ -63,7 +63,10 @@ class CorrelationIdInterceptor(grpc.aio.ServerInterceptor):  # type: ignore[misc
                 # nothing leaks to the next RPC on this task.
                 clear_request_context()
 
-        return grpc.aio.unary_unary_rpc_method_handler(
+        # The method-handler factory is transport-agnostic (lives on the base
+        # `grpc` module, not `grpc.aio`); the async behavior makes it an aio
+        # handler.
+        return grpc.unary_unary_rpc_method_handler(
             _wrapped,
             request_deserializer=handler.request_deserializer,
             response_serializer=handler.response_serializer,

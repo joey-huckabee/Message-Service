@@ -293,6 +293,31 @@ async def test_translate_unexpected_returns_internal_with_correlation_id() -> No
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-API-002")
+async def test_translate_unexpected_reuses_bound_correlation_id() -> None:
+    """L3-API-002: the translator reuses the interceptor-bound correlation_id.
+
+    When the CorrelationIdInterceptor has bound a correlation_id for the RPC,
+    the failed-RPC trailing metadata surfaces that same id (not a fresh one),
+    so the client's id matches the server's log records.
+    """
+    from structlog.contextvars import bind_contextvars, clear_contextvars
+
+    bound = "abcdef0123456789abcdef0123456789"  # 32 hex, like uuid4().hex
+    clear_contextvars()
+    bind_contextvars(correlation_id=bound)
+    try:
+        ctx = _FakeServicerContext()
+        with pytest.raises(_AbortRaisedError):
+            await _translate_unexpected(ctx, RuntimeError("boom"))
+        metadata = dict(ctx.aborts[0].trailing_metadata)
+        assert metadata["x-message-service-correlation-id"] == bound
+        assert ctx.aborts[0].details == f"internal error (correlation id: {bound})"
+    finally:
+        clear_contextvars()
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-017")
 async def test_translate_unexpected_does_not_leak_stack_trace_to_client() -> None:
     """L3-ERR-015: response SHALL NOT contain a stack trace or class name."""

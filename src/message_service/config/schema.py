@@ -180,9 +180,54 @@ class PipelinesConfig(_FrozenForbid):
 
     BeginRun requests with a pipeline_type not in this list SHALL be
     rejected with ``UnknownPipelineTypeError``.
+
+    Attributes:
+        registered: The allowed ``pipeline_type`` values.
+        subject_templates: Optional per-pipeline email-subject override
+            (L2-MAIL-014 / L3-MAIL-032). Maps a registered
+            ``pipeline_type`` to a ``str.format`` template that may
+            reference only ``{pipeline_type}`` and ``{run_id}``. Pipelines
+            without an entry use the default ``[{pipeline_type}] run
+            {run_id}`` format, so an empty mapping (the default) preserves
+            v1 behavior exactly.
     """
 
     registered: list[str] = Field(default_factory=list)
+    subject_templates: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_subject_templates(self) -> PipelinesConfig:
+        """Validate the per-pipeline subject templates at load time (L3-MAIL-033).
+
+        Returns:
+            The validated model instance.
+
+        Raises:
+            ValueError: A template targets an unregistered pipeline_type,
+                references a placeholder other than ``{pipeline_type}`` /
+                ``{run_id}`` (or is otherwise malformed for ``str.format``),
+                or contains a raw CR/LF. Pydantic surfaces this as a schema
+                ``ValidationError`` per L3-CFG-006.
+        """
+        registered = set(self.registered)
+        for pipeline_type, template in self.subject_templates.items():
+            if pipeline_type not in registered:
+                raise ValueError(
+                    f"subject_templates key {pipeline_type!r} is not a registered "
+                    f"pipeline_type; a template for an unregistered pipeline can never fire"
+                )
+            if "\r" in template or "\n" in template:
+                raise ValueError(
+                    f"subject_templates[{pipeline_type!r}] must not contain CR or LF characters"
+                )
+            try:
+                template.format(pipeline_type="", run_id="")
+            except (KeyError, IndexError, ValueError) as exc:
+                raise ValueError(
+                    f"subject_templates[{pipeline_type!r}] is not a valid subject template "
+                    f"(only {{pipeline_type}} and {{run_id}} placeholders are allowed): {exc}"
+                ) from exc
+        return self
 
 
 # -----------------------------------------------------------------------------

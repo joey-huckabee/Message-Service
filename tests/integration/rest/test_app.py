@@ -213,6 +213,20 @@ async def test_healthz_is_unauthenticated(http_client: httpx.AsyncClient) -> Non
     assert response.json() == {"status": "ok"}
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-040")
+async def test_login_page_is_unauthenticated_html(http_client: httpx.AsyncClient) -> None:
+    """L3-DASH-040: ``GET /login`` SHALL return the HTML sign-in page without auth."""
+    response = await http_client.get("/login")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    body = response.text
+    assert body.startswith("<!doctype html>")
+    assert 'id="login-form"' in body
+    assert 'name="email"' in body
+    assert 'name="password"' in body
+
+
 # -----------------------------------------------------------------------------
 # Prometheus /metrics scrape endpoint (L2-OBS-004, L3-OBS-007)
 # -----------------------------------------------------------------------------

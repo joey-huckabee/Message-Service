@@ -286,7 +286,7 @@ the single source of truth.
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Implemented |
 | L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Implemented |
 | L1-DASH-006 | L2-DASH-017, L2-DASH-018 | Implemented |
-| L1-DASH-007 | L2-DASH-019 | Draft |
+| L1-DASH-007 | L2-DASH-019 | Implemented |
 | L1-DASH-008 | L2-DASH-020, L2-DASH-021 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -311,7 +311,7 @@ the single source of truth.
 | L2-DASH-016 | L3-DASH-035 | `tests/integration/rest/test_admin_audit.py::test_details_empty_dict_is_accepted`<br>`tests/integration/rest/test_admin_audit.py::test_details_returned_as_parsed_json_object_not_string`<br>`tests/integration/rest/test_admin_audit.py::test_response_shape_includes_full_projection`<br>`tests/integration/rest/test_admin_audit.py::test_route_does_not_redact_marker_string_in_details` | Implemented |
 | L2-DASH-017 | L3-DASH-037 | `tests/integration/rest/test_runs.py::test_runs_board_path_resolves_to_board_not_detail`<br>`tests/integration/rest/test_runs.py::test_runs_board_renders_html_including_in_flight_runs`<br>`tests/integration/rest/test_runs.py::test_runs_board_renders_with_no_runs`<br>`tests/integration/rest/test_runs.py::test_runs_board_requires_session`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_embeds_the_run_projection_as_parseable_json`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_handles_empty_run_list`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_neutralizes_script_close_in_payload`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_returns_self_contained_html_document` | Implemented |
 | L2-DASH-018 | L3-DASH-038, L3-DASH-039 | `tests/unit/interfaces/rest/test_runs_board.py::test_board_html_shell_provides_filter_and_summary_containers`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_board_js_implements_required_rendering_structure`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_static_asset_has_no_external_reference` | Implemented |
-| L2-DASH-019 | L3-DASH-040 | _(TBD)_ | Draft |
+| L2-DASH-019 | L3-DASH-040 | `tests/integration/rest/test_app.py::test_login_page_is_unauthenticated_html`<br>`tests/unit/interfaces/rest/test_login_page.py::test_login_js_posts_to_login_and_redirects_to_console`<br>`tests/unit/interfaces/rest/test_login_page.py::test_render_returns_self_contained_html_with_form` | Implemented |
 | L2-DASH-020 | L3-DASH-041 | _(TBD)_ | Draft |
 | L2-DASH-021 | L3-DASH-042, L3-DASH-043 | `tests/integration/persistence/test_user_repository.py::test_list_paginated_applies_limit_and_offset`<br>`tests/integration/persistence/test_user_repository.py::test_list_paginated_empty_when_no_users`<br>`tests/integration/persistence/test_user_repository.py::test_list_paginated_orders_by_user_id_ascending`<br>`tests/integration/rest/test_admin_users.py::test_list_users_forbidden_for_non_admin`<br>`tests/integration/rest/test_admin_users.py::test_list_users_pagination_slices_the_roster`<br>`tests/integration/rest/test_admin_users.py::test_list_users_rejects_out_of_range_params`<br>`tests/integration/rest/test_admin_users.py::test_list_users_requires_authentication`<br>`tests/integration/rest/test_admin_users.py::test_list_users_returns_roster_without_password_hash` | Implemented |
 
@@ -502,16 +502,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 4 | 11 | 19 | 5 | 19 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
-| DASH | 8 | 21 | 43 | 1 | 41 |
+| DASH | 8 | 21 | 43 | 1 | 42 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 19 | 43 | 3 | 43 |
 | ERR | 4 | 10 | 23 | 0 | 23 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **72** | **204** | **420** | **66** | **418** |
+| **Total** | **72** | **204** | **420** | **66** | **419** |
 
-**Requirements verified by at least one test**: 484 of 624 (77.6%).
+**Requirements verified by at least one test**: 485 of 624 (77.7%).
 
 ### Orphan check
 

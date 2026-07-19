@@ -48,6 +48,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from message_service.application.use_cases.login import AuthenticationError
 from message_service.domain.aggregates.password import Password
+from message_service.interfaces.rest.login_page import render_login_page
 from message_service.interfaces.rest.metrics_dashboard import render_metrics_dashboard
 from message_service.observability.logging_setup import (
     bind_request_context,
@@ -473,6 +474,15 @@ def create_app(service: Service) -> FastAPI:
     # -------------------------------------------------------------------------
     # Login / Logout
     # -------------------------------------------------------------------------
+
+    @app.get("/login", response_class=HTMLResponse)
+    async def login_page() -> HTMLResponse:
+        """L3-DASH-040: browser login page (public, no auth dependency).
+
+        Returns a self-contained HTML sign-in page whose client code posts to the
+        JSON ``POST /login`` below and redirects to the admin console on success.
+        """
+        return HTMLResponse(content=render_login_page())
 
     @app.post("/login")
     async def login(body: LoginRequest, response: Response) -> dict[str, str]:

@@ -105,12 +105,14 @@ def test_render_handles_empty_run_list() -> None:
 # L3-DASH-039 — no external reference in ANY shipped dashboard static asset
 # -----------------------------------------------------------------------------
 
-# Every shipped static asset (metrics + board + any future page).
+# Every shipped static asset (metrics + board + login + any future page).
 _ALL_STATIC_ASSETS = (
     "metrics_dashboard.css",
     "metrics_dashboard.js",
     "runs_board.css",
     "runs_board.js",
+    "login.css",
+    "login.js",
 )
 _FORBIDDEN_MARKERS = (
     "cdnjs",

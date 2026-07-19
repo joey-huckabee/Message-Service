@@ -13,9 +13,5 @@
 # the v0.15.0 release cut.
 
 [[allowed]]
-id = "L1-DASH-007"
-reason = "v0.15.0 in progress: browser login page — spec landed sub-step a, implemented in sub-step d"
-
-[[allowed]]
 id = "L1-DASH-008"
 reason = "v0.15.0 in progress: admin recipient console — spec landed sub-step a, implemented in sub-steps c/e"

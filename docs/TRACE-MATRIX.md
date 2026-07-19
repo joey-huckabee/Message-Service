@@ -282,6 +282,7 @@ the single source of truth.
 | L1-DASH-003 | L2-DASH-007, L2-DASH-008, L2-DASH-009, L2-DASH-012, L2-DASH-013, L2-DASH-014 | Implemented |
 | L1-DASH-004 | L2-DASH-010, L2-DASH-011 | Implemented |
 | L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Implemented |
+| L1-DASH-006 | L2-DASH-017, L2-DASH-018 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -303,6 +304,8 @@ the single source of truth.
 | L2-DASH-014 | L3-DASH-029, L3-DASH-030 | `tests/integration/rest/test_runs.py::test_get_fragment_rejects_non_uuid_run_id`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_404_when_run_missing`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_404_when_stage_missing`<br>`tests/integration/rest/test_runs.py::test_get_fragment_returns_saved_fragment`<br>`tests/integration/rest/test_runs.py::test_get_report_rejects_non_uuid_path`<br>`tests/integration/rest/test_runs.py::test_get_report_returns_404_when_no_saved_body`<br>`tests/integration/rest/test_runs.py::test_get_report_returns_saved_email_body` | Implemented |
 | L2-DASH-015 | L3-DASH-033, L3-DASH-034 | `tests/integration/rest/test_admin_audit.py::test_actor_exact_match_filter`<br>`tests/integration/rest/test_admin_audit.py::test_default_no_filter_returns_recent_first`<br>`tests/integration/rest/test_admin_audit.py::test_empty_result_returns_200_with_empty_list`<br>`tests/integration/rest/test_admin_audit.py::test_from_to_inclusive_timestamp_bounds`<br>`tests/integration/rest/test_admin_audit.py::test_invalid_timestamp_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_limit_above_max_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_limit_and_offset_slice_results`<br>`tests/integration/rest/test_admin_audit.py::test_multiple_action_values_or_together`<br>`tests/integration/rest/test_admin_audit.py::test_negative_offset_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_non_admin_returns_403`<br>`tests/integration/rest/test_admin_audit.py::test_resource_exact_match_filter`<br>`tests/integration/rest/test_admin_audit.py::test_unknown_action_returns_422`<br>`tests/integration/rest/test_admin_audit.py::test_within_uow_ties_ordered_by_audit_id_desc` | Implemented |
 | L2-DASH-016 | L3-DASH-035 | `tests/integration/rest/test_admin_audit.py::test_details_empty_dict_is_accepted`<br>`tests/integration/rest/test_admin_audit.py::test_details_returned_as_parsed_json_object_not_string`<br>`tests/integration/rest/test_admin_audit.py::test_response_shape_includes_full_projection`<br>`tests/integration/rest/test_admin_audit.py::test_route_does_not_redact_marker_string_in_details` | Implemented |
+| L2-DASH-017 | L3-DASH-037 | `tests/integration/rest/test_runs.py::test_runs_board_path_resolves_to_board_not_detail`<br>`tests/integration/rest/test_runs.py::test_runs_board_renders_html_including_in_flight_runs`<br>`tests/integration/rest/test_runs.py::test_runs_board_renders_with_no_runs`<br>`tests/integration/rest/test_runs.py::test_runs_board_requires_session`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_embeds_the_run_projection_as_parseable_json`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_handles_empty_run_list`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_neutralizes_script_close_in_payload`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_render_returns_self_contained_html_document` | Implemented |
+| L2-DASH-018 | L3-DASH-038, L3-DASH-039 | `tests/unit/interfaces/rest/test_runs_board.py::test_board_html_shell_provides_filter_and_summary_containers`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_board_js_implements_required_rendering_structure`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_static_asset_has_no_external_reference` | Implemented |
 
 ### L1-PERS: Persistence
 
@@ -491,16 +494,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 3 | 9 | 17 | 5 | 17 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
-| DASH | 5 | 16 | 36 | 1 | 36 |
+| DASH | 6 | 18 | 39 | 1 | 39 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 19 | 43 | 3 | 43 |
 | ERR | 4 | 10 | 23 | 0 | 23 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **68** | **197** | **411** | **66** | **411** |
+| **Total** | **69** | **199** | **414** | **66** | **414** |
 
-**Requirements verified by at least one test**: 477 of 608 (78.5%).
+**Requirements verified by at least one test**: 480 of 613 (78.3%).
 
 ### Orphan check
 

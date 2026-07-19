@@ -736,3 +736,105 @@ async def test_get_fragment_rejects_non_uuid_run_id(
     await _login(http_client, uow_factory, hasher)
     response = await http_client.get("/runs/not-a-uuid/stages/extract/fragment")
     assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# GET /runs/board -- embedded run-status board (L3-DASH-037)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-037")
+async def test_runs_board_requires_session(http_client: httpx.AsyncClient) -> None:
+    """L1-AUTH-002: unauthenticated GET /runs/board SHALL return 401."""
+    response = await http_client.get("/runs/board")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-037")
+async def test_runs_board_renders_html_including_in_flight_runs(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """The board returns an HTML page embedding runs across all states.
+
+    Unlike ``GET /runs`` (which defaults to terminal states), the board SHALL
+    surface in-flight runs too, so an ``AGGREGATING`` run appears in the payload.
+    """
+    await _login(http_client, uow_factory, hasher)
+    inflight = _make_run(
+        run_id="00000000-0000-4000-8000-00000000a11e",
+        state=RunState.AGGREGATING,
+        created_at=_T0 + timedelta(minutes=5),
+    )
+    terminal = _make_run(
+        run_id="00000000-0000-4000-8000-000000000002",
+        state=RunState.SENT,
+        created_at=_T0,
+    )
+    await _seed_runs(uow_factory, [inflight, terminal])
+
+    response = await http_client.get("/runs/board")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    body = response.text
+    assert body.startswith("<!doctype html>")
+
+    # Extract the embedded projection and assert it carries both runs with the
+    # JSON-summary field set, including the in-flight one.
+    import json as _json
+    import re as _re
+
+    match = _re.search(
+        r'<script type="application/json" id="runs-data">(.*?)</script>', body, _re.DOTALL
+    )
+    assert match is not None
+    embedded = _json.loads(match.group(1))
+    by_id = {r["run_id"]: r for r in embedded}
+    assert inflight.run_id in by_id
+    assert terminal.run_id in by_id
+    assert by_id[inflight.run_id]["state"] == "AGGREGATING"
+    assert set(by_id[terminal.run_id]) == {
+        "run_id",
+        "pipeline_type",
+        "state",
+        "attachment_mode",
+        "tags",
+        "created_at",
+        "updated_at",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-037")
+async def test_runs_board_path_resolves_to_board_not_detail(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """``/runs/board`` SHALL hit the board route, not the UUID detail route.
+
+    If ``/board`` were declared after ``/{run_id}`` it would be routed to the
+    detail handler and rejected as a non-UUID (422). A 200 HTML response proves
+    the ordering is correct.
+    """
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.get("/runs/board")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-037")
+async def test_runs_board_renders_with_no_runs(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """With no runs seeded, the board still returns a valid empty page."""
+    await _login(http_client, uow_factory, hasher)
+    response = await http_client.get("/runs/board")
+    assert response.status_code == 200
+    assert 'id="runs-data">[]</script>' in response.text

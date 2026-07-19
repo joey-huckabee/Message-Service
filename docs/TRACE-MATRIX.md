@@ -266,7 +266,7 @@ the single source of truth.
 | L2-MAIL-011 | L3-MAIL-017, L3-MAIL-024 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_size_exceeded_persists_oversized_report_to_report_store` | Implemented |
 | L2-MAIL-012 | L3-MAIL-018, L3-MAIL-025 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Implemented |
 | L2-MAIL-013 | L3-MAIL-019, L3-MAIL-026 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_audit_precedes_state_update_on_ready_to_sending`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_success_audit_carries_required_fields` | Implemented |
-| L2-MAIL-014 | L3-MAIL-027, L3-MAIL-028, L3-MAIL-029, L3-MAIL-032, L3-MAIL-033 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_applies_l3_aggr_010_sanitization_to_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_falls_back_to_default_when_template_is_none`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_literal_format_for_benign_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_neutralizes_cr_lf_and_control_chars`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_template_sanitizes_pipeline_type_substitution`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_uses_configured_template_override`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_applies_per_pipeline_subject_override`<br>`tests/unit/config/test_schema.py::test_subject_templates_defaults_to_empty`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_malformed_braces`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_raw_crlf`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_unknown_placeholder`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_unregistered_pipeline_key`<br>`tests/unit/config/test_schema.py::test_subject_templates_valid_mapping_loads` | Implemented |
+| L2-MAIL-014 | L3-MAIL-027, L3-MAIL-028, L3-MAIL-029, L3-MAIL-032, L3-MAIL-033, L3-MAIL-034 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_applies_l3_aggr_010_sanitization_to_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_falls_back_to_default_when_template_is_none`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_literal_format_for_benign_pipeline_type`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_method_applies_pipeline_override`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_method_uses_default_without_override`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_neutralizes_cr_lf_and_control_chars`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_template_sanitizes_pipeline_type_substitution`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_subject_uses_configured_template_override`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_delivery_applies_per_pipeline_subject_override`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_subject_honors_pipeline_override`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_subject_uses_canonical_default_not_old_format`<br>`tests/unit/config/test_schema.py::test_subject_templates_defaults_to_empty`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_malformed_braces`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_raw_crlf`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_unknown_placeholder`<br>`tests/unit/config/test_schema.py::test_subject_templates_rejects_unregistered_pipeline_key`<br>`tests/unit/config/test_schema.py::test_subject_templates_valid_mapping_loads` | Implemented |
 
 ### L1-DASH: Dashboard
 
@@ -485,7 +485,7 @@ the single source of truth.
 | SWEEP | 3 | 10 | 21 | 6 | 21 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 3 | 9 | 17 | 5 | 17 |
-| MAIL | 5 | 14 | 33 | 7 | 33 |
+| MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 5 | 16 | 35 | 1 | 33 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 18 | 40 | 3 | 38 |
@@ -493,9 +493,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **193** | **398** | **66** | **392** |
+| **Total** | **67** | **193** | **399** | **66** | **393** |
 
-**Requirements verified by at least one test**: 458 of 591 (77.5%).
+**Requirements verified by at least one test**: 459 of 592 (77.5%).
 
 ### Orphan check
 

@@ -403,6 +403,35 @@ async def test_delivery_applies_per_pipeline_subject_override(
     assert email.subject == f"[NIGHTLY:etl-nightly] run {_RID}"
 
 
+@pytest.mark.requirement("L3-MAIL-034")
+def test_build_subject_method_uses_default_without_override(
+    use_case: AssembleAndDeliverUseCase,
+) -> None:
+    """L3-MAIL-034: the shared build_subject chokepoint returns the default format."""
+    assert use_case.build_subject(_run(state=RunState.READY)) == f"[etl-nightly] run {_RID}"
+
+
+@pytest.mark.requirement("L3-MAIL-034")
+def test_build_subject_method_applies_pipeline_override(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+) -> None:
+    """L3-MAIL-034: the shared chokepoint applies the per-pipeline override."""
+    factory, _, _, _, _, _ = uow_factory
+    use_case = AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        subject_templates={"etl-nightly": "[NIGHTLY:{pipeline_type}] run {run_id}"},
+    )
+    assert use_case.build_subject(_run(state=RunState.READY)) == f"[NIGHTLY:etl-nightly] run {_RID}"
+
+
 # -----------------------------------------------------------------------------
 # Per-pipeline email body template override (L3-TMPL-035)
 # -----------------------------------------------------------------------------

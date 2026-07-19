@@ -432,3 +432,63 @@ async def test_resend_mailer_failure_audits_failure_and_returns(
     assert events[0].outcome is AuditOutcome.FAILURE
     assert events[0].details["recipient_count"] == 1
     assert "failure_reason" in events[0].details
+
+
+# -----------------------------------------------------------------------------
+# Resend subject conformance with L2-MAIL-014 (L3-MAIL-034)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-034")
+async def test_resend_subject_honors_pipeline_override(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """L3-MAIL-034: a resend honors the per-pipeline subject_templates override."""
+    run = _make_run(run_id="00000000-0000-4000-8000-000000000ac1", state=RunState.SENT)
+    await _seed_run(uow_factory, run)
+    await _seed_user_and_subscription(uow_factory)
+
+    assemble = _StubAssemble(
+        subject_templates={"etl-nightly": "[NIGHTLY:{pipeline_type}] run {run_id}"}
+    )
+    assemble.configure_run(run)
+    mailer = _RecordingMailer()
+    use_case = _build_use_case(
+        uow_factory=uow_factory, clock=clock, mailer=mailer, assemble=assemble
+    )
+
+    await use_case.execute(run_id=run.run_id, admin_user_id=7)
+
+    assert len(mailer.sent) == 1
+    assert mailer.sent[0].subject == f"[NIGHTLY:etl-nightly] run {run.run_id}"
+    assert assemble.build_subject_calls == [run]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-034")
+async def test_resend_subject_uses_canonical_default_not_old_format(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """L3-MAIL-034: an unconfigured pipeline resends with the L3-MAIL-027 default.
+
+    Regression guard against the old resend-only ``Run {run_id} -- {pipeline_type}``
+    subject.
+    """
+    run = _make_run(run_id="00000000-0000-4000-8000-000000000ac2", state=RunState.SENT)
+    await _seed_run(uow_factory, run)
+    await _seed_user_and_subscription(uow_factory)
+
+    assemble = _StubAssemble()  # no per-pipeline overrides
+    assemble.configure_run(run)
+    mailer = _RecordingMailer()
+    use_case = _build_use_case(
+        uow_factory=uow_factory, clock=clock, mailer=mailer, assemble=assemble
+    )
+
+    await use_case.execute(run_id=run.run_id, admin_user_id=7)
+
+    assert mailer.sent[0].subject == f"[etl-nightly] run {run.run_id}"
+    assert not mailer.sent[0].subject.startswith("Run ")

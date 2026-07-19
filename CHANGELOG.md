@@ -12,6 +12,45 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-07-19
+
+Two trust-boundary hardening items from the road to 1.0.0, brought forward: a
+**rejecting concurrency limit** for the gRPC ingress and the **R-ERR-001
+wire-contract upgrade** that ships a structured `google.rpc.Status` error
+envelope. Both are additive and backward-compatible; existing clients are
+unaffected. Adds one L1 (`L1-API-005`) — **68 of 68 L1 requirements Implemented**
+— at **95.19% branch coverage** over **1496 tests**.
+
+### Added
+
+- **Rejecting concurrency limit (`L1-API-005` / `L2-API-012` / `L3-API-019`,
+  `L3-API-020`).** A new config key `grpc.max_in_flight_rpcs` (default `0` =
+  disabled) installs a `ConcurrencyLimitInterceptor` that bounds
+  concurrently-executing RPCs and **rejects** excess with `RESOURCE_EXHAUSTED`
+  rather than queuing it unboundedly, giving pipeline clients the standard
+  backpressure signal to back off on. `grpc.max_concurrent_rpcs` (which only
+  *queues*) is unchanged and orthogonal. The interceptor is ordered after the
+  correlation-id interceptor so a rejection log record carries the RPC's
+  `correlation_id`. The fine-grained cause rides the new R-ERR-001 envelope
+  (below) as an `ErrorInfo.reason` string (`RESOURCE_EXHAUSTED_CONCURRENCY`,
+  with `{limit, in_flight}` metadata) — **no new proto `ErrorCode` enum value**,
+  so the external `Message-Service-Proto` contract is untouched.
+- **Structured gRPC error envelope — R-ERR-001 (`L3-ERR-023`).** Every gRPC
+  error now additionally carries a serialized `google.rpc.Status` (with a packed
+  `google.rpc.ErrorInfo`) in the standard `grpc-status-details-bin` trailing-
+  metadata key, alongside the retained legacy `x-message-service-error-code`
+  key. `ErrorInfo.reason` is the machine-readable error code, `domain` is
+  `"message-service"`, and `metadata` carries the (redacted) diagnostic details.
+  A client reading only the legacy key is unaffected; a client using
+  `grpc_status.rpc_status.from_call` now receives the full structured envelope.
+  Built entirely on `grpcio-status` (already a dependency) — no proto change.
+
+### Configuration
+
+- `grpc.max_in_flight_rpcs` (int, default `0`) — the rejecting concurrency
+  limit; `0` disables it, any positive value caps concurrently-executing RPCs.
+  Documented in `config/config.toml.example` and `config/default.toml`.
+
 ## [0.12.0] — 2026-07-19
 
 Metrics visualization — an embedded, dependency-free metrics dashboard plus a

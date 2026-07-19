@@ -28,7 +28,7 @@ docs, implement, and record the shipped result under a new dated section in
 | Version | Theme |
 |---------|-------|
 | 0.2.0 → | Work down the deferred-feature backlog toward feature-completeness; each release promotes one or more `R-XXX` items to real requirements. |
-| 1.0.0 | The intentional v1 partials are all resolved (see below). Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-ERR-001` wire-contract upgrade) have either shipped or been explicitly scoped out. |
+| 1.0.0 | The intentional v1 partials are all resolved (see below). Rate limiting and the `R-ERR-001` wire-contract upgrade shipped in v0.13.0. Cut when the remaining trust-boundary-gated hardening items (mTLS, RBAC) have either shipped or been explicitly scoped out. |
 
 ## The road to 1.0.0 — intentional v1 partials (all resolved)
 
@@ -37,9 +37,12 @@ v0.1.0 shipped five L1 requirements **Partial**; **all five are now Implemented*
 `L1-API-001` + `L1-OBS-001` (v0.8.0, `R-API-001`), and `L1-DASH-004` (v0.12.0,
 `R-DASH-004` — the embedded metrics dashboard). As of v0.12.0 **all 67 of 67 L1
 requirements are Implemented**, each with at least one linked verification
-artifact, and `docs/uncovered-l1-allowlist.toml` is empty. What remains before a
-1.0.0 cut is the trust-boundary-gated hardening in the **Security hardening** and
-**Deferred features** sections below — not requirement gaps.
+artifact, and `docs/uncovered-l1-allowlist.toml` is empty. Two of the
+trust-boundary-gated hardening items — the rejecting concurrency limit
+(`L1-API-005`) and the `R-ERR-001` structured-error envelope — shipped in
+v0.13.0. What remains before a 1.0.0 cut is the rest of the hardening in the
+**Security hardening** and **Deferred features** sections below (chiefly mTLS and
+RBAC) — not requirement gaps.
 
 ## Deferred features
 
@@ -83,17 +86,16 @@ referenced by spec docs and code comments; keep the tags stable.
 - **Secrets handling review** — SMTP credentials and any future API keys currently
   live in the TOML configuration file. Consider integration with Vault CE if
   secret rotation becomes operationally significant.
-- **In-flight RPC concurrency limits / per-pipeline rate limiting** — v1
-  deliberately omits rate limiting because the trusted-ISOLAN deployment context
-  assumes well-behaved pipeline clients (same rationale that justifies plaintext
-  gRPC under L1-API-003). When the gRPC ingress crosses a trust boundary —
-  concurrent with the mTLS item — author an `L1-API-005` ("the service SHALL bound
-  concurrent in-flight RPCs by a configurable global limit; excess SHALL be
-  rejected with `RESOURCE_EXHAUSTED` and an error code identifying the saturation
-  cause") plus L2 derivations covering per-pipeline caps, per-RPC weight (BeginRun
-  is cheap, FinalizeRun triggers assembly), and the rejection-error contract.
-  Until then, a misbehaving pipeline can saturate the shared SQLite connection.
-  Risk accepted in v1 scope (see **Out of Scope** below).
+- **Per-pipeline rate limiting / per-RPC weighting** — the *global* rejecting
+  concurrency limit shipped in v0.13.0 (`L1-API-005`: `grpc.max_in_flight_rpcs`
+  bounds concurrent in-flight RPCs and rejects excess with `RESOURCE_EXHAUSTED`,
+  the saturation cause carried as an `ErrorInfo.reason` on the R-ERR-001
+  envelope). Still deferred: **per-pipeline caps** (a misbehaving pipeline can
+  still consume the whole global budget) and **per-RPC weighting** (BeginRun is
+  cheap; FinalizeRun triggers assembly, so counting all RPCs equally
+  under-protects the expensive path). Author these as L2 derivations of
+  `L1-API-005` when per-tenant fairness becomes a requirement — likely concurrent
+  with the mTLS / trust-boundary promotion.
 - **Host-clock validity hardening** — L2-RUN-016 records v1's assumption that the
   host clock is monotonically non-decreasing UTC, with backward-correction
   handling explicitly out of scope. If deployment contexts emerge where backward
@@ -131,15 +133,6 @@ referenced by spec docs and code comments; keep the tags stable.
   scan of the static assets); the visual SVG rendering itself is the only part a
   browser harness would add automated coverage for. Revisit when the volume of
   browser-rendered UI justifies the harness.
-- **R-ERR-001 — gRPC error envelope upgrade to `google.rpc.Status` + `ErrorInfo`**
-  — v1's error translator returns `context.abort(status, details=message,
-  trailing_metadata=(("x-message-service-error-code", code),))`. The richer shape
-  — `google.rpc.Status` with a `google.rpc.ErrorInfo` carrying `reason=error_code`
-  and `metadata` from the exception's `details` — gives clients structured access
-  but is a wire-format change. Future work, when the trust boundary widens: switch
-  the translator to construct `google.rpc.Status`. Strictly additive server-side;
-  the same trailing-metadata key can be carried in both shapes during a phased
-  rollout, so existing clients keep working.
 
 ### Feature extensions
 
@@ -225,12 +218,12 @@ Stable contracts current and future work must preserve:
 
 ## Out of scope (pinned)
 
-- **Rate limiting / per-pipeline concurrency caps in v1.** Deliberately omitted:
-  the trusted-ISOLAN deployment model assumes well-behaved pipeline clients (the
-  same constraint that justifies plaintext gRPC under L1-API-003). This is a
-  *risk accepted in v1 scope*, not an oversight — see the **Security hardening**
-  entry above for the promotion path (`L1-API-005`) when the ingress crosses a
-  trust boundary.
+- **Per-pipeline concurrency caps.** The *global* rejecting concurrency limit
+  shipped in v0.13.0 (`L1-API-005`, opt-in via `grpc.max_in_flight_rpcs`). Finer
+  granularity — per-pipeline caps and per-RPC weighting — remains out of the
+  current scope: the trusted-ISOLAN deployment model assumes well-behaved pipeline
+  clients (the same constraint that justifies plaintext gRPC under L1-API-003).
+  See the **Security hardening** entry above for the promotion path.
 - **Backward host-clock corrections.** L2-RUN-016 pins v1's assumption of a
   monotonically non-decreasing UTC host clock; behavior under backward NTP
   corrections larger than the tolerance is unspecified. Promotion path in

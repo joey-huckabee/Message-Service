@@ -16,38 +16,30 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.11.0** (opt-in audit-log archival); the
-next cut is **v0.12.0** — nothing is scheduled into it yet. Pull items from the
-**Deferred features** backlog below, promote each to real L1/L2/L3 requirements
-in the L-REQ docs, implement, and record the shipped result under a new dated
-section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.12.0** (embedded metrics dashboard +
+Grafana templates — resolving the last v1 partial, `R-DASH-004`); the next cut
+is **v0.13.0** — nothing is scheduled into it yet. Pull items from the **Deferred
+features** backlog below, promote each to real L1/L2/L3 requirements in the L-REQ
+docs, implement, and record the shipped result under a new dated section in
+`CHANGELOG.md`.
 
 ## Planned
 
 | Version | Theme |
 |---------|-------|
 | 0.2.0 → | Work down the deferred-feature backlog toward feature-completeness; each release promotes one or more `R-XXX` items to real requirements. |
-| 1.0.0 | Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-ERR-001` wire-contract upgrade) have either shipped or been explicitly scoped out, and the one remaining intentional v1 partial below is resolved. |
+| 1.0.0 | The intentional v1 partials are all resolved (see below). Cut when the trust-boundary-gated hardening items (mTLS, RBAC, rate limiting, the `R-ERR-001` wire-contract upgrade) have either shipped or been explicitly scoped out. |
 
-## The road to 1.0.0 — intentional v1 partials
+## The road to 1.0.0 — intentional v1 partials (all resolved)
 
-v0.1.0 shipped five L1 requirements **Partial**. Resolved since: `L1-AGGR-001`
-(v0.2.0, `R-AGGR-001`), `L1-ERR-002` (v0.3.0, `R-ERR-002`), and both
-`L1-API-001` and `L1-OBS-001` (v0.8.0, `R-API-001` — per-RPC/per-request
-correlation ids + proto-version gate). That leaves **one**:
-
-| L1 | Deferred piece | Deferral tag |
-|----|----------------|--------------|
-| L1-DASH-004 | Embedded metrics dashboard — hand-authored, no external chart library (scrape endpoint already ships) | R-DASH-004 |
-
-It is not a missing-functionality bug — the operationally important half (the
-Prometheus `/metrics` scrape endpoint) already ships and is verified under the
-`L1-OBS` requirements; only the embedded in-service visualization is deferred
-(see the `R-DASH-004` entry below for the phased plan). `docs/TRACE-MATRIX.md`
-shows `L1-DASH-004` itself as **Draft** (its own subtree — `L2-DASH-010`/
-`L2-DASH-011` — carries no verification artifact yet), and it is recorded on
-`docs/uncovered-l1-allowlist.toml` so the v0.9.0
-uncovered L1 slip in.
+v0.1.0 shipped five L1 requirements **Partial**; **all five are now Implemented**:
+`L1-AGGR-001` (v0.2.0, `R-AGGR-001`), `L1-ERR-002` (v0.3.0, `R-ERR-002`),
+`L1-API-001` + `L1-OBS-001` (v0.8.0, `R-API-001`), and `L1-DASH-004` (v0.12.0,
+`R-DASH-004` — the embedded metrics dashboard). As of v0.12.0 **all 67 of 67 L1
+requirements are Implemented**, each with at least one linked verification
+artifact, and `docs/uncovered-l1-allowlist.toml` is empty. What remains before a
+1.0.0 cut is the trust-boundary-gated hardening in the **Security hardening** and
+**Deferred features** sections below — not requirement gaps.
 
 ## Deferred features
 
@@ -130,53 +122,15 @@ referenced by spec docs and code comments; keep the tags stable.
   than `=`, and may benefit from FTS5 indexing if audit volumes grow. Future work:
   extend `L2-DASH-015` with a `match_mode` query parameter (default `exact`;
   opt-in `substring`); evaluate whether the current index profile stays adequate.
-- **R-DASH-004 — Embedded metrics dashboard (hand-authored, zero external
-  dependencies)** (the visualization half of L1-DASH-004) — v1 implements the
-  **scrape-endpoint half**: `GET /metrics` returning Prometheus exposition
-  format. The **embedded-visualization half** — an admin route serving an HTML
-  page that fetches `/metrics`, parses the text format in JavaScript, and renders
-  charts — is deferred. The charting is **hand-authored HTML/CSS/JS with inline
-  SVG**, shipped as packaged static assets with **no third-party charting library
-  and no CDN**; this satisfies the offline/no-external-dependency constraint of
-  `L2-DASH-011` directly (its "e.g., Chart.js" is only an example) and keeps the
-  dependency surface minimal. The implementation draws on established charting
-  conventions (labelled axes, gridlines, hover tooltips, a small line/bar/gauge
-  vocabulary) but is written from scratch. When this increment lands it will
-  reword the `L2-DASH-011` / `L3-DASH-017` "Chart.js" example to the
-  hand-authored approach.
-
-  **Incremental plan** (execute in order when development starts):
-  1. **Route + shell.** `GET /admin/metrics` behind `require_admin`, serving a
-     static HTML shell (semantic HTML + a hand-written CSS stylesheet as a
-     packaged static asset). No data yet.
-  2. **Metrics parser (pure, unit-testable).** A standalone JS module that parses
-     the Prometheus text exposition format into a structured model. Kept free of
-     DOM access so it is unit-testable in isolation *without a browser* (Node or
-     a lightweight JS test runner, or a Python-side golden test over sample
-     `/metrics` output) — this is how the JS logic gets automated coverage while
-     the browser harness is deferred.
-  3. **Server-side fetch.** The page (or route) retrieves values by a server-side
-     HTTP GET against the service's own `/metrics` (`L2-DASH-010`), so the
-     internal view matches what external scrapers see.
-  4. **Hand-authored SVG rendering.** Render the parsed series as inline SVG
-     (time-series line, per-label bar, single-value gauge) with axes/gridlines/
-     tooltips built from scratch. No canvas library, no chart library.
-  5. **Verification.** Author the `L2-DASH-010`/`L2-DASH-011` L3 children: unit
-     tests for the parser (step 2) and a server-side test that the route is
-     admin-gated and returns the shell + expected data hooks; the visual
-     rendering is verified by **Inspection / Demonstration** (run locally and
-     review) until the browser test harness below is in place. Promote
-     `L1-DASH-004` off `docs/uncovered-l1-allowlist.toml` once its subtree has
-     at least the parser + route tests linked.
 - **Browser-based UI test harness (deferred, low priority)** — automated
   end-to-end testing of rendered dashboard pages (a headless-browser harness such
-  as Playwright) is **deferred and deliberately kept late in the backlog**. In
-  the interim, UI-rendering aspects (the SVG dashboard, any future rendered
-  admin pages) are verified by **local manual demonstration** plus unit tests of
-  the underlying non-DOM logic (e.g. the R-DASH-004 metrics parser). This item
-  does **not** block R-DASH-004 — that work proceeds with the parser unit tests
-  and Inspection/Demonstration verification described above. Revisit when the
-  volume of browser-rendered UI justifies the harness.
+  as Playwright) is **deferred and deliberately kept late in the backlog**. The
+  embedded metrics dashboard (shipped v0.12.0) is verified today by **local
+  manual demonstration** plus unit tests of its non-DOM logic (the Python-side
+  metrics parser, the route's admin gate, and a no-external-reference conformance
+  scan of the static assets); the visual SVG rendering itself is the only part a
+  browser harness would add automated coverage for. Revisit when the volume of
+  browser-rendered UI justifies the harness.
 - **R-ERR-001 — gRPC error envelope upgrade to `google.rpc.Status` + `ErrorInfo`**
   — v1's error translator returns `context.abort(status, details=message,
   trailing_metadata=(("x-message-service-error-code", code),))`. The richer shape
@@ -242,8 +196,6 @@ referenced by spec docs and code comments; keep the tags stable.
   systemd unit on Linux.
 - **Backup and restore tooling** — scripts to snapshot and restore the SQLite
   database and rendered-reports directory as an atomic unit.
-- **Metrics dashboard templates** — ship pre-built Grafana dashboards alongside
-  the (deferred) embedded in-service visualization.
 
 ### Documentation
 

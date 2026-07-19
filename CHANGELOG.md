@@ -12,6 +12,39 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-07-19
+
+Metrics visualization — an embedded, dependency-free metrics dashboard plus a
+pre-built Grafana dashboard. This resolves `L1-DASH-004`, the **last remaining
+v1 partial**: **all 67 of 67 L1 requirements are now Implemented**, every one
+with at least one linked verification artifact, at **95.17% branch coverage**
+over **1486 tests**.
+
+### Added
+
+- **Embedded metrics dashboard (`L1-DASH-004`).** A new admin route
+  `GET /admin/metrics` (behind `require_admin`) obtains the current Prometheus
+  exposition server-side from the same source `/metrics` serves, parses it, and
+  returns a self-contained HTML page that renders each metric as inline SVG —
+  counters as labeled bars, histograms as count/sum/avg plus bucket bars. The
+  charting is **hand-authored HTML/CSS/JS with no third-party library and no
+  external/CDN reference** (a conformance test enforces the zero-dependency
+  guarantee); it satisfies `L2-DASH-011`'s offline constraint directly. The
+  Prometheus-exposition parser (`L3-DASH-036`) is a pure, DOM-free Python module
+  so the parsing logic is fully unit-tested. Promotes `L3-DASH-016`/`L3-DASH-017`
+  and reworded `L2-DASH-011` (from the "Chart.js" example to hand-authored SVG).
+- **Pre-built Grafana dashboard.** `deploy/grafana/message-service-dashboard.json`
+  — an importable dashboard for the `/metrics` endpoint (transition rates,
+  delivery outcomes, average and p95 email size / run duration), self-contained
+  so it imports on an offline Grafana. A drift-guard conformance test fails the
+  build if a panel query ever references a metric the service no longer exposes.
+
+### Changed
+
+- **`docs/uncovered-l1-allowlist.toml` is now empty.** With `L1-DASH-004`
+  resolved there are no `Draft` L1s, so the requirement-coverage gate's deferral
+  allowlist carries no entries.
+
 ## [0.11.0] — 2026-07-19
 
 Audit log archival — the "audit log archival" backlog item promoted to real
@@ -358,7 +391,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.8.0...v0.9.0

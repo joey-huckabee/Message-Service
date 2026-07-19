@@ -136,11 +136,12 @@ def _make_run(
     state: RunState,
     created_at: datetime,
     updated_at: datetime | None = None,
+    pipeline_type: str = "etl-nightly",
 ) -> Run:
     """Build a Run aggregate with sensible defaults."""
     return Run(
         run_id=RunId(run_id),
-        pipeline_type="etl-nightly",
+        pipeline_type=pipeline_type,
         tags=frozenset({"production"}),
         declared_stages=(
             DeclaredStage(
@@ -699,3 +700,147 @@ async def test_tick_classifies_run_at_exact_timeout_as_orphan(
     async with uow_factory() as uow:
         reloaded = await uow.run_repo.get(run.run_id)
     assert reloaded.state is RunState.ORPHANED
+
+
+# -----------------------------------------------------------------------------
+# Per-pipeline orphan disposition overrides (L3-SWEEP-023 / L3-SWEEP-024)
+# -----------------------------------------------------------------------------
+
+
+def _handlers() -> dict[DispositionAction, DispositionHandler]:
+    """A handler registry covering both v1-implemented actions."""
+    return {
+        "NOTIFY_ADMINS": _RecordingHandler("NOTIFY_ADMINS", []),
+        "DISCARD_SILENTLY": _RecordingHandler("DISCARD_SILENTLY", []),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-023")
+async def test_override_pipeline_enqueues_override_actions(
+    uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
+    clock: _FixedClock,
+) -> None:
+    """A run whose pipeline has an override enqueues the override's action list."""
+    run_id = "00000000-0000-4000-8000-0000000000e1"
+    await _seed_run(
+        uow_factory,
+        _make_run(
+            run_id=run_id,
+            state=RunState.AGGREGATING,
+            created_at=_T0 - timedelta(hours=3),
+            updated_at=_T0 - timedelta(hours=2),
+            pipeline_type="test-pipeline",
+        ),
+    )
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=["NOTIFY_ADMINS", "DISCARD_SILENTLY"],
+        handlers_by_id=_handlers(),
+        disposition_overrides={"test-pipeline": ["DISCARD_SILENTLY"]},
+    )
+    result = await sweeper.tick()
+
+    assert result.orphaned_count == 1
+    assert result.enqueued_actions == 1
+    rows = await _outbox_rows(sqlite_conn, run_id)
+    assert [r[0] for r in rows] == ["DISCARD_SILENTLY"]
+    async with uow_factory() as uow:
+        events = await uow.audit_log.query(action=AuditAction.SWEEP_ORPHAN)
+    assert events[0].details["enqueued_actions"] == ["DISCARD_SILENTLY"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-023")
+async def test_unoverridden_pipeline_uses_global_policy(
+    uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
+    clock: _FixedClock,
+) -> None:
+    """A run whose pipeline has no override falls back to the global policy."""
+    run_id = "00000000-0000-4000-8000-0000000000e2"
+    await _seed_run(
+        uow_factory,
+        _make_run(
+            run_id=run_id,
+            state=RunState.AGGREGATING,
+            created_at=_T0 - timedelta(hours=3),
+            updated_at=_T0 - timedelta(hours=2),
+            pipeline_type="etl-nightly",
+        ),
+    )
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=["NOTIFY_ADMINS", "DISCARD_SILENTLY"],
+        handlers_by_id=_handlers(),
+        disposition_overrides={"some-other-pipeline": ["DISCARD_SILENTLY"]},
+    )
+    result = await sweeper.tick()
+
+    assert result.orphaned_count == 1
+    assert result.enqueued_actions == 2
+    rows = await _outbox_rows(sqlite_conn, run_id)
+    assert [r[0] for r in rows] == ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-SWEEP-023")
+async def test_empty_override_orphans_run_with_zero_actions(
+    uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
+    clock: _FixedClock,
+) -> None:
+    """An empty override list orphans the run (counted) but enqueues nothing.
+
+    Guards the ``0`` (committed, empty override) vs ``None`` (not committed)
+    distinction in the tick accounting.
+    """
+    run_id = "00000000-0000-4000-8000-0000000000e3"
+    run = _make_run(
+        run_id=run_id,
+        state=RunState.AGGREGATING,
+        created_at=_T0 - timedelta(hours=3),
+        updated_at=_T0 - timedelta(hours=2),
+        pipeline_type="quiet-pipeline",
+    )
+    await _seed_run(uow_factory, run)
+    sweeper = SweeperUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        run_timeout_seconds=3600,
+        disposition_actions=["NOTIFY_ADMINS"],
+        handlers_by_id=_handlers(),
+        disposition_overrides={"quiet-pipeline": []},
+    )
+    result = await sweeper.tick()
+
+    assert result.orphaned_count == 1
+    assert result.enqueued_actions == 0
+    async with uow_factory() as uow:
+        reloaded = await uow.run_repo.get(run.run_id)
+    assert reloaded.state is RunState.ORPHANED
+    rows = await _outbox_rows(sqlite_conn, run_id)
+    assert rows == []
+
+
+@pytest.mark.requirement("L3-SWEEP-024")
+def test_constructor_rejects_override_action_without_handler(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+) -> None:
+    """An override action lacking a registered handler → startup ConfigurationError."""
+    with pytest.raises(ConfigurationError, match="no handler registered") as exc_info:
+        SweeperUseCase(
+            uow_factory=uow_factory,
+            clock=clock,
+            run_timeout_seconds=3600,
+            disposition_actions=["DISCARD_SILENTLY"],
+            handlers_by_id={"DISCARD_SILENTLY": _RecordingHandler("DISCARD_SILENTLY", [])},
+            disposition_overrides={"test-pipeline": ["SEND_PARTIAL_FLAGGED"]},
+        )
+    assert "SEND_PARTIAL_FLAGGED" in exc_info.value.details["missing_actions"]

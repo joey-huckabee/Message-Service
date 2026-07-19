@@ -487,3 +487,48 @@ def test_body_template_overrides_rejects_unregistered_pipeline_key() -> None:
                 "not-registered": {"name": "x", "version": "1.0"},
             },
         )
+
+
+# -----------------------------------------------------------------------------
+# Per-pipeline orphan disposition overrides (L3-SWEEP-022)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-SWEEP-022")
+def test_orphan_disposition_overrides_defaults_to_empty() -> None:
+    """Omitting orphan_disposition_overrides yields an empty mapping."""
+    assert PipelinesConfig(registered=["etl-nightly"]).orphan_disposition_overrides == {}
+
+
+@pytest.mark.requirement("L3-SWEEP-022")
+def test_orphan_disposition_overrides_valid_mapping_loads() -> None:
+    """A valid mapping (including an empty action list) validates."""
+    cfg = PipelinesConfig(
+        registered=["etl-nightly", "test-pipeline"],
+        orphan_disposition_overrides={
+            "etl-nightly": ["NOTIFY_ADMINS", "DISCARD_SILENTLY"],
+            "test-pipeline": [],
+        },
+    )
+    assert cfg.orphan_disposition_overrides["etl-nightly"] == ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+    assert cfg.orphan_disposition_overrides["test-pipeline"] == []
+
+
+@pytest.mark.requirement("L3-SWEEP-022")
+def test_orphan_disposition_overrides_rejects_unregistered_pipeline_key() -> None:
+    """An override keyed on an unregistered pipeline_type is dead config → reject."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            orphan_disposition_overrides={"not-registered": ["DISCARD_SILENTLY"]},
+        )
+
+
+@pytest.mark.requirement("L3-SWEEP-022")
+def test_orphan_disposition_overrides_rejects_unknown_action_id() -> None:
+    """An unknown action identifier is rejected by the DispositionAction Literal."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            orphan_disposition_overrides={"etl-nightly": ["BOGUS_ACTION"]},
+        )

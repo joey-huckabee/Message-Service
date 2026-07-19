@@ -170,7 +170,7 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-SWEEP-001 | L2-SWEEP-001, L2-SWEEP-002, L2-SWEEP-003, L2-SWEEP-010 | Implemented |
 | L1-SWEEP-002 | L2-SWEEP-004, L2-SWEEP-005, L2-SWEEP-006 | Implemented |
-| L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009 | Implemented |
+| L1-SWEEP-003 | L2-SWEEP-007, L2-SWEEP-008, L2-SWEEP-009, L2-SWEEP-011 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -186,6 +186,7 @@ the single source of truth.
 | L2-SWEEP-008 | L3-SWEEP-013, L3-SWEEP-014, L3-SWEEP-020, L3-SWEEP-021 | `tests/integration/persistence/test_sweeper_action_repository.py::test_find_abandoned_returns_exhausted_stuck_rows`<br>`tests/integration/persistence/test_sweeper_action_repository.py::test_mark_abandoned_stamps_completed_without_bumping_attempts`<br>`tests/integration/persistence/test_sweeper_action_repository.py::test_reclaim_stuck_picks_up_old_in_flight_rows`<br>`tests/integration/persistence/test_sweeper_action_repository.py::test_reclaim_stuck_skips_completed_rows`<br>`tests/integration/persistence/test_sweeper_action_repository.py::test_reclaim_stuck_skips_recently_claimed_rows`<br>`tests/integration/persistence/test_sweeper_action_repository.py::test_reclaim_stuck_skips_rows_at_max_attempts`<br>`tests/unit/application/use_cases/test_sweeper.py::test_constructor_rejects_action_without_registered_handler`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_abandoned_rows_are_not_re_abandoned`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_empty_outbox_returns_zero_counts`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatcher_abandons_rows_past_max_attempts`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatcher_does_not_reclaim_recently_claimed_rows`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatcher_reclaims_stuck_rows_on_next_tick`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_handler_failure_is_swallowed_and_recorded`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_one_handler_failure_does_not_block_siblings` | Implemented |
 | L2-SWEEP-009 | L3-SWEEP-015 | `tests/integration/test_sweeper_pipeline.py::test_disposition_actions_enqueued_in_config_order`<br>`tests/unit/application/use_cases/test_sweeper_action_dispatcher.py::test_dispatch_invokes_handlers_in_enqueue_order` | Implemented |
 | L2-SWEEP-010 | L3-SWEEP-008 | `tests/integration/persistence/test_run_repository.py::test_list_expired_honors_limit_parameter`<br>`tests/unit/application/use_cases/test_sweeper.py::test_backlog_drains_across_multiple_ticks` | Implemented |
+| L2-SWEEP-011 | L3-SWEEP-022, L3-SWEEP-023, L3-SWEEP-024 | `tests/unit/application/use_cases/test_sweeper.py::test_constructor_rejects_override_action_without_handler`<br>`tests/unit/application/use_cases/test_sweeper.py::test_empty_override_orphans_run_with_zero_actions`<br>`tests/unit/application/use_cases/test_sweeper.py::test_override_pipeline_enqueues_override_actions`<br>`tests/unit/application/use_cases/test_sweeper.py::test_unoverridden_pipeline_uses_global_policy`<br>`tests/unit/config/test_schema.py::test_orphan_disposition_overrides_defaults_to_empty`<br>`tests/unit/config/test_schema.py::test_orphan_disposition_overrides_rejects_unknown_action_id`<br>`tests/unit/config/test_schema.py::test_orphan_disposition_overrides_rejects_unregistered_pipeline_key`<br>`tests/unit/config/test_schema.py::test_orphan_disposition_overrides_valid_mapping_loads` | Implemented |
 
 ### L1-SUB: Subscriptions and tags
 
@@ -482,7 +483,7 @@ the single source of truth.
 | STAGE | 4 | 9 | 18 | 8 | 18 |
 | TMPL | 5 | 15 | 35 | 8 | 35 |
 | AGGR | 4 | 10 | 20 | 5 | 20 |
-| SWEEP | 3 | 10 | 21 | 6 | 21 |
+| SWEEP | 3 | 11 | 24 | 6 | 24 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 3 | 9 | 17 | 5 | 17 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
@@ -493,9 +494,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 15 | 17 | 1 | 17 |
-| **Total** | **67** | **193** | **399** | **66** | **393** |
+| **Total** | **67** | **194** | **402** | **66** | **396** |
 
-**Requirements verified by at least one test**: 459 of 592 (77.5%).
+**Requirements verified by at least one test**: 462 of 596 (77.5%).
 
 ### Orphan check
 

@@ -233,3 +233,32 @@ jobs:
 
       - name: Verify error-code lockfile (adds/removes/renames gate)
         run: poetry run python scripts/check-error-code-stability.py
+
+  # ---------------------------------------------------------------------
+  # L1-API-001 — Proto-version pin gate.
+  # Runs `check-proto-version.py` (L3-API-004) to assert the installed
+  # message_service_proto.__version__ matches the tag pinned in pyproject.toml.
+  # Exit codes: 0 match, 1 mismatch, 2 undeterminable.
+  # ---------------------------------------------------------------------
+  proto-version:
+    name: Proto version pin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: pip install "poetry==${POETRY_VERSION}"
+
+      - name: Install project dependencies
+        # The check imports message_service_proto to read its __version__;
+        # needs the resolved environment.
+        run: poetry install --no-interaction --no-ansi
+
+      - name: Verify proto version matches the pinned tag
+        run: poetry run python scripts/check-proto-version.py

@@ -16,10 +16,11 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.12.0** (embedded metrics dashboard +
-Grafana templates — resolving the last v1 partial, `R-DASH-004`); the next cut
-is **v0.13.0** — nothing is scheduled into it yet. Pull items from the **Deferred
-features** backlog below, promote each to real L1/L2/L3 requirements in the L-REQ
+each release cut. The last cut was **v0.13.0** (rejecting concurrency limit
+`L1-API-005` + the `R-ERR-001` structured-error envelope); the next cut is
+**v0.14.0** — nothing is scheduled into it yet. Pull items from the **Deferred
+features** backlog below (excluding the `→ 2.0.0`-tagged items, which are held for
+the 2.0.0 milestone), promote each to real L1/L2/L3 requirements in the L-REQ
 docs, implement, and record the shipped result under a new dated section in
 `CHANGELOG.md`.
 
@@ -27,22 +28,52 @@ docs, implement, and record the shipped result under a new dated section in
 
 | Version | Theme |
 |---------|-------|
-| 0.2.0 → | Work down the deferred-feature backlog toward feature-completeness; each release promotes one or more `R-XXX` items to real requirements. |
-| 1.0.0 | The intentional v1 partials are all resolved (see below). Rate limiting and the `R-ERR-001` wire-contract upgrade shipped in v0.13.0. Cut when the remaining trust-boundary-gated hardening items (mTLS, RBAC) have either shipped or been explicitly scoped out. |
+| 0.14.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
+| 1.0.0 | The stable single-node, trusted-ISOLAN feature-complete release. All v1 partials are resolved and all L1 requirements are Implemented (as of v0.13.0). The precise 1.0.0 feature line is being (re)defined — see **Toward 1.0.0** below; it deliberately excludes the 2.0.0 hardening items. |
+| 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. See **Toward 2.0.0** below. |
 
-## The road to 1.0.0 — intentional v1 partials (all resolved)
+## The v1 partials (all resolved)
 
 v0.1.0 shipped five L1 requirements **Partial**; **all five are now Implemented**:
 `L1-AGGR-001` (v0.2.0, `R-AGGR-001`), `L1-ERR-002` (v0.3.0, `R-ERR-002`),
 `L1-API-001` + `L1-OBS-001` (v0.8.0, `R-API-001`), and `L1-DASH-004` (v0.12.0,
 `R-DASH-004` — the embedded metrics dashboard). As of v0.12.0 **all 67 of 67 L1
 requirements are Implemented**, each with at least one linked verification
-artifact, and `docs/uncovered-l1-allowlist.toml` is empty. Two of the
-trust-boundary-gated hardening items — the rejecting concurrency limit
-(`L1-API-005`) and the `R-ERR-001` structured-error envelope — shipped in
-v0.13.0. What remains before a 1.0.0 cut is the rest of the hardening in the
-**Security hardening** and **Deferred features** sections below (chiefly mTLS and
-RBAC) — not requirement gaps.
+artifact, and `docs/uncovered-l1-allowlist.toml` is empty. v0.13.0 added
+`L1-API-005` (rejecting concurrency limit) and the `R-ERR-001` structured-error
+envelope — **68 of 68 L1 Implemented**. There are no requirement gaps.
+
+## Toward 1.0.0
+
+1.0.0 is the **stable single-node, trusted-ISOLAN feature-complete** release. It
+is deliberately *not* gated on the trust-boundary hardening — those items moved
+to **2.0.0** (below). The positive 1.0.0 feature line is being (re)defined; strong
+candidates are the user-facing gaps that today exist only as JSON API surface
+with no browser UI (e.g. a self-service subscription page and a run-status board
+— see the **Feature extensions** notes). Pull the agreed items from the backlog,
+promote each to real L1/L2/L3 requirements, ship, then cut 1.0.0.
+
+## Toward 2.0.0 — trust-boundary crossing + multi-tenant hardening
+
+2.0.0 is where the service stops assuming the trusted-ISOLAN, well-behaved-client
+model (the same assumption that justifies plaintext gRPC under `L1-API-003`) and
+becomes safe to run where its ingress and dashboard cross a trust boundary. It
+collects the following, each already described in **Deferred features** below and
+tagged `→ 2.0.0`:
+
+- **Mutual TLS on gRPC** — transport encryption + client-cert auth for ingest.
+- **Dashboard RBAC (`R-DASH-001`)** — viewer / operator / admin roles with
+  per-action gates (today every authenticated user can do everything).
+- **Per-pipeline concurrency caps / per-RPC weighting** — per-tenant fairness on
+  top of the global rejecting limit shipped in v0.13.0.
+- **Backup & restore tooling** — atomic snapshot/restore of the SQLite database
+  and rendered-reports directory.
+- **Webhook delivery transport** — an alternative to SMTP delivery for
+  machine-to-machine notification.
+
+These are grouped because they share one trigger — the ingress/dashboard crossing
+a trust boundary — and are best specified and tested together rather than dribbled
+across point releases.
 
 ## Deferred features
 
@@ -77,25 +108,25 @@ referenced by spec docs and code comments; keep the tags stable.
 
 ### Security hardening
 
-- **Mutual TLS on gRPC** — v1 uses plaintext TCP on the trusted ISOLAN network.
-  Promote when gRPC ingest crosses trust boundaries or when compliance
-  requirements demand transport encryption.
+- **Mutual TLS on gRPC → 2.0.0** — v1 uses plaintext TCP on the trusted ISOLAN
+  network. Promote when gRPC ingest crosses trust boundaries or when compliance
+  requirements demand transport encryption. Collected under the **2.0.0** milestone.
 - **Additional authentication backends** — LDAP/AD and OIDC. Current scope is
   local accounts only. LDAP is the likely first addition, consistent with broader
   ISOLAN architecture patterns.
 - **Secrets handling review** — SMTP credentials and any future API keys currently
   live in the TOML configuration file. Consider integration with Vault CE if
   secret rotation becomes operationally significant.
-- **Per-pipeline rate limiting / per-RPC weighting** — the *global* rejecting
-  concurrency limit shipped in v0.13.0 (`L1-API-005`: `grpc.max_in_flight_rpcs`
-  bounds concurrent in-flight RPCs and rejects excess with `RESOURCE_EXHAUSTED`,
-  the saturation cause carried as an `ErrorInfo.reason` on the R-ERR-001
-  envelope). Still deferred: **per-pipeline caps** (a misbehaving pipeline can
-  still consume the whole global budget) and **per-RPC weighting** (BeginRun is
-  cheap; FinalizeRun triggers assembly, so counting all RPCs equally
+- **Per-pipeline rate limiting / per-RPC weighting → 2.0.0** — the *global*
+  rejecting concurrency limit shipped in v0.13.0 (`L1-API-005`:
+  `grpc.max_in_flight_rpcs` bounds concurrent in-flight RPCs and rejects excess
+  with `RESOURCE_EXHAUSTED`, the saturation cause carried as an `ErrorInfo.reason`
+  on the R-ERR-001 envelope). Still deferred: **per-pipeline caps** (a misbehaving
+  pipeline can still consume the whole global budget) and **per-RPC weighting**
+  (BeginRun is cheap; FinalizeRun triggers assembly, so counting all RPCs equally
   under-protects the expensive path). Author these as L2 derivations of
-  `L1-API-005` when per-tenant fairness becomes a requirement — likely concurrent
-  with the mTLS / trust-boundary promotion.
+  `L1-API-005`. Collected under the **2.0.0** milestone (per-tenant fairness lands
+  with the trust-boundary promotion).
 - **Host-clock validity hardening** — L2-RUN-016 records v1's assumption that the
   host clock is monotonically non-decreasing UTC, with backward-correction
   handling explicitly out of scope. If deployment contexts emerge where backward
@@ -105,11 +136,11 @@ referenced by spec docs and code comments; keep the tags stable.
   detected backward jumps larger than a configurable threshold, and L3 statements
   pinning the detection mechanism. The single `Clock` port is the chokepoint for
   this swap.
-- **R-DASH-001 — Role-based access control** — dashboard authentication
+- **R-DASH-001 — Role-based access control → 2.0.0** — dashboard authentication
   (L1-AUTH-001) is baseline only; every authenticated user can perform every
   dashboard action. Future option: roles (viewer, operator, admin) with per-role
   action gates. Requires a `user_role` column and policy checks in dashboard use
-  cases.
+  cases. Collected under the **2.0.0** milestone.
 - **R-DASH-002 — Subscription identifier promotion to UUID4** — v1 mints
   subscription IDs as `INTEGER PRIMARY KEY AUTOINCREMENT`. Per-user route scoping
   (L3-DASH-007) prevents cross-user access, but sequential integer IDs leak the
@@ -154,8 +185,11 @@ referenced by spec docs and code comments; keep the tags stable.
 - **Subscription granularity extensions** — beyond `GLOBAL`, `PIPELINE`, `TAG`:
   consider per-severity, per-submitter, or boolean combinations if use cases
   emerge.
-- **Alternative delivery transports** — v1 delivers via SMTP. Future options:
-  webhooks, direct API hooks into ticketing systems, Slack/Teams relays.
+- **Alternative delivery transports** — v1 delivers via SMTP. The **webhook
+  delivery transport → 2.0.0** is collected under the 2.0.0 milestone (a
+  capture-double-testable adapter alongside the SMTP mailer, selected by
+  subscription/config). Further options remain unscheduled backlog: direct API
+  hooks into ticketing systems, Slack/Teams relays.
 - **R-DELIVER-002 — Per-subscriber email delivery** — v1 sends one email per run
   with the recipient list via BCC. Future option: one email per subscriber with
   personalization tokens (`{{subscriber.name}}`, `{{subscriber.unsubscribe_url}}`).
@@ -187,8 +221,9 @@ referenced by spec docs and code comments; keep the tags stable.
 - **Air-gapped installer bundle** — a single-archive offline installer for ISOLAN
   deployment bundling the Poetry-locked dependency tree, NSSM on Windows, and the
   systemd unit on Linux.
-- **Backup and restore tooling** — scripts to snapshot and restore the SQLite
-  database and rendered-reports directory as an atomic unit.
+- **Backup and restore tooling → 2.0.0** — scripts to snapshot and restore the
+  SQLite database and rendered-reports directory as an atomic unit. Collected
+  under the **2.0.0** milestone.
 
 ### Documentation
 
@@ -220,10 +255,10 @@ Stable contracts current and future work must preserve:
 
 - **Per-pipeline concurrency caps.** The *global* rejecting concurrency limit
   shipped in v0.13.0 (`L1-API-005`, opt-in via `grpc.max_in_flight_rpcs`). Finer
-  granularity — per-pipeline caps and per-RPC weighting — remains out of the
-  current scope: the trusted-ISOLAN deployment model assumes well-behaved pipeline
+  granularity — per-pipeline caps and per-RPC weighting — is out of scope for the
+  1.0.0 line: the trusted-ISOLAN deployment model assumes well-behaved pipeline
   clients (the same constraint that justifies plaintext gRPC under L1-API-003).
-  See the **Security hardening** entry above for the promotion path.
+  Collected under the **2.0.0** milestone (see **Toward 2.0.0** above).
 - **Backward host-clock corrections.** L2-RUN-016 pins v1's assumption of a
   monotonically non-decreasing UTC host clock; behavior under backward NTP
   corrections larger than the tolerance is unspecified. Promotion path in

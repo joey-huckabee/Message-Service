@@ -402,6 +402,7 @@ async def build_service(config: Config) -> Service:
         from_address=config.mail.from_address,
         email_body_template_ref=email_body_ref,
         admin_recipients=tuple(str(addr) for addr in config.mail.admin_recipients),
+        subject_templates=dict(config.pipelines.subject_templates),
         metrics_recorder=metrics_recorder,
         report_store=report_store,
     )

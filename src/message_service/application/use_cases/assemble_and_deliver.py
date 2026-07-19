@@ -88,7 +88,7 @@ from __future__ import annotations
 import importlib.resources
 import json
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -196,7 +196,7 @@ def _build_attachment_filename(
 # -----------------------------------------------------------------------------
 
 
-def _build_subject(pipeline_type: str, run_id: RunId) -> str:
+def _build_subject(pipeline_type: str, run_id: RunId, template: str | None = None) -> str:
     """Compose the email Subject header per L2-MAIL-014.
 
     Sanitizes ``pipeline_type`` via the same regex as L3-AGGR-010 so
@@ -205,14 +205,26 @@ def _build_subject(pipeline_type: str, run_id: RunId) -> str:
     ``OutboundEmail`` boundary's CR/LF assertion remains as a second
     line of defense.
 
+    When ``template`` is provided (the per-pipeline override from
+    ``pipelines.subject_templates``, L3-MAIL-032) the subject is rendered
+    from it with the sanitized ``pipeline_type`` and the ``run_id``
+    substituted; the template's placeholders were validated at config-load
+    time (L3-MAIL-033). When ``template`` is ``None`` the default format is
+    used unchanged, so behavior is byte-identical to v1 for pipelines with
+    no configured override.
+
     Args:
         pipeline_type: Run's ``pipeline_type`` from config.
         run_id: Canonical UUID4 string.
+        template: Optional ``str.format`` override referencing only
+            ``{pipeline_type}`` and ``{run_id}``.
 
     Returns:
-        Subject string of the form ``[{pipeline_safe}] run {run_id}``.
+        Subject string; the default form is ``[{pipeline_safe}] run {run_id}``.
     """
     pipeline_safe = _sanitize_filename_component(pipeline_type)
+    if template is not None:
+        return template.format(pipeline_type=pipeline_safe, run_id=run_id)
     return f"[{pipeline_safe}] run {run_id}"
 
 
@@ -339,6 +351,7 @@ class AssembleAndDeliverUseCase:
         from_address: str,
         email_body_template_ref: TemplateRef,
         admin_recipients: tuple[str, ...] = (),
+        subject_templates: Mapping[str, str] | None = None,
         metrics_recorder: MetricsRecorder | None = None,
         report_store: ReportStore | None = None,
     ) -> None:
@@ -357,6 +370,12 @@ class AssembleAndDeliverUseCase:
                 tests; an empty list at runtime causes the admin
                 notification to be skipped with a WARNING log per
                 L3-MAIL-031.
+            subject_templates: Configured
+                ``pipelines.subject_templates`` mapping (``pipeline_type``
+                → subject ``str.format`` template, L3-MAIL-032). A run
+                whose ``pipeline_type`` is a key renders its subject from
+                the template; all others use the default format. Defaults
+                to an empty mapping (no overrides).
             metrics_recorder: L1-OBS-002 metrics port (run state
                 transitions, email delivery outcome, email size,
                 run duration). Defaults to a NoOp instance for tests.
@@ -375,6 +394,7 @@ class AssembleAndDeliverUseCase:
         self._from_address = from_address
         self._email_body_template_ref = email_body_template_ref
         self._admin_recipients = admin_recipients
+        self._subject_templates: dict[str, str] = dict(subject_templates or {})
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
         self._report_store = report_store or NoOpReportStore()
 
@@ -478,10 +498,14 @@ class AssembleAndDeliverUseCase:
         # Non-empty recipients: deliver or fail. Subject format pinned
         # by L2-MAIL-014; pipeline_type sanitization (L3-MAIL-028)
         # reuses the same helper that builds attachment filenames so
-        # both surfaces share one chokepoint.
+        # both surfaces share one chokepoint. A per-pipeline override
+        # from pipelines.subject_templates (L3-MAIL-032) takes precedence
+        # when present; otherwise the default format is used.
         outbound = OutboundEmail(
             recipients=recipients,
-            subject=_build_subject(run.pipeline_type, run_id),
+            subject=_build_subject(
+                run.pipeline_type, run_id, self._subject_templates.get(run.pipeline_type)
+            ),
             body_html=email_body_html,
             from_address=self._from_address,
             attachments=attachments,

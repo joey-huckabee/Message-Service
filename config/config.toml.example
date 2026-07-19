@@ -118,6 +118,16 @@ registered = [
     # Add one line per pipeline your ETL jobs use.
 ]
 
+# Optional per-pipeline email Subject override (L2-MAIL-014 / R-MAIL-001).
+# Maps a registered pipeline_type to a template rendered with Python
+# str.format; only the {pipeline_type} and {run_id} placeholders are allowed
+# ({pipeline_type} is sanitized before substitution). A pipeline with no entry
+# uses the default subject "[{pipeline_type}] run {run_id}", so omitting this
+# table entirely preserves the built-in behavior. Keys must be in `registered`.
+# [pipelines.subject_templates]
+# etl-nightly = "[NIGHTLY:{pipeline_type}] run {run_id}"
+# backup-daily = "Backup {pipeline_type} completed (run {run_id})"
+
 # --- Sweeper -----------------------------------------------------------------
 # The orphan sweeper periodically transitions runs stuck in active
 # states (INITIATED, AGGREGATING, READY, SENDING) to ORPHANED and

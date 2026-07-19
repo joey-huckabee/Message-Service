@@ -861,3 +861,90 @@ async def test_patch_user_does_not_accept_email_field(
         json={"email": "renamed@example.com"},
     )
     assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# GET /admin/users -- recipient roster (L3-DASH-043)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-043")
+async def test_list_users_requires_authentication(http_client: httpx.AsyncClient) -> None:
+    """Unauthenticated GET /admin/users SHALL return 401."""
+    response = await http_client.get("/admin/users")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-043")
+async def test_list_users_forbidden_for_non_admin(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """A non-admin session SHALL get 403."""
+    await _login_as(http_client, uow_factory, hasher, email="user@example.com", is_admin=False)
+    response = await http_client.get("/admin/users")
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-043")
+async def test_list_users_returns_roster_without_password_hash(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """An admin sees the roster; items carry the projected fields, never the hash."""
+    await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
+    await _seed_user(uow_factory, hasher, email="jane@example.com", is_admin=False)
+
+    response = await http_client.get("/admin/users")
+    assert response.status_code == 200
+    body = response.json()
+    emails = {item["email"] for item in body}
+    assert {"admin@example.com", "jane@example.com"} <= emails
+    for item in body:
+        assert set(item.keys()) == {
+            "user_id",
+            "email",
+            "display_name",
+            "is_admin",
+            "disabled",
+            "created_at",
+        }
+        assert "password_hash" not in item
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-043")
+async def test_list_users_pagination_slices_the_roster(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """limit/offset window the ordered roster (user_id ascending)."""
+    await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
+    for i in range(4):
+        await _seed_user(uow_factory, hasher, email=f"u{i}@example.com", is_admin=False)
+    # admin is user_id 1; the four seeded users follow.
+    response = await http_client.get("/admin/users?limit=2&offset=1")
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["email"] for item in body] == ["u0@example.com", "u1@example.com"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-043")
+@pytest.mark.parametrize("query", ["limit=0", "limit=201", "offset=-1"])
+async def test_list_users_rejects_out_of_range_params(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    query: str,
+) -> None:
+    """FastAPI query validation returns 422 for out-of-range limit/offset."""
+    await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
+    response = await http_client.get(f"/admin/users?{query}")
+    assert response.status_code == 422

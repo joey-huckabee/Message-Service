@@ -128,3 +128,37 @@ async def test_admin_and_disabled_round_trip(repo: SqliteUserRepository) -> None
     assert fetched.is_admin is True
     assert fetched.disabled is True
     assert fetched.user_id == saved.user_id
+
+
+# -----------------------------------------------------------------------------
+# list_paginated (L3-DASH-042)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-042")
+async def test_list_paginated_orders_by_user_id_ascending(repo: SqliteUserRepository) -> None:
+    """Rows come back ordered by user_id ascending (insertion order here)."""
+    for i in range(5):
+        await repo.save(_new_user(email=f"u{i}@x"))
+    users = await repo.list_paginated(limit=50, offset=0)
+    assert [u.email for u in users] == ["u0@x", "u1@x", "u2@x", "u3@x", "u4@x"]
+    ids = [u.user_id for u in users if u.user_id is not None]
+    assert len(ids) == 5  # every returned row is persisted
+    assert ids == sorted(ids)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-042")
+async def test_list_paginated_applies_limit_and_offset(repo: SqliteUserRepository) -> None:
+    """The limit/offset window slices the ordered result."""
+    for i in range(5):
+        await repo.save(_new_user(email=f"u{i}@x"))
+    page = await repo.list_paginated(limit=2, offset=1)
+    assert [u.email for u in page] == ["u1@x", "u2@x"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-042")
+async def test_list_paginated_empty_when_no_users(repo: SqliteUserRepository) -> None:
+    assert await repo.list_paginated(limit=50, offset=0) == []

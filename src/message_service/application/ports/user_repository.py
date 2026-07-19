@@ -1,9 +1,8 @@
 """Port: persistence for :class:`User` records.
 
-Login looks users up by email; admin flows look them up by id. There
-is no ``list_all`` method in v1 — listings happen via direct SQL on
-the dashboard's "user management" page (Increment 19) where pagination
-matters.
+Login looks users up by email; admin flows look them up by id;
+``list_paginated`` backs the admin recipient console (L1-DASH-008 /
+L2-DASH-021).
 
 Requirement references
 ----------------------
@@ -14,6 +13,7 @@ L1-PERS-003 (repository pattern)
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 from message_service.domain.aggregates.user import User
 
@@ -94,6 +94,25 @@ class UserRepository(ABC):
         Raises:
             PersistenceError: SQL execution failed for any reason
                 other than user-not-found.
+        """
+
+    @abstractmethod
+    async def list_paginated(self, *, limit: int, offset: int) -> Sequence[User]:
+        """Return a page of accounts ordered by ``user_id`` ascending (L3-DASH-042).
+
+        Backs the admin recipient console's roster view. The returned
+        aggregates carry ``password_hash`` like every other repo read;
+        the no-hash-on-the-wire guarantee is enforced by the list
+        endpoint's response projection (L3-DASH-043), not here.
+
+        Args:
+            limit: Maximum accounts to return (the route constrains this
+                to ``[1, 200]`` per L3-DASH-043).
+            offset: Number of rows to skip (the route constrains this to
+                ``>= 0``).
+
+        Returns:
+            At most ``limit`` :class:`User` aggregates, ``user_id`` ascending.
         """
 
 

@@ -127,6 +127,14 @@ class SqliteUserRepository(UserRepository):
 
         return await self.get_by_id(user_id)
 
+    async def list_paginated(self, *, limit: int, offset: int) -> list[User]:  # noqa: D102
+        async with self._conn.execute(
+            _SQL_SELECT_BASE + "ORDER BY user_id ASC LIMIT ? OFFSET ?",
+            (limit, offset),
+        ) as cur:
+            rows = await cur.fetchall()
+        return [_row_to_user(row) for row in rows]
+
 
 def _row_to_user(row: aiosqlite.Row) -> User:
     """Map a SELECT row tuple back into a :class:`User`."""

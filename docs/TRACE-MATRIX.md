@@ -287,7 +287,7 @@ the single source of truth.
 | L1-DASH-005 | L2-DASH-015, L2-DASH-016 | Implemented |
 | L1-DASH-006 | L2-DASH-017, L2-DASH-018 | Implemented |
 | L1-DASH-007 | L2-DASH-019 | Draft |
-| L1-DASH-008 | L2-DASH-020, L2-DASH-021 | Draft |
+| L1-DASH-008 | L2-DASH-020, L2-DASH-021 | Partially Implemented |
 
 **L2 → L3 → Verification Artifacts**
 
@@ -313,7 +313,7 @@ the single source of truth.
 | L2-DASH-018 | L3-DASH-038, L3-DASH-039 | `tests/unit/interfaces/rest/test_runs_board.py::test_board_html_shell_provides_filter_and_summary_containers`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_board_js_implements_required_rendering_structure`<br>`tests/unit/interfaces/rest/test_runs_board.py::test_static_asset_has_no_external_reference` | Implemented |
 | L2-DASH-019 | L3-DASH-040 | _(TBD)_ | Draft |
 | L2-DASH-020 | L3-DASH-041 | _(TBD)_ | Draft |
-| L2-DASH-021 | L3-DASH-042, L3-DASH-043 | _(TBD)_ | Draft |
+| L2-DASH-021 | L3-DASH-042, L3-DASH-043 | `tests/integration/persistence/test_user_repository.py::test_list_paginated_applies_limit_and_offset`<br>`tests/integration/persistence/test_user_repository.py::test_list_paginated_empty_when_no_users`<br>`tests/integration/persistence/test_user_repository.py::test_list_paginated_orders_by_user_id_ascending`<br>`tests/integration/rest/test_admin_users.py::test_list_users_forbidden_for_non_admin`<br>`tests/integration/rest/test_admin_users.py::test_list_users_pagination_slices_the_roster`<br>`tests/integration/rest/test_admin_users.py::test_list_users_rejects_out_of_range_params`<br>`tests/integration/rest/test_admin_users.py::test_list_users_requires_authentication`<br>`tests/integration/rest/test_admin_users.py::test_list_users_returns_roster_without_password_hash` | Implemented |
 
 ### L1-PERS: Persistence
 
@@ -502,16 +502,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 4 | 11 | 19 | 5 | 19 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
-| DASH | 8 | 21 | 43 | 1 | 39 |
+| DASH | 8 | 21 | 43 | 1 | 41 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
 | OBS | 4 | 19 | 43 | 3 | 43 |
 | ERR | 4 | 10 | 23 | 0 | 23 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **72** | **204** | **420** | **66** | **416** |
+| **Total** | **72** | **204** | **420** | **66** | **418** |
 
-**Requirements verified by at least one test**: 482 of 624 (77.2%).
+**Requirements verified by at least one test**: 484 of 624 (77.6%).
 
 ### Orphan check
 

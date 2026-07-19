@@ -29,9 +29,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from message_service.application.ports.clock import iso_z
 from message_service.domain.aggregates.password import Password
 from message_service.domain.errors import (
     DuplicateEmailError,
@@ -43,6 +44,7 @@ from message_service.interfaces.rest.app import require_admin_factory
 
 if TYPE_CHECKING:
     from message_service.bootstrap import Service
+    from message_service.domain.aggregates.user import User
 
 
 # -----------------------------------------------------------------------------
@@ -128,6 +130,41 @@ class UpdateUserResponse(BaseModel):
     mutated_fields: list[str]
 
 
+class UserListItemResponse(BaseModel):
+    """Recipient-roster list item (L3-DASH-043).
+
+    Adds ``created_at`` to the :class:`UserResponse` field set; ``password_hash``
+    is deliberately absent so the hash never reaches the wire.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: int
+    email: str
+    display_name: str
+    is_admin: bool
+    disabled: bool
+    created_at: str
+
+
+# -----------------------------------------------------------------------------
+# Projections
+# -----------------------------------------------------------------------------
+
+
+def _project_user_list_item(user: User) -> UserListItemResponse:
+    """Project a persisted :class:`User` to a roster list item (no hash)."""
+    assert user.user_id is not None  # list_paginated only returns persisted rows
+    return UserListItemResponse(
+        user_id=user.user_id,
+        email=user.email,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        disabled=user.disabled,
+        created_at=iso_z(user.created_at),
+    )
+
+
 # -----------------------------------------------------------------------------
 # Router factory
 # -----------------------------------------------------------------------------
@@ -145,6 +182,22 @@ def build_admin_users_router(service: Service) -> APIRouter:
     """
     router = APIRouter(prefix="/admin/users", tags=["admin-users"])
     require_admin = require_admin_factory(service)
+
+    @router.get("")
+    async def list_users(
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+        _admin_id: int = Depends(require_admin),
+    ) -> list[UserListItemResponse]:
+        """L3-DASH-043: paginated recipient roster for the admin console.
+
+        Admin-gated. ``limit`` defaults to 50 (max 200); ``offset`` defaults to
+        0. Each item projects the account metadata without ``password_hash``.
+        """
+        del _admin_id  # auth gate only
+        async with service.uow_factory() as uow:
+            users = await uow.user_repo.list_paginated(limit=limit, offset=offset)
+        return [_project_user_list_item(u) for u in users]
 
     @router.post("", status_code=status.HTTP_201_CREATED)
     async def create_user(

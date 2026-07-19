@@ -1004,6 +1004,22 @@ single source of truth for live status.
 **Rationale**: Consistent with L2-DASH-003 — deployments must be offline-capable, so the visualization carries zero external dependencies. Hand-authoring the chart rendering (axes, gridlines, bars/lines/gauges as inline SVG) keeps the dependency surface at zero rather than vendoring a third-party charting bundle.
 **Verification Method**: Inspection (I)
 
+### Derivations of L1-DASH-006 (embedded run-status board)
+
+#### L2-DASH-017
+
+**Parent**: L1-DASH-006
+**Statement**: The dashboard SHALL expose a run-status board at `GET /runs/board`, gated by the same `require_session` dependency as the JSON runs API. The route SHALL retrieve run summaries server-side (reusing the `list_past_runs` use case across all run states, most-recent-first), project them to the same field set as `L2-DASH-013`'s run metadata (`run_id`, `pipeline_type`, `state`, `attachment_mode`, `tags`, `created_at`, `updated_at`), serialize that projection to JSON embedded in the page, and return a self-contained HTML document. Per-run stage detail SHALL be fetched lazily by the client from the existing `GET /runs/{run_id}` endpoint (`L2-DASH-013`) rather than embedded up front, keeping the initial page lightweight.
+**Rationale**: Reusing `list_past_runs` and the existing detail endpoint means the board is a pure presentation layer over already-tested application code — no new query paths. Embedding the summary projection (not the large per-stage JSON payloads) keeps the page small; lazy stage fetch matches the run-detail view's own "fetch large payloads on demand" posture (L2-DASH-013/014). Session-gating matches the JSON runs API so the board exposes no data a caller could not already read.
+**Verification Method**: Test (T)
+
+#### L2-DASH-018
+
+**Parent**: L1-DASH-006
+**Statement**: The run-status board SHALL be rendered by hand-authored client-side code (HTML/CSS/JS) that ships as packaged static assets with no third-party library and no external CDN or network dependency, identical in posture to the metrics dashboard's `L2-DASH-011`. The rendering SHALL group runs by state with an in-flight-versus-terminal distinction, provide a state filter, and expand a run row to show its stages; it SHALL reference no external origin.
+**Rationale**: Consistent with `L2-DASH-011` and `L2-DASH-003` — deployments must be offline-capable, so the board carries zero external dependencies. Hand-authoring the table, badges, and filter keeps the dependency surface at zero rather than vendoring a UI framework.
+**Verification Method**: Inspection (I)
+
 ### Derivations of L1-DASH-005 (admin audit-log viewer)
 
 #### L2-DASH-015
@@ -1632,4 +1648,5 @@ single source of truth for live status.
 | 2026-07-19 | Joey   | Requirement-coverage: added L2-CICD-016 under L1-CICD-004 (per-L1 coverage gate via `check-requirement-coverage.py` + `uncovered-l1-allowlist.toml`); reworded L1-CICD-004. |
 | 2026-07-19 | Joey   | Audit archival: added L2-OBS-019 under L1-OBS-003 (opt-in archive-before-delete of expired audit rows via `observability.audit.archive_directory`); reworded L1-OBS-003. |
 | 2026-07-19 | Joey   | Rate limiting: added L2-API-012 under new L1-API-005 (`grpc.max_in_flight_rpcs` rejecting interceptor; RESOURCE_EXHAUSTED + R-ERR-001 ErrorInfo reason, no proto enum bump). |
+| 2026-07-19 | Joey   | Run-status board: added L2-DASH-017 (`GET /runs/board` route + server-side summary projection, session-gated, lazy stage fetch) and L2-DASH-018 (hand-authored, dependency-free rendering) under new L1-DASH-006. |
 | 2026-07-19 | Joey   | R-DASH-004: reworded L2-DASH-011 (hand-authored inline-SVG rendering, no third-party charting library / CDN — dropped the Chart.js example). |

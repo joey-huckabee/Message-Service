@@ -450,6 +450,14 @@ single source of truth for live status; the source docs in this file,
 
 **Verification Method**: Test (T)
 
+### L1-DASH-006
+
+**Statement**: The dashboard SHALL present run status — including in-flight runs — as an embedded browser page, in addition to exposing the run data at the JSON runs API. The page SHALL let an authenticated user see runs grouped by state (distinguishing in-flight states from terminal states), filter by state, and drill into a single run's declared stages and their submission states.
+
+**Rationale**: The JSON runs API (`L1-DASH-003` / `L2-DASH-012`/`L2-DASH-013`) is machine-facing and defaults to *terminal* runs — a history view. Operators also need at-a-glance visibility into work *currently in flight* (which runs are `INITIATED`/`AGGREGATING`/`READY`/`SENDING` right now, and where a stalled run is stuck) without composing query strings by hand. An embedded browser page — rendered by the same hand-authored, dependency-free approach as the metrics dashboard (`L1-DASH-004`) — gives that visibility offline, with no external charting library and no separate tooling to deploy.
+
+**Verification Method**: Test (T), Demonstration (D)
+
 ---
 
 ## L1-PERS: Persistence
@@ -696,3 +704,4 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 | 2026-07-19 | Joey   | Requirement-coverage: reworded L1-CICD-004 to add a per-L1 verification-coverage gate (every L1 needs a linked artifact unless allowlisted). No new L1. |
 | 2026-07-19 | Joey   | Audit archival: reworded L1-OBS-003 to add optional archive-before-delete of expired audit records (see L2-OBS-019). No new L1. |
 | 2026-07-19 | Joey   | Rate limiting: added L1-API-005 (bound concurrently-executing RPCs to a configurable limit; reject excess with RESOURCE_EXHAUSTED rather than queue unboundedly). Total L1: 68. |
+| 2026-07-19 | Joey   | Run-status board: added L1-DASH-006 (embedded browser page presenting run status incl. in-flight runs, with state filter + per-run stage drill-in; hand-authored, dependency-free like L1-DASH-004). Total L1: 69. |

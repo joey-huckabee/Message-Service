@@ -1,30 +1,45 @@
 # ============================================================================
-# Message-Service — Template Manifest
+# Message-Service — Template Manifest (example)
 # ============================================================================
-# Every Jinja2 template usable by pipelines must be registered here. See
-# L1-TMPL-001, L2-TMPL-002. Paths are resolved relative to this file.
+# Every Jinja2 template usable by pipelines must be registered here (L1-TMPL-001,
+# L2-TMPL-002). The manifest path is the `templates.manifest_path` config key.
+# All `*_path` values are resolved relative to THIS file's directory.
 #
-# Fields per entry:
-#   name         — template identifier referenced in BeginRun / SubmitStageReport
-#   version      — semantic version string (compared via packaging.version.Version)
-#   source_path  — relative path to the Jinja2 source file
-#   schema_path  — relative path to the JSON Schema validating the context
+# Fields per [[template]] entry:
+#   name                 (required) — identifier referenced in BeginRun /
+#                                     SubmitStageReport template refs
+#   version              (required) — semantic version string (compared via
+#                                     packaging.version.Version; "latest" in a
+#                                     request resolves to the highest here)
+#   kind                 (required) — one of REPORT_FRAGMENT | AGGREGATION |
+#                                     EMAIL_BODY
+#   source_path          (required) — path to the Jinja2 source file
+#   context_schema_path  (optional) — path to a JSON Schema validating the render
+#                                     context; omit to skip schema validation
+#   description          (optional) — human-readable note
+#
+# See docs/template-author-guide.md for the full authoring workflow.
 # ============================================================================
 
 [[template]]
 name = "default-stage-report"
 version = "1.0.0"
-source_path = "../src/message_service/templates/report/default_stage.j2"
-schema_path = "../src/message_service/templates/report/default_stage.schema.json"
+kind = "REPORT_FRAGMENT"
+source_path = "./templates/default_stage.html.j2"
+context_schema_path = "./templates/default_stage.schema.json"
+description = "Default per-stage report fragment (becomes an attachment)."
 
 [[template]]
 name = "default-aggregation"
 version = "1.0.0"
-source_path = "../src/message_service/templates/report/default_aggregation.j2"
-schema_path = "../src/message_service/templates/report/default_aggregation.schema.json"
+kind = "AGGREGATION"
+source_path = "./templates/default_aggregation.html.j2"
+context_schema_path = "./templates/default_aggregation.schema.json"
 
 [[template]]
 name = "default-email-body"
 version = "1.0.0"
-source_path = "../src/message_service/templates/email/default_body.j2"
-schema_path = "../src/message_service/templates/email/default_body.schema.json"
+kind = "EMAIL_BODY"
+source_path = "./templates/default_body.html.j2"
+# context_schema_path omitted — the email body context is service-produced, not
+# pipeline-supplied, so schema validation is optional here.

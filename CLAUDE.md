@@ -123,8 +123,9 @@ Do **not** add `Co-Authored-By: Claude ...` trailers to commit messages on this 
 ## Further reading
 
 - `CONTRIBUTING.md` — full pre-commit sequence, failure-mode troubleshooting, SLOC-reporting policy.
-- `docs/L1-REQ.md` / `L2-REQ.md` / `L3-REQ.md` — authoritative SHALL statements (67 / 192 / 393 reqs across 16 categories).
+- `docs/L1-REQ.md` / `L2-REQ.md` / `L3-REQ.md` — authoritative SHALL statements (67 / 195 / 404 reqs across 16 categories).
 - `docs/TRACE-MATRIX.md` — which tests verify which requirements.
+- `docs/template-author-guide.md` — how to add, validate, version, and test a Jinja2 template (manifest format, context schema, sandbox rules, per-pipeline overrides).
 - `docs/LOGGING-AND-EXCEPTIONS.md` — exception hierarchy and logging conventions.
 - `docs/test-strategy.md` — formal test-tier definitions, fixture-scoping conventions, I/O guard, SMTP capture, Windows event-loop quirks, and the `@pytest.mark.requirement` workflow. (`tests/README.md` is now a brief pointer to this doc.)
 - `docs/ROADMAP.md` — forward-looking deferred items; scope decisions that deliberately live outside the current release. Completed work is not tracked here.

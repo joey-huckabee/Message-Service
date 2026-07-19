@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Message-Service — Runs</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --panel-2: #fbfcfd;
+    --ink: #1b2733;
+    --ink-soft: #5b6b7b;
+    --ink-faint: #8a99a8;
+    --line: #e2e8ee;
+    --line-strong: #cfd8e1;
+    --accent: #2563eb;
+    --shadow: 0 1px 2px rgba(16,32,48,.06), 0 2px 8px rgba(16,32,48,.06);
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1319; --panel: #161d26; --panel-2: #131a22; --ink: #e6edf3;
+      --ink-soft: #9fb0c0; --ink-faint: #6b7d8e; --line: #232d38;
+      --line-strong: #313d4a; --accent: #4f8cff;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 2px 10px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header.top { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+  header.top h1 { font-size: 22px; margin: 0; letter-spacing: -.2px; }
+  header.top .sub { color: var(--ink-faint); font-size: 13px; }
+  .preview-note {
+    margin: 14px 0 22px; padding: 9px 13px; border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--ink-soft); font-size: 12.5px;
+  }
+  .preview-note b { color: var(--ink); }
+
+  /* summary strip */
+  .summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .stat {
+    flex: 1 1 130px; min-width: 130px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); cursor: pointer;
+    transition: border-color .12s, transform .04s;
+  }
+  .stat:hover { border-color: var(--line-strong); }
+  .stat:active { transform: translateY(1px); }
+  .stat.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+  .stat .n { font-size: 24px; font-weight: 650; letter-spacing: -.5px; }
+  .stat .l { font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-faint); margin-top: 2px; }
+  .stat.inwork .n { color: var(--accent); }
+
+  /* filter chips */
+  .filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filters .grp { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .filters .grp button {
+    border: 0; background: transparent; color: var(--ink-soft); font: inherit; font-size: 13px;
+    padding: 7px 13px; cursor: pointer; border-right: 1px solid var(--line);
+  }
+  .filters .grp button:last-child { border-right: 0; }
+  .filters .grp button.on { background: var(--accent); color: #fff; }
+  .filters .spacer { flex: 1; }
+  .filters .count { color: var(--ink-faint); font-size: 12.5px; }
+
+  /* table */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .tbl { width: 100%; border-collapse: collapse; }
+  .tbl thead th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--ink-faint); font-weight: 600; padding: 11px 14px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2); white-space: nowrap;
+  }
+  .tbl tbody tr.run { border-bottom: 1px solid var(--line); cursor: pointer; }
+  .tbl tbody tr.run:hover { background: var(--panel-2); }
+  .tbl tbody tr.run:last-child { border-bottom: 0; }
+  .tbl td { padding: 11px 14px; vertical-align: middle; }
+  .rid { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); }
+  .pipe { font-weight: 550; }
+  .muted { color: var(--ink-faint); font-size: 12.5px; white-space: nowrap; }
+  .caret { color: var(--ink-faint); transition: transform .12s; display: inline-block; }
+  tr.run.open .caret { transform: rotate(90deg); }
+
+  /* badges */
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 8px; border-radius: 999px;
+    font-size: 12px; font-weight: 550; white-space: nowrap;
+    background: var(--b-bg); color: var(--b-ink); border: 1px solid var(--b-line);
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--b-dot); }
+  .badge.spin .dot { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  .tag { display: inline-block; font-size: 11.5px; color: var(--ink-soft); background: var(--panel-2);
+         border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; margin: 1px 3px 1px 0; }
+  .attach { font-size: 11px; color: var(--ink-faint); font-family: var(--mono); }
+
+  /* stage detail */
+  tr.detail > td { padding: 0; background: var(--panel-2); }
+  tr.detail .inner { padding: 6px 14px 14px 40px; }
+  .stage-h { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--ink-faint); margin: 10px 0 6px; }
+  .stages { width: 100%; border-collapse: collapse; }
+  .stages td { padding: 6px 10px; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .stages tr:last-child td { border-bottom: 0; }
+  .hidden { display: none; }
+  footer { margin-top: 24px; color: var(--ink-faint); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Runs</h1>
+    <span class="sub">report aggregation &amp; delivery status</span>
+  </header>
+  <div class="preview-note">
+    <b>Design preview — not live data.</b> This mockup shows the proposed v0.14.0 run-status board
+    rendered from representative data. It surfaces the existing <code>GET /runs</code> and
+    <code>GET /runs/{run_id}</code> APIs as a browser page: filter by state, see in-flight vs delivered
+    runs at a glance, and click a row to drill into its stages. Hand-authored HTML/CSS/JS — no external libraries.
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="filters">
+    <div class="grp" id="quick">
+      <button data-q="inwork" class="on">In&nbsp;work</button>
+      <button data-q="all">All</button>
+      <button data-q="terminal">Delivered&nbsp;/&nbsp;terminal</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="card">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th style="width:150px">State</th>
+          <th>Run</th>
+          <th>Pipeline</th>
+          <th>Tags</th>
+          <th>Created</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <footer>Message-Service dashboard · run-status board preview</footer>
+</div>
+
+<script>
+// ---- state model (mirrors domain/state_machines/run_states.py + stage_states.py) ----
+const IN_WORK  = ["INITIATED", "AGGREGATING", "READY", "SENDING"];
+const TERMINAL = ["SENT", "FAILED", "ORPHANED"];
+const STATE_STYLE = {
+  INITIATED:   { bg:"#eef2f7", ink:"#43566a", line:"#d8e0ea", dot:"#7b8da0", spin:false, label:"Initiated" },
+  AGGREGATING: { bg:"#fdf4e3", ink:"#8a5a00", line:"#f0dcae", dot:"#e0930f", spin:true,  label:"Aggregating" },
+  READY:       { bg:"#e8f6f4", ink:"#0b6b62", line:"#bfe6e0", dot:"#12a594", spin:false, label:"Ready" },
+  SENDING:     { bg:"#e8f0fe", ink:"#1b52c4", line:"#c4d7fb", dot:"#2563eb", spin:true,  label:"Sending" },
+  SENT:        { bg:"#e9f6ec", ink:"#1a7a37", line:"#c3e6cd", dot:"#22a13f", spin:false, label:"Sent" },
+  FAILED:      { bg:"#fdeceb", ink:"#b3261e", line:"#f3c9c6", dot:"#e0453b", spin:false, label:"Failed" },
+  ORPHANED:    { bg:"#f0ecf4", ink:"#6b4a86", line:"#ddd0e8", dot:"#8a63b0", spin:false, label:"Orphaned" },
+};
+// stage states: PENDING, IN_PROGRESS, SUBMITTED, ACCEPTED, RETRIED, TIMEOUT, FAILED
+const STAGE_STYLE = {
+  PENDING:{c:"#8a99a8"}, IN_PROGRESS:{c:"#e0930f"}, SUBMITTED:{c:"#2563eb"},
+  ACCEPTED:{c:"#22a13f"}, RETRIED:{c:"#e0930f"}, TIMEOUT:{c:"#b3261e"}, FAILED:{c:"#e0453b"},
+};
+
+// ---- representative data (shape = RunSummaryResponse + StageInDetailResponse) ----
+const RUNS = [
+  { run_id:"a1f3c8d2-7b40-4e11-9a2c-0f5e1d6b8e04", pipeline_type:"nightly-etl", state:"AGGREGATING",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["finance","priority"], created_at:"2026-07-19T10:22:04Z", updated_at:"2026-07-19T10:24:37Z",
+    stages:[ {stage_id:"stage-extract", state:"ACCEPTED", submitted_at:"2026-07-19T10:22:40Z"},
+             {stage_id:"stage-transform", state:"ACCEPTED", submitted_at:"2026-07-19T10:24:31Z"},
+             {stage_id:"stage-load", state:"PENDING", submitted_at:null} ] },
+  { run_id:"c73b1e90-2d55-4a88-bf1e-9c0a4d2e7f61", pipeline_type:"sales-rollup", state:"SENDING",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["sales"], created_at:"2026-07-19T10:18:11Z", updated_at:"2026-07-19T10:25:02Z",
+    stages:[ {stage_id:"stage-daily", state:"ACCEPTED", submitted_at:"2026-07-19T10:19:55Z"},
+             {stage_id:"stage-regional", state:"ACCEPTED", submitted_at:"2026-07-19T10:20:40Z"} ] },
+  { run_id:"e2a90f47-6c11-4b3d-8e77-1a2b3c4d5e6f", pipeline_type:"inventory-sync", state:"READY",
+    attachment_mode:"PER_STAGE", tags:["ops"], created_at:"2026-07-19T10:15:00Z", updated_at:"2026-07-19T10:21:19Z",
+    stages:[ {stage_id:"warehouse-east", state:"ACCEPTED", submitted_at:"2026-07-19T10:16:33Z"},
+             {stage_id:"warehouse-west", state:"ACCEPTED", submitted_at:"2026-07-19T10:18:02Z"} ] },
+  { run_id:"7d4c2b16-8f90-41aa-b2c3-d4e5f60718a9", pipeline_type:"customer-360", state:"INITIATED",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["marketing"], created_at:"2026-07-19T10:25:41Z", updated_at:"2026-07-19T10:25:41Z",
+    stages:[ {stage_id:"profile-merge", state:"PENDING", submitted_at:null} ] },
+  { run_id:"9b8a7c6d-5e4f-4031-9a2b-1c0d3e2f4a5b", pipeline_type:"telemetry-agg", state:"AGGREGATING",
+    attachment_mode:"PER_STAGE", tags:["ops","priority"], created_at:"2026-07-19T10:11:27Z", updated_at:"2026-07-19T10:23:58Z",
+    stages:[ {stage_id:"ingest-a", state:"ACCEPTED", submitted_at:"2026-07-19T10:13:10Z"},
+             {stage_id:"ingest-b", state:"RETRIED", submitted_at:"2026-07-19T10:22:44Z"},
+             {stage_id:"ingest-c", state:"TIMEOUT", submitted_at:null} ] },
+  { run_id:"1c2d3e4f-5061-4728-8a9b-0c1d2e3f4a5b", pipeline_type:"compliance-report", state:"SENDING",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["finance"], created_at:"2026-07-19T09:58:03Z", updated_at:"2026-07-19T10:24:12Z",
+    stages:[ {stage_id:"controls-scan", state:"ACCEPTED", submitted_at:"2026-07-19T10:01:22Z"} ] },
+  { run_id:"4f5e6d7c-8b9a-40c1-92d3-e4f5061728a9", pipeline_type:"nightly-etl", state:"SENT",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["finance"], created_at:"2026-07-18T22:00:05Z", updated_at:"2026-07-18T22:06:48Z",
+    stages:[ {stage_id:"stage-extract", state:"ACCEPTED", submitted_at:"2026-07-18T22:01:10Z"},
+             {stage_id:"stage-transform", state:"ACCEPTED", submitted_at:"2026-07-18T22:03:55Z"},
+             {stage_id:"stage-load", state:"ACCEPTED", submitted_at:"2026-07-18T22:05:30Z"} ] },
+  { run_id:"6a7b8c9d-0e1f-4233-8455-66778899aabb", pipeline_type:"risk-model", state:"FAILED",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["finance","priority"], created_at:"2026-07-18T20:30:00Z", updated_at:"2026-07-18T20:41:17Z",
+    stages:[ {stage_id:"var-compute", state:"ACCEPTED", submitted_at:"2026-07-18T20:33:04Z"},
+             {stage_id:"stress-test", state:"FAILED", submitted_at:"2026-07-18T20:40:52Z"} ] },
+  { run_id:"88990011-2233-4455-6677-8899aabbccdd", pipeline_type:"legacy-import", state:"ORPHANED",
+    attachment_mode:"PER_STAGE", tags:["ops"], created_at:"2026-07-18T18:00:00Z", updated_at:"2026-07-18T19:05:00Z",
+    stages:[ {stage_id:"legacy-a", state:"ACCEPTED", submitted_at:"2026-07-18T18:04:00Z"},
+             {stage_id:"legacy-b", state:"PENDING", submitted_at:null} ] },
+  { run_id:"aabb1122-ccdd-4ee5-9f00-112233445566", pipeline_type:"sales-rollup", state:"SENT",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["sales"], created_at:"2026-07-18T17:00:00Z", updated_at:"2026-07-18T17:04:31Z",
+    stages:[ {stage_id:"stage-daily", state:"ACCEPTED", submitted_at:"2026-07-18T17:01:20Z"} ] },
+  { run_id:"deadbeef-1234-4567-89ab-cdef01234567", pipeline_type:"inventory-sync", state:"SENT",
+    attachment_mode:"PER_STAGE", tags:["ops"], created_at:"2026-07-18T16:00:00Z", updated_at:"2026-07-18T16:07:12Z",
+    stages:[ {stage_id:"warehouse-east", state:"ACCEPTED", submitted_at:"2026-07-18T16:02:00Z"},
+             {stage_id:"warehouse-west", state:"ACCEPTED", submitted_at:"2026-07-18T16:03:40Z"} ] },
+  { run_id:"12ab34cd-56ef-4780-91a2-b3c4d5e6f708", pipeline_type:"marketing-metrics", state:"READY",
+    attachment_mode:"SINGLE_AGGREGATED", tags:["marketing"], created_at:"2026-07-19T10:05:14Z", updated_at:"2026-07-19T10:20:44Z",
+    stages:[ {stage_id:"campaign-agg", state:"ACCEPTED", submitted_at:"2026-07-19T10:08:00Z"} ] },
+];
+
+let quick = "inwork";
+const rowsEl = document.getElementById("rows");
+const sumEl = document.getElementById("summary");
+const countEl = document.getElementById("count");
+const NOW = new Date("2026-07-19T10:26:00Z");
+
+function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function shortId(id){ return id.slice(0,8); }
+function badge(state){
+  const s = STATE_STYLE[state];
+  const style = `--b-bg:${s.bg};--b-ink:${s.ink};--b-line:${s.line};--b-dot:${s.dot}`;
+  return `<span class="badge ${s.spin?'spin':''}" style="${style}"><span class="dot"></span>${s.label}</span>`;
+}
+function rel(iso){
+  const d = new Date(iso); const mins = Math.round((NOW - d)/60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const hrs = Math.round(mins/60); if (hrs < 24) return hrs + "h ago";
+  return Math.round(hrs/24) + "d ago";
+}
+function inSet(state){
+  if (quick === "all") return true;
+  if (quick === "inwork") return IN_WORK.includes(state);
+  return TERMINAL.includes(state);
+}
+
+function renderSummary(){
+  const order = [...IN_WORK, ...TERMINAL];
+  const counts = {}; order.forEach(s => counts[s] = 0);
+  RUNS.forEach(r => counts[r.state]++);
+  const inwork = IN_WORK.reduce((a,s)=>a+counts[s],0);
+  const term = TERMINAL.reduce((a,s)=>a+counts[s],0);
+  const cards = [
+    { key:"inwork", n:inwork, l:"In work", cls:"inwork" },
+    ...order.map(s => ({ key:s, n:counts[s], l:STATE_STYLE[s].label, cls:"" })),
+  ];
+  sumEl.innerHTML = cards.map(c =>
+    `<div class="stat ${c.cls} ${ (quick==='inwork'&&c.key==='inwork') ? 'active':'' }" data-key="${c.key}">
+       <div class="n">${c.n}</div><div class="l">${c.l}</div></div>`).join("");
+  sumEl.querySelectorAll(".stat").forEach(el => el.onclick = () => {
+    const k = el.dataset.key;
+    if (k === "inwork") setQuick("inwork");
+    else { quick = "all"; syncQuickButtons(); onlyState = onlyState === k ? null : k; render(); }
+  });
+}
+
+let onlyState = null;
+function setQuick(q){ quick = q; onlyState = null; syncQuickButtons(); render(); }
+function syncQuickButtons(){
+  document.querySelectorAll("#quick button").forEach(b => b.classList.toggle("on", b.dataset.q === quick));
+}
+
+function render(){
+  renderSummary();
+  const list = RUNS.filter(r => inSet(r.state)).filter(r => !onlyState || r.state === onlyState);
+  list.sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+  rowsEl.innerHTML = list.map((r,i) => {
+    const tags = r.tags.map(t => `<span class="tag">${esc(t)}</span>`).join(" ") || `<span class="muted">—</span>`;
+    const attach = r.attachment_mode === "PER_STAGE" ? "per-stage" : "aggregated";
+    const stageRows = r.stages.map(s => {
+      const c = (STAGE_STYLE[s.state]||{c:"#8a99a8"}).c;
+      const sub = s.submitted_at ? rel(s.submitted_at) : "<span class='muted'>not submitted</span>";
+      return `<tr><td style="font-family:var(--mono);color:var(--ink-soft)">${esc(s.stage_id)}</td>
+        <td><span style="color:${c};font-weight:600">●</span> ${esc(s.state)}</td>
+        <td class="muted">${sub}</td></tr>`;
+    }).join("");
+    return `
+      <tr class="run" data-i="${i}">
+        <td>${badge(r.state)}</td>
+        <td><span class="caret">▶</span> <span class="rid">${shortId(r.run_id)}</span></td>
+        <td class="pipe">${esc(r.pipeline_type)} <span class="attach">· ${attach}</span></td>
+        <td>${tags}</td>
+        <td class="muted" title="${r.created_at}">${rel(r.created_at)}</td>
+        <td class="muted" title="${r.updated_at}">${rel(r.updated_at)}</td>
+      </tr>
+      <tr class="detail hidden" data-d="${i}"><td colspan="6"><div class="inner">
+        <div class="stage-h">Stages · ${r.stages.length} · full run id <span class="rid">${esc(r.run_id)}</span></div>
+        <table class="stages"><tbody>${stageRows}</tbody></table>
+      </div></td></tr>`;
+  }).join("");
+  countEl.textContent = list.length + " run" + (list.length===1?"":"s") + " shown";
+  rowsEl.querySelectorAll("tr.run").forEach(tr => tr.onclick = () => {
+    const d = rowsEl.querySelector(`tr.detail[data-d="${tr.dataset.i}"]`);
+    tr.classList.toggle("open"); d.classList.toggle("hidden");
+  });
+}
+
+document.querySelectorAll("#quick button").forEach(b => b.onclick = () => setQuick(b.dataset.q));
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+/* Embedded metrics dashboard styles (L3-DASH-017).
+ *
+ * Hand-authored, self-contained: no @import, no url(), no external font or
+ * asset reference of any kind. Ships as a packaged static asset. */
+
+:root {
+  --bg: #0f1729;
+  --panel: #17223b;
+  --panel-border: #2a3a5e;
+  --text: #e6ecf5;
+  --muted: #9fb0cc;
+  --bar: #4f8cff;
+  --bar-alt: #37c0a8;
+  --grid: #2a3a5e;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6fb;
+    --panel: #ffffff;
+    --panel-border: #d9e0ee;
+    --text: #14203a;
+    --muted: #5a6a88;
+    --bar: #2f6bdb;
+    --bar-alt: #1f9e88;
+    --grid: #e3e8f2;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+header.dash-head { margin-bottom: 1.25rem; }
+header.dash-head h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
+header.dash-head p { margin: 0; color: var(--muted); }
+
+.panels { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem 1rem;
+  overflow-x: auto;
+}
+.panel h2 { margin: 0 0 0.15rem; font-size: 0.95rem; }
+.panel .help { margin: 0 0 0.6rem; color: var(--muted); font-size: 0.8rem; }
+.panel .stat-row { display: flex; gap: 1.25rem; margin-bottom: 0.6rem; color: var(--muted); font-size: 0.82rem; }
+.panel .stat-row b { color: var(--text); font-variant-numeric: tabular-nums; }
+.panel .empty { color: var(--muted); font-style: italic; font-size: 0.85rem; }
+
+svg { display: block; width: 100%; height: auto; }
+svg .bar { fill: var(--bar); }
+svg .bar.alt { fill: var(--bar-alt); }
+svg .bar-label, svg .bar-value { fill: var(--text); font-size: 11px; }
+svg .bar-value { text-anchor: end; font-variant-numeric: tabular-nums; }
+svg .axis { stroke: var(--grid); stroke-width: 1; }

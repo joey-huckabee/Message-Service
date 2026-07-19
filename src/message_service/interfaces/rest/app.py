@@ -41,13 +41,14 @@ from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import structlog
-from fastapi import FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from message_service.application.use_cases.login import AuthenticationError
 from message_service.domain.aggregates.password import Password
+from message_service.interfaces.rest.metrics_dashboard import render_metrics_dashboard
 from message_service.observability.logging_setup import (
     bind_request_context,
     clear_request_context,
@@ -447,6 +448,27 @@ def create_app(service: Service) -> FastAPI:
             content=generate_latest(),
             media_type=CONTENT_TYPE_LATEST,
         )
+
+    # -------------------------------------------------------------------------
+    # Embedded metrics dashboard (L1-DASH-004 / L2-DASH-010 / L2-DASH-011)
+    # -------------------------------------------------------------------------
+
+    _require_admin_for_metrics = require_admin_factory(service)
+
+    @app.get("/admin/metrics", response_class=HTMLResponse)
+    async def admin_metrics(_admin_id: int = Depends(_require_admin_for_metrics)) -> HTMLResponse:
+        """Admin-only embedded metrics dashboard (L3-DASH-016).
+
+        Server-side obtains the current Prometheus exposition from the same
+        source ``GET /metrics`` serves (``generate_latest``) — so this view is
+        byte-consistent with what external scrapers see, satisfying L2-DASH-010
+        — parses it (L3-DASH-036) and returns a self-contained HTML page that
+        renders the metrics as inline SVG via hand-authored packaged static
+        assets (L3-DASH-017): no third-party charting library, no CDN.
+        """
+        from prometheus_client import generate_latest
+
+        return HTMLResponse(content=render_metrics_dashboard(generate_latest().decode("utf-8")))
 
     # -------------------------------------------------------------------------
     # Login / Logout

@@ -16,11 +16,11 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.5.0** (`R-TMPL-001` — per-pipeline email
-body templates); the next cut is **v0.6.0** — nothing is scheduled into it yet.
-Pull items from the **Deferred features** backlog below, promote each to real
-L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
-result under a new dated section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.6.0** (`L2-MAIL-014` resend-subject
+conformance fix — not a backlog item); the next cut is **v0.7.0** — nothing is
+scheduled into it yet. Pull items from the **Deferred features** backlog below,
+promote each to real L1/L2/L3 requirements in the L-REQ docs, implement, and
+record the shipped result under a new dated section in `CHANGELOG.md`.
 
 ## Planned
 

@@ -12,6 +12,29 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-07-18
+
+Resend subject conformance — a correctness fix closing a gap exposed by the
+v0.4.0/v0.5.0 per-pipeline override work. The manual-resend path had hardcoded
+its own `Subject:` header, so it ignored the v0.4.0 `subject_templates` override
+and diverged from the `L2-MAIL-014` format — while v0.5.0's per-pipeline body
+template *did* apply on resend, making the asymmetry visible. Resend now shares
+a single subject-construction chokepoint with first delivery. **64 of 67 L1
+requirements Implemented** at **95.05% branch coverage** over **1426 tests**;
+three intentional partials remain toward 1.0.0.
+
+### Fixed
+
+- **Resend now conforms to `L2-MAIL-014` (`L3-MAIL-034`).** `ResendRunUseCase`
+  previously set the subject to `Run {run_id} -- {pipeline_type}`, which bypassed
+  the per-pipeline `subject_templates` override (v0.4.0) and the `pipeline_type`
+  sanitization, and diverged from the canonical `[{pipeline_type}] run {run_id}`
+  default. Both the first-delivery and resend paths now obtain the subject from a
+  single shared `AssembleAndDeliverUseCase.build_subject(run)`, so the default
+  format, the per-pipeline override, and sanitization apply identically on
+  resend. **Behavior change:** resend emails now use the canonical subject format
+  (and any configured override) instead of the old resend-only format.
+
 ## [0.5.0] — 2026-07-18
 
 Per-pipeline email body templates — the next deferred-feature item
@@ -177,7 +200,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.2.0...v0.3.0

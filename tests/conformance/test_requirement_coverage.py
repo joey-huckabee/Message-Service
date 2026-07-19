@@ -120,6 +120,6 @@ def test_parse_allowlist_rejects_malformed_id() -> None:
 
 @pytest.mark.requirement("L3-CICD-019")
 def test_committed_allowlist_parses() -> None:
-    """The committed allowlist is well-formed and contains the known deferral."""
+    """The committed allowlist is well-formed (empty as of v0.12.0 — all L1s covered)."""
     allowed = _M.parse_allowlist(_ALLOWLIST.read_text(encoding="utf-8"))
-    assert "L1-DASH-004" in allowed
+    assert allowed == set()

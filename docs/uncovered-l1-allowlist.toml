@@ -6,14 +6,7 @@
 # `id` (L1-<CAT>-<NNN>) and a non-empty `reason`. Keep this list short: an entry
 # is a promise to revisit, and its diff is where reviewers notice a gap being
 # excused.
-
-[[allowed]]
-id = "L1-DASH-004"
-reason = """Embedded metrics dashboard deferred (ROADMAP R-DASH-004); its L2 \
-children (L2-DASH-010/011) are the in-service visualization, to be hand-authored \
-(inline SVG, no external chart library) per the phased plan in the ROADMAP. The \
-operationally important half — the Prometheus /metrics scrape endpoint — ships \
-and is verified under the L1-OBS requirements, so nothing functional is missing; \
-only L1-DASH-004's own subtree is uncovered. When built, its metrics parser gets \
-unit tests and the route gets an admin-gate test; the SVG rendering is verified \
-by local demonstration until a browser-based UI test harness (deferred) lands."""
+#
+# As of v0.12.0 every L1 requirement has at least one linked verification
+# artifact (L1-DASH-004, the last deferral, shipped in v0.12.0 as the embedded
+# metrics dashboard), so the allowlist is intentionally empty.

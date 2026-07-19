@@ -190,10 +190,19 @@ class PipelinesConfig(_FrozenForbid):
             without an entry use the default ``[{pipeline_type}] run
             {run_id}`` format, so an empty mapping (the default) preserves
             v1 behavior exactly.
+        email_body_template_overrides: Optional per-pipeline email-body
+            template override (L2-TMPL-015 / L3-TMPL-033). Maps a
+            registered ``pipeline_type`` to a ``(name, version)`` template
+            reference; the referenced template must exist in the manifest
+            (validated at startup, L3-TMPL-034). Pipelines without an entry
+            render the email body from the service-wide
+            ``templates.email_body_template_ref``, so an empty mapping (the
+            default) preserves the single-template behavior exactly.
     """
 
     registered: list[str] = Field(default_factory=list)
     subject_templates: dict[str, str] = Field(default_factory=dict)
+    email_body_template_overrides: dict[str, TemplateRefConfig] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _validate_subject_templates(self) -> PipelinesConfig:
@@ -227,6 +236,32 @@ class PipelinesConfig(_FrozenForbid):
                     f"subject_templates[{pipeline_type!r}] is not a valid subject template "
                     f"(only {{pipeline_type}} and {{run_id}} placeholders are allowed): {exc}"
                 ) from exc
+        return self
+
+    @model_validator(mode="after")
+    def _validate_body_template_override_keys(self) -> PipelinesConfig:
+        """Validate per-pipeline body-template override keys at load time (L3-TMPL-033).
+
+        Manifest existence of each referenced template is validated
+        separately at startup (L3-TMPL-034), where the loaded manifest is
+        available; this load-time check only rejects overrides keyed on a
+        non-registered ``pipeline_type``.
+
+        Returns:
+            The validated model instance.
+
+        Raises:
+            ValueError: An override key is not a member of ``registered``.
+                Pydantic surfaces this as a schema ``ValidationError`` per
+                L3-CFG-006.
+        """
+        registered = set(self.registered)
+        for pipeline_type in self.email_body_template_overrides:
+            if pipeline_type not in registered:
+                raise ValueError(
+                    f"email_body_template_overrides key {pipeline_type!r} is not a registered "
+                    f"pipeline_type; an override for an unregistered pipeline can never fire"
+                )
         return self
 
 

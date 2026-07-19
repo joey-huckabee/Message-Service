@@ -12,6 +12,32 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-07-19
+
+Template authoring documentation. A guide for adding, validating, versioning,
+and testing Jinja2 templates — tying together the template system the recent
+per-pipeline subject/body override work built on — plus fixes for two stale
+docs surfaced while writing it. No code or requirement changes; **66 of 67 L1
+requirements Implemented** at **95.14% branch coverage** over **1457 tests**.
+
+### Added
+
+- **`docs/template-author-guide.md`.** End-to-end authoring workflow: the three
+  template kinds (`REPORT_FRAGMENT` / `AGGREGATION` / `EMAIL_BODY`) and the
+  context each receives, manifest registration, `(name, version)` and `"latest"`
+  resolution, JSON Schema context validation, the sandbox rules
+  (`autoescape` / `StrictUndefined` / size limits), the per-pipeline
+  `subject_templates` / `email_body_template_overrides` overrides, and how to
+  test a template in isolation. Linked from `CLAUDE.md`.
+
+### Fixed
+
+- **Stale `config/templates.manifest.example.toml`.** The example would not
+  load: it used `schema_path` (the loader field is `context_schema_path`) and
+  omitted the required `kind`. Rewritten to match `manifest_loader.py`.
+- **Stale requirement counts in `CLAUDE.md`** (`192 / 393` → `195 / 404`),
+  which had drifted as L2/L3 statements were added across releases.
+
 ## [0.9.0] — 2026-07-19
 
 Per-L1 requirement-coverage gate — the "requirement-level coverage enforcement"
@@ -303,7 +329,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.6.0...v0.7.0

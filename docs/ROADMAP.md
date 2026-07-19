@@ -16,8 +16,8 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.9.0** (per-L1 requirement-coverage CI
-gate); the next cut is **v0.10.0** — nothing is scheduled into it yet. Pull
+each release cut. The last cut was **v0.10.0** (template author guide + stale-doc
+fixes); the next cut is **v0.11.0** — nothing is scheduled into it yet. Pull
 items from the **Deferred features** backlog below, promote each to real
 L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
 result under a new dated section in `CHANGELOG.md`.
@@ -249,8 +249,8 @@ referenced by spec docs and code comments; keep the tags stable.
 
 ### Documentation
 
-- **Template author guide** — how to add a new template to the manifest, define
-  its JSON Schema, and test it in isolation.
+- _(No documentation items currently queued — the template author guide shipped
+  in v0.10.0; see `docs/template-author-guide.md`.)_
 
 ## Shared commitments
 

@@ -16,12 +16,14 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.14.0** (the embedded run-status board,
-`L1-DASH-006`); the next cut is **v0.15.0** — nothing is scheduled into it yet.
-Pull items from the **Deferred features** backlog below (excluding the
-`→ 2.0.0`-tagged items, which are held for the 2.0.0 milestone), promote each to
-real L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
-result under a new dated section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.15.0** (browser login page + admin
+recipient console + configurable local admin — `L1-AUTH-004`, `L1-DASH-007`,
+`L1-DASH-008`); the next cut is **v0.16.0** — the admin-on-behalf-of subscription
+management that extends the console (see **Toward 1.0.0** below). Pull items from
+the **Deferred features** backlog (excluding the `→ 2.0.0`-tagged items, which
+are held for the 2.0.0 milestone), promote each to real L1/L2/L3 requirements in
+the L-REQ docs, implement, and record the shipped result under a new dated
+section in `CHANGELOG.md`.
 
 ## Planned
 
@@ -51,11 +53,11 @@ usable browser dashboard:
 
 - **v0.14.0** closed the first gap: the run-status board (`L1-DASH-006`) turned
   the JSON-only runs API into a browser page.
-- **v0.15.0 (planned)** adds the service's first **browser login page** and an
-  **admin console for the recipient roster** (list / create / update / disable
-  user accounts + email addresses, reset passwords), backed by a **configurable
-  local admin account** provisioned from config at startup. The model is
-  *admin-managed*, not self-service.
+- **v0.15.0** added the service's first **browser login page** (`L1-DASH-007`)
+  and an **admin console for the recipient roster** (`L1-DASH-008`: list / create
+  / update / disable user accounts + email addresses, reset passwords), backed by
+  a **configurable local admin account** (`L1-AUTH-004`) provisioned from config
+  at startup. The model is *admin-managed*, not self-service.
 - **v0.16.0 (planned)** extends the console with **admin-on-behalf-of
   subscription management** — the admin assigns which notifications
   (`GLOBAL`/`PIPELINE`/`TAG`) each recipient is registered for. This needs new

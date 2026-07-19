@@ -12,6 +12,47 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-07-19
+
+The dashboard gets its first **browser login page** and an **admin console** for
+managing notification recipients — backed by a **configurable local admin
+account** so an operator can sign in without pre-seeding the database. This is
+the admin-managed step toward a usable browser dashboard; it adds three L1s
+(`L1-AUTH-004`, `L1-DASH-007`, `L1-DASH-008`) — **72 of 72 L1 requirements
+Implemented** — at **95.29% branch coverage** over **1547 tests**.
+
+### Added
+
+- **Configurable local administrator account (`L1-AUTH-004`).** A new optional
+  `[auth.admin]` config section (`email` + an environment-substitutable
+  `password`, exactly like `smtp.password`). At startup the composition root
+  reconciles it: it creates the account if absent (Argon2id-hashed password,
+  admin privilege, enabled) and, if it already exists, re-asserts admin + enabled
+  **without** overwriting a password rotated through the admin API. This breaks
+  the bootstrap chicken-and-egg (every account-creation route already required an
+  admin) and guarantees the operator can never be locked out. Omit the section to
+  disable the behavior — fully backward compatible.
+- **Browser login page (`L1-DASH-007`).** A new public `GET /login` route serves
+  a hand-authored HTML sign-in page; its client code posts to the existing JSON
+  `POST /login` (unchanged) and redirects to the admin console on success.
+- **Admin notification console (`L1-DASH-008`).** A new admin-gated
+  `GET /admin/console` page for managing notification recipients — listing local
+  accounts with their email, role, and status, and creating / updating /
+  disabling them and resetting passwords. It is a thin presentation layer over
+  the existing admin account APIs (echoing the CSRF cookie on writes; redirecting
+  to `/login` on a `401`), backed by a new admin-gated `GET /admin/users`
+  listing endpoint (and a `UserRepository.list_paginated` query). Subscription
+  management — assigning which notifications each recipient receives — is the next
+  step (see `docs/ROADMAP.md`).
+- All new dashboard pages are **hand-authored HTML/CSS/JS with no third-party
+  library and no external/CDN reference**; the no-external-reference conformance
+  scan now covers the login and console assets too.
+
+### Configuration
+
+- `[auth.admin]` (optional) — `email` + environment-substitutable `password`.
+  Documented in `config/config.toml.example`; omit to disable.
+
 ## [0.14.0] — 2026-07-19
 
 An embedded **run-status board** — the runs API, which was JSON-only, now has a

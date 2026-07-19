@@ -14,6 +14,8 @@ host = "0.0.0.0"
 port = 50051
 # L3-API-001: in-flight RPC cap; gRPC queues excess at the server level.
 max_concurrent_rpcs = 100
+# L3-API-019: rejecting concurrency limit; 0 disables it (default).
+max_in_flight_rpcs = 0
 
 [dashboard]
 # L2-DASH-002: FastAPI dashboard listener (must differ from grpc.port)

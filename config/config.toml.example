@@ -34,6 +34,10 @@ port = 50051
 # Cap of concurrent in-flight RPCs at the server level (L3-API-001).
 # gRPC queues excess; tune up for higher-fanout pipelines.
 max_concurrent_rpcs = 100
+# Rejecting concurrency limit (L3-API-019): 0 disables it (default). Any
+# positive value caps concurrently-executing RPCs and rejects excess with
+# RESOURCE_EXHAUSTED instead of queuing, giving clients a backpressure signal.
+max_in_flight_rpcs = 0
 
 [dashboard]
 # FastAPI dashboard listener. Expose only on the management interface.

@@ -78,11 +78,19 @@ class GrpcConfig(_FrozenForbid):
     per L3-API-001; excess requests are queued by gRPC's internal
     scheduler. Default 100 is generous for the v1 single-tenant ETL
     workload while still bounding pathological burst behavior.
+
+    ``max_in_flight_rpcs`` is the *rejecting* concurrency limit
+    (L3-API-019): ``0`` (default) disables it and any positive value
+    ``N`` caps concurrently-executing RPCs at ``N``, rejecting excess
+    with ``RESOURCE_EXHAUSTED`` rather than queuing it. This is
+    orthogonal to ``max_concurrent_rpcs`` (which only queues) and is
+    off by default so existing deployments are unaffected.
     """
 
     host: str = Field(default="0.0.0.0", min_length=1)
     port: int = Field(default=50_051, ge=1, le=65_535)
     max_concurrent_rpcs: int = Field(default=100, ge=1)
+    max_in_flight_rpcs: int = Field(default=0, ge=0)
 
 
 class DashboardConfig(_FrozenForbid):

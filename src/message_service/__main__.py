@@ -56,6 +56,9 @@ import uvicorn
 from message_service.bootstrap import Service, build_service, shutdown_service
 from message_service.config.loader import load_config
 from message_service.config.schema import Config
+from message_service.interfaces.grpc.concurrency_limit_interceptor import (
+    ConcurrencyLimitInterceptor,
+)
 from message_service.interfaces.grpc.correlation_interceptor import CorrelationIdInterceptor
 from message_service.interfaces.grpc.servicer import register
 from message_service.interfaces.rest.app import create_app
@@ -124,12 +127,17 @@ async def _build_grpc_server(service: Service) -> tuple[grpc.aio.Server, str]:
     Separated from :func:`_run` so tests can exercise construction
     independently of the blocking main loop.
     """
+    # L3-API-002 / L3-OBS-003: bind a fresh correlation_id per RPC so every log
+    # record (success + failure) carries it and the error translator can surface
+    # the same id to the client. The concurrency limiter (L3-API-020) is ordered
+    # AFTER correlation so a rejection log record carries the RPC's id; it is
+    # installed only when grpc.max_in_flight_rpcs > 0 (0 = disabled).
+    interceptors: list[grpc.aio.ServerInterceptor] = [CorrelationIdInterceptor()]
+    if service.config.grpc.max_in_flight_rpcs > 0:
+        interceptors.append(ConcurrencyLimitInterceptor(service.config.grpc.max_in_flight_rpcs))
     server = grpc.aio.server(
         maximum_concurrent_rpcs=service.config.grpc.max_concurrent_rpcs,
-        # L3-API-002 / L3-OBS-003: bind a fresh correlation_id per RPC so every
-        # log record (success + failure) carries it and the error translator can
-        # surface the same id to the client.
-        interceptors=[CorrelationIdInterceptor()],
+        interceptors=interceptors,
     )
     register(server, service)
 

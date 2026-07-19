@@ -498,6 +498,7 @@ async def build_service(config: Config) -> Service:
         run_timeout_seconds=config.sweeper.run_timeout_seconds,
         disposition_actions=config.sweeper.disposition_actions,
         handlers_by_id=handlers_by_id,
+        disposition_overrides=config.pipelines.orphan_disposition_overrides,
         max_candidates_per_iteration=config.sweeper.max_candidates_per_iteration,
         metrics_recorder=metrics_recorder,
     )

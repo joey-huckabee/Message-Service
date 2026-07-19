@@ -118,6 +118,7 @@ class SweeperUseCase:
         run_timeout_seconds: int,
         disposition_actions: Sequence[DispositionAction],
         handlers_by_id: Mapping[DispositionAction, DispositionHandler],
+        disposition_overrides: Mapping[str, Sequence[DispositionAction]] | None = None,
         max_candidates_per_iteration: int = 1_000,
         metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
@@ -137,9 +138,16 @@ class SweeperUseCase:
                 (L2-SWEEP-009).
             handlers_by_id: Mapping from action identifier to its
                 implementation. MUST contain at least every id that
-                appears in ``disposition_actions``; extra entries are
+                appears in ``disposition_actions`` or any
+                ``disposition_overrides`` value; extra entries are
                 harmless. Typically one-to-one populated by the
                 bootstrap.
+            disposition_overrides: Optional per-pipeline disposition policy
+                (L2-SWEEP-011) from
+                ``config.pipelines.orphan_disposition_overrides``, mapping
+                ``pipeline_type`` to its ordered action list. A run whose
+                ``pipeline_type`` is a key uses that list; all others use
+                ``disposition_actions``. Defaults to no overrides.
             max_candidates_per_iteration: Per-tick cap on orphan
                 candidates the sweeper claims (L2-SWEEP-010 /
                 L3-SWEEP-008). Backlogs larger than this drain across
@@ -149,22 +157,29 @@ class SweeperUseCase:
                 a NoOp instance for tests.
 
         Raises:
-            ConfigurationError: ``disposition_actions`` contains an
-                identifier for which no handler is registered. Surfaces
-                at bootstrap time so misconfiguration fails loud-and-early
-                rather than per-orphan at runtime (cf. L3-SWEEP-012).
+            ConfigurationError: ``disposition_actions`` or any
+                ``disposition_overrides`` value contains an identifier for
+                which no handler is registered. Surfaces at bootstrap time so
+                misconfiguration fails loud-and-early rather than per-orphan
+                at runtime (cf. L3-SWEEP-012 / L3-SWEEP-024).
             ValueError: ``max_candidates_per_iteration`` is not positive.
         """
         if max_candidates_per_iteration < 1:
             raise ValueError(
                 f"max_candidates_per_iteration must be positive; got {max_candidates_per_iteration}"
             )
-        missing = [a for a in disposition_actions if a not in handlers_by_id]
+        overrides = {pt: tuple(actions) for pt, actions in (disposition_overrides or {}).items()}
+        # L3-SWEEP-024: validate the global policy AND every override action
+        # against the registered handlers, in a stable order for diagnostics.
+        all_actions = list(disposition_actions) + [
+            a for actions in overrides.values() for a in actions
+        ]
+        missing = sorted({a for a in all_actions if a not in handlers_by_id})
         if missing:
             raise ConfigurationError(
                 f"no handler registered for disposition action(s): {missing}",
                 details={
-                    "missing_actions": list(missing),
+                    "missing_actions": missing,
                     "registered_actions": sorted(handlers_by_id.keys()),
                 },
             )
@@ -172,9 +187,22 @@ class SweeperUseCase:
         self._clock = clock
         self._run_timeout = timedelta(seconds=run_timeout_seconds)
         self._disposition_actions = tuple(disposition_actions)
+        self._disposition_overrides: dict[str, tuple[DispositionAction, ...]] = overrides
         self._handlers = dict(handlers_by_id)
         self._max_candidates = max_candidates_per_iteration
         self._metrics = metrics_recorder or NoOpMetricsRecorder()
+
+    def _resolve_disposition_actions(self, pipeline_type: str) -> tuple[DispositionAction, ...]:
+        """Return the disposition action list for a pipeline (L3-SWEEP-023).
+
+        Args:
+            pipeline_type: The orphaned run's ``pipeline_type``.
+
+        Returns:
+            The per-pipeline override list when configured, else the global
+            ``disposition_actions``.
+        """
+        return self._disposition_overrides.get(pipeline_type, self._disposition_actions)
 
     async def tick(self) -> TickResult:
         """Run one polling iteration.
@@ -215,14 +243,15 @@ class SweeperUseCase:
         enqueued_actions = 0
 
         for candidate in candidates:
-            committed = await self._transition_audit_and_enqueue(candidate.run_id)
-            if not committed:
+            enqueued = await self._transition_audit_and_enqueue(candidate.run_id)
+            if enqueued is None:
                 # Either the run was no longer present, or a concurrent
                 # transaction finalized it first. Either way nothing
-                # to do.
+                # to do. (0 is a valid committed count for an empty
+                # per-pipeline override, so we test `is None`, not falsiness.)
                 continue
             orphaned_count += 1
-            enqueued_actions += len(self._disposition_actions)
+            enqueued_actions += enqueued
 
         return TickResult(
             orphaned_count=orphaned_count,
@@ -231,7 +260,7 @@ class SweeperUseCase:
 
     # -- Helpers ------------------------------------------------------------
 
-    async def _transition_audit_and_enqueue(self, run_id: RunId) -> bool:
+    async def _transition_audit_and_enqueue(self, run_id: RunId) -> int | None:
         """Transition + audit + outbox enqueue in one UoW (L2-SWEEP-006).
 
         Three writes share a single transaction so they commit together
@@ -239,12 +268,14 @@ class SweeperUseCase:
 
         * ``runs.state`` updated to ``ORPHANED``
         * ``audit_log`` row recording ``SWEEP_ORPHAN``
-        * One ``sweeper_actions`` row per configured disposition action
+        * One ``sweeper_actions`` row per resolved disposition action
 
-        Returns ``True`` if the transaction committed, ``False`` if the
-        run was not in an eligible state (concurrent finalizer won,
-        or the run disappeared entirely). Ineligible cases are
-        unrecoverable for this tick, not errors.
+        Returns the number of disposition actions enqueued (>= 0) if the
+        transaction committed, or ``None`` if the run was not in an eligible
+        state (concurrent finalizer won, or the run disappeared entirely).
+        Ineligible cases are unrecoverable for this tick, not errors. The
+        return distinguishes ``0`` (committed with an empty per-pipeline
+        override) from ``None`` (not committed).
         """
         async with self._uow_factory() as uow:
             try:
@@ -253,7 +284,7 @@ class SweeperUseCase:
                 # Run vanished between list_expired and this read.
                 # Nothing to do.
                 _log.warning("sweeper_run_gone_before_orphan", run_id=run_id)
-                return False
+                return None
 
             now = self._clock.now()
             prior_state = run.state
@@ -271,7 +302,13 @@ class SweeperUseCase:
                     run_id=run_id,
                     current_state=prior_state.value,
                 )
-                return False
+                return None
+
+            # L3-SWEEP-023: resolve the disposition action list for this run's
+            # pipeline (per-pipeline override else the global policy). The same
+            # resolved list drives the audit record, the outbox rows, and the
+            # returned count.
+            resolved_actions = self._resolve_disposition_actions(run.pipeline_type)
 
             await uow.run_repo.update_state(run_id, next_state, now)
 
@@ -293,7 +330,7 @@ class SweeperUseCase:
                     "prior_state": prior_state.value,
                     "new_state": next_state.value,
                     "last_transition_at": run.updated_at.isoformat(),
-                    "enqueued_actions": list(self._disposition_actions),
+                    "enqueued_actions": list(resolved_actions),
                     "pending_stage_ids": sorted(str(sid) for sid in pending_stage_ids),
                 },
             )
@@ -303,7 +340,7 @@ class SweeperUseCase:
             # L3-SWEEP-015). The dispatcher reads back rows ordered by
             # enqueued_at; same-timestamp rows are then ordered by
             # action_id (auto-increment) which mirrors insert order.
-            for action_id in self._disposition_actions:
+            for action_id in resolved_actions:
                 await uow.sweeper_action_repo.enqueue(
                     run_id=run_id,
                     action_name=action_id,
@@ -317,7 +354,7 @@ class SweeperUseCase:
         # L1-OBS-002 / L3-OBS-009 metrics, post-commit.
         self._metrics.record_run_state_transition(next_state)
         self._metrics.observe_run_duration_seconds(duration_seconds)
-        return True
+        return len(resolved_actions)
 
 
 __all__ = ["SweeperUseCase", "TickResult"]

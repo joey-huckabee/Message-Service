@@ -138,6 +138,18 @@ registered = [
 # etl-nightly = { name = "nightly_email_body", version = "1.0" }
 # backup-daily = { name = "backup_email_body", version = "2.1" }
 
+# Optional per-pipeline ORPHAN DISPOSITION override (L2-SWEEP-011 / R-SWEEP-001).
+# Maps a registered pipeline_type to an ordered list of disposition action ids
+# applied by the sweeper when a run of that pipeline orphans, overriding the
+# global `sweeper.disposition_actions` (below). A pipeline with no entry uses the
+# global policy; an empty list [] means "orphan but take no action". Keys must be
+# in `registered`, and every action id must have a registered handler (checked at
+# startup — same as the global policy; v1 implements DISCARD_SILENTLY and
+# NOTIFY_ADMINS only).
+# [pipelines.orphan_disposition_overrides]
+# etl-nightly = ["NOTIFY_ADMINS", "DISCARD_SILENTLY"]
+# ingestion-test = ["DISCARD_SILENTLY"]
+
 # --- Sweeper -----------------------------------------------------------------
 # The orphan sweeper periodically transitions runs stuck in active
 # states (INITIATED, AGGREGATING, READY, SENDING) to ORPHANED and

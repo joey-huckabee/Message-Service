@@ -12,6 +12,38 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-07-19
+
+An embedded **run-status board** — the runs API, which was JSON-only, now has a
+browser page. Operators can see which runs are in flight versus delivered,
+filter by state, and drill into a run's stages, offline and with no external
+dependencies. Adds one L1 (`L1-DASH-006`) — **69 of 69 L1 requirements
+Implemented** — at **95.21% branch coverage** over **1512 tests**.
+
+### Added
+
+- **Run-status board (`L1-DASH-006` / `L2-DASH-017`, `L2-DASH-018` /
+  `L3-DASH-037`, `L3-DASH-038`, `L3-DASH-039`).** A new session-gated page at
+  `GET /runs/board` presents run status as an embedded browser view. Unlike the
+  JSON `GET /runs` endpoint (which defaults to *terminal* runs — a history view),
+  the board surfaces **in-flight runs** too: a per-state summary with an
+  "In work" total, an In-work / All / Delivered filter, a table with a gently
+  pulsing badge for actively-working states (`AGGREGATING`, `SENDING`), and a
+  click-to-expand row that lazily fetches the run's stages from the existing
+  `GET /runs/{run_id}`. The page is **hand-authored HTML/CSS/JS with no
+  third-party library and no external/CDN reference** — the no-external-reference
+  conformance scan now covers every shipped dashboard asset, not just the metrics
+  ones. The server-side renderer (`interfaces/rest/runs_board.py`) is a pure
+  function over the run-summary projection, fully unit-tested; the route is
+  declared before `/{run_id}` so the literal `/runs/board` path resolves to the
+  board rather than being parsed as a run id.
+
+### Documentation
+
+- **`docs/ui-previews/`** — self-contained, browser-openable design mockups of
+  the dashboard pages (the metrics dashboard and the run-status board), so the
+  team can see the intended UI without running the service.
+
 ## [0.13.0] — 2026-07-19
 
 Two trust-boundary hardening items from the road to 1.0.0, brought forward: a

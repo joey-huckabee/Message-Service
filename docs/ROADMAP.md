@@ -16,13 +16,12 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.13.0** (rejecting concurrency limit
-`L1-API-005` + the `R-ERR-001` structured-error envelope); the next cut is
-**v0.14.0** — nothing is scheduled into it yet. Pull items from the **Deferred
-features** backlog below (excluding the `→ 2.0.0`-tagged items, which are held for
-the 2.0.0 milestone), promote each to real L1/L2/L3 requirements in the L-REQ
-docs, implement, and record the shipped result under a new dated section in
-`CHANGELOG.md`.
+each release cut. The last cut was **v0.14.0** (the embedded run-status board,
+`L1-DASH-006`); the next cut is **v0.15.0** — nothing is scheduled into it yet.
+Pull items from the **Deferred features** backlog below (excluding the
+`→ 2.0.0`-tagged items, which are held for the 2.0.0 milestone), promote each to
+real L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
+result under a new dated section in `CHANGELOG.md`.
 
 ## Planned
 
@@ -47,11 +46,12 @@ envelope — **68 of 68 L1 Implemented**. There are no requirement gaps.
 
 1.0.0 is the **stable single-node, trusted-ISOLAN feature-complete** release. It
 is deliberately *not* gated on the trust-boundary hardening — those items moved
-to **2.0.0** (below). The positive 1.0.0 feature line is being (re)defined; strong
-candidates are the user-facing gaps that today exist only as JSON API surface
-with no browser UI (e.g. a self-service subscription page and a run-status board
-— see the **Feature extensions** notes). Pull the agreed items from the backlog,
-promote each to real L1/L2/L3 requirements, ship, then cut 1.0.0.
+to **2.0.0** (below). The positive 1.0.0 feature line is being (re)defined. One
+of the user-facing browser-UI gaps closed in **v0.14.0**: the run-status board
+(`L1-DASH-006`) turned the JSON-only runs API into a browser page. The remaining
+obvious candidate is a **self-service subscription page** (subscriptions are
+still JSON-API-only). Pull the agreed items from the backlog, promote each to
+real L1/L2/L3 requirements, ship, then cut 1.0.0.
 
 ## Toward 2.0.0 — trust-boundary crossing + multi-tenant hardening
 

@@ -390,3 +390,64 @@ def test_optional_sections_fill_from_defaults(tmp_path: Path) -> None:
     assert cfg.observability.log_level == "INFO"
     assert cfg.service.shutdown_grace_period_seconds == 30
     assert cfg.pipelines.registered == []
+
+
+# -----------------------------------------------------------------------------
+# Per-pipeline subject templates (L3-MAIL-033)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.requirement("L3-MAIL-033")
+def test_subject_templates_defaults_to_empty() -> None:
+    """Omitting subject_templates yields an empty mapping (v1 behavior)."""
+    assert PipelinesConfig(registered=["etl-nightly"]).subject_templates == {}
+
+
+@pytest.mark.requirement("L3-MAIL-033")
+def test_subject_templates_valid_mapping_loads() -> None:
+    """A well-formed template for a registered pipeline validates."""
+    cfg = PipelinesConfig(
+        registered=["etl-nightly", "backup-daily"],
+        subject_templates={"etl-nightly": "[NIGHTLY:{pipeline_type}] run {run_id}"},
+    )
+    assert cfg.subject_templates["etl-nightly"] == "[NIGHTLY:{pipeline_type}] run {run_id}"
+
+
+@pytest.mark.requirement("L3-MAIL-033")
+def test_subject_templates_rejects_unregistered_pipeline_key() -> None:
+    """A template keyed on an unregistered pipeline_type is dead config → reject."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            subject_templates={"not-registered": "{run_id}"},
+        )
+
+
+@pytest.mark.requirement("L3-MAIL-033")
+def test_subject_templates_rejects_unknown_placeholder() -> None:
+    """A template referencing a placeholder other than the two allowed → reject."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            subject_templates={"etl-nightly": "[{severity}] {run_id}"},
+        )
+
+
+@pytest.mark.requirement("L3-MAIL-033")
+def test_subject_templates_rejects_malformed_braces() -> None:
+    """A template with unbalanced braces is not valid str.format → reject."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            subject_templates={"etl-nightly": "[{pipeline_type] run {run_id}"},
+        )
+
+
+@pytest.mark.requirement("L3-MAIL-033")
+def test_subject_templates_rejects_raw_crlf() -> None:
+    """A template containing raw CR/LF is a header-injection risk → reject."""
+    with pytest.raises(ValidationError):
+        PipelinesConfig(
+            registered=["etl-nightly"],
+            subject_templates={"etl-nightly": "run {run_id}\r\nBcc: x@example.com"},
+        )

@@ -341,6 +341,68 @@ def test_build_subject_neutralizes_cr_lf_and_control_chars() -> None:
     assert email.subject == subject
 
 
+@pytest.mark.requirement("L3-MAIL-032")
+def test_build_subject_uses_configured_template_override() -> None:
+    """L3-MAIL-032: a provided template renders the subject with substitutions."""
+    subject = _build_subject("etl-nightly", _RID, template="[NIGHTLY:{pipeline_type}] run {run_id}")
+    assert subject == f"[NIGHTLY:etl-nightly] run {_RID}"
+
+
+@pytest.mark.requirement("L3-MAIL-032")
+def test_build_subject_falls_back_to_default_when_template_is_none() -> None:
+    """L3-MAIL-032: template=None yields the L3-MAIL-027 default, byte-identical."""
+    override_none = _build_subject("etl-nightly", _RID, template=None)
+    no_arg = _build_subject("etl-nightly", _RID)
+    assert override_none == no_arg == f"[etl-nightly] run {_RID}"
+
+
+@pytest.mark.requirement("L3-MAIL-032")
+def test_build_subject_template_sanitizes_pipeline_type_substitution() -> None:
+    """L3-MAIL-032: the {pipeline_type} substitution stays routed through sanitization."""
+    raw = "etl nightly/v2!"
+    subject = _build_subject(raw, _RID, template="custom {pipeline_type} :: {run_id}")
+    sanitized = _sanitize_filename_component(raw)
+    assert subject == f"custom {sanitized} :: {_RID}"
+    assert " " not in sanitized and "/" not in sanitized and "!" not in sanitized
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-MAIL-032")
+async def test_delivery_applies_per_pipeline_subject_override(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+) -> None:
+    """L3-MAIL-032: the delivery path renders the configured pipeline's override.
+
+    Drives the use case end to end for a run whose ``pipeline_type``
+    (``etl-nightly``) has a ``subject_templates`` entry and asserts the
+    delivered ``OutboundEmail`` carries the rendered custom subject. The
+    default-format branch for pipelines without an entry is covered by
+    ``test_happy_path_outbound_email_has_correct_shape``.
+    """
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+
+    use_case = AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        subject_templates={"etl-nightly": "[NIGHTLY:{pipeline_type}] run {run_id}"},
+    )
+
+    await use_case.execute(_RID)
+
+    email: OutboundEmail = mailer.send.call_args.args[0]
+    assert email.subject == f"[NIGHTLY:etl-nightly] run {_RID}"
+
+
 # -----------------------------------------------------------------------------
 # Happy path — SINGLE_AGGREGATED mode with subscribers
 # -----------------------------------------------------------------------------

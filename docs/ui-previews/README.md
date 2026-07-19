@@ -16,6 +16,8 @@ the corresponding API projection.
 |------|-------|-----------|
 | `metrics-dashboard-preview.html` | The embedded metrics dashboard — counters as labeled bars, histograms as count/sum/avg plus bucket bars. | Shipped in v0.12.0 as `GET /admin/metrics` (`interfaces/rest/metrics_dashboard.py`, `L1-DASH-004`). This preview was generated from `render_metrics_dashboard` over representative exposition data. |
 | `runs-board-preview.html` | The run-status board — per-state summary with an "In work" total, an In-work / All / Terminal filter, a runs table with pulsing badges for active states, and click-to-expand stage detail. | Design mockup for the v0.14.0 board over the existing `GET /runs` and `GET /runs/{run_id}` APIs (`interfaces/rest/routes/runs.py`). |
+| `login-preview.html` | The browser login page — a centered sign-in card (email + password) with an error state, for the configurable local admin account. | Design mockup for the planned v0.15.0 `GET /login` page; submits to the existing JSON `POST /login`. |
+| `admin-console-preview.html` | The admin notification console — recipient roster (email, name, Admin/User role, Active/Disabled status) with create / edit / disable / reset-password actions, plus a placeholder Subscriptions tab. | Design mockup for the planned v0.15.0 `GET /admin/console` (recipient management) and v0.16.0 (subscription management). |
 
 ## Keeping these honest
 

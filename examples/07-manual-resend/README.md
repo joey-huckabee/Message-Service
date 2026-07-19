@@ -12,7 +12,7 @@ The operator-facing recovery path described by L1-DASH-003 / L3-DASH-027/028. Th
 4. It then calls `POST /runs/{run_id}/resend` with both cookies plus the `X-CSRF-Token` header (CSRF double-submit per L3-DASH-018).
 5. The user receives a second email — the resend.
 
-The two emails differ subtly: the first uses the standard subject format `[<pipeline>] run <run_id>`; the resend uses `Run <run_id> -- <pipeline>` so an operator triaging an inbox can tell them apart.
+Both emails use the same standard subject format `[<pipeline>] run <run_id>` — as of v0.6.0 the resend shares the first-delivery subject construction (`AssembleAndDeliverUseCase.build_subject`, L3-MAIL-034), so it also honors any per-pipeline `subject_templates` override. The resend is distinguished not by its subject but by its `RESEND_REPORT` audit action (see below).
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ Captured deliveries
 -------------------
 [..:..:..] messages captured: 2
      #1: subject='[etl-nightly] run <run_id>'
-     #2: subject='Run <run_id> -- etl-nightly'
+     #2: subject='[etl-nightly] run <run_id>'
 
 Expectations
 ------------
@@ -70,7 +70,7 @@ Expectation summary
 ## What to look for
 
 - Login emits `login_success` at INFO level; the resend emits `resend_completed` with `outcome=SUCCESS` and the `recipient_count`.
-- The two captured emails share the same `run_id` and the same recipient set, but differ in the `Subject` header so operators can tell them apart.
+- The two captured emails share the same `run_id`, `Subject` header, and recipient set — the resend reproduces the original delivery. It is distinguished in the audit log by its `RESEND_REPORT` action, not by the subject.
 - The resend re-resolves recipients at the moment it fires (per L2-DASH-008 / L3-DASH-012). If you'd added or removed subscriptions between the original send and the resend, the resend would honor the *current* set, not the historical one.
 
 ## Cleanup

@@ -1229,6 +1229,13 @@ single source of truth for live status.
 **Rationale**: The `L2-OBS-013..017` cluster (authored in 25f) covered pipeline-initiated lifecycle, service-driven state transitions, sweeper orphan classification, subscription mutations, and auth + user-management. Two `AuditAction` values predated that audit (`SEND_REPORT` and `DISPATCHER_ACTION_ABANDONED`) and were not anchored under any L2 — their formats were implementation-decided rather than spec-pinned. This L2 closes that gap so every emitted `AuditAction` has at least one L2-OBS or L2-DASH parent governing its format.
 **Verification Method**: Test (T)
 
+#### L2-OBS-019
+
+**Parent**: L1-OBS-003
+**Statement**: When the optional `observability.audit.archive_directory` is configured, the retention pruner SHALL, on each tick, first **fetch** the exact batch of expired rows it is about to delete (the same `timestamp < cutoff`, oldest-first, `cleanup_batch_size`-bounded selection the delete uses), **write** them to a durable archive under that directory, and **only then delete** them via the existing `delete_older_than` path — so the archived set equals the deleted set. If the archive write fails, the tick SHALL NOT delete (the expired rows are retained and re-attempted on the next tick), guaranteeing no audit record is deleted without first being archived. When the key is unset (the default) the pruner deletes without archiving, unchanged. The archive directory SHALL be validated writable at startup, failing service start with `ConfigurationError` otherwise (the same create-and-probe discipline as the rendered-report directory).
+**Rationale**: Retention deletion is irreversible; sites with long-term investigative or compliance obligations need the expired records preserved outside the operational database rather than lost. Fetching and deleting the identical, deterministically-ordered batch (with an `audit_id` tiebreak so ties at the batch boundary cannot diverge) makes "archived == deleted" a structural guarantee rather than a timing coincidence, and archiving strictly before deleting makes the failure mode safe (retain, never lose). Keeping deletion on the existing `delete_older_than` path preserves the `L3-OBS-039` sole-deleter invariant — archival adds only a read.
+**Verification Method**: Test (T)
+
 ### Derivations of L1-OBS-004 (log severity levels)
 
 #### L2-OBS-010
@@ -1614,3 +1621,4 @@ single source of truth for live status.
 | 2026-07-18 | Joey   | L2-MAIL-014 conformance: reworded to state the subject construction applies to manual resend too (no separate resend format / no override bypass). No new L2. |
 | 2026-07-18 | Joey   | R-SWEEP-001: added L2-SWEEP-011 under L1-SWEEP-003 (optional per-pipeline `pipelines.orphan_disposition_overrides`); reworded L1-SWEEP-003. |
 | 2026-07-19 | Joey   | Requirement-coverage: added L2-CICD-016 under L1-CICD-004 (per-L1 coverage gate via `check-requirement-coverage.py` + `uncovered-l1-allowlist.toml`); reworded L1-CICD-004. |
+| 2026-07-19 | Joey   | Audit archival: added L2-OBS-019 under L1-OBS-003 (opt-in archive-before-delete of expired audit rows via `observability.audit.archive_directory`); reworded L1-OBS-003. |

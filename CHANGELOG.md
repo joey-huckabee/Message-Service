@@ -12,6 +12,36 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-18
+
+Per-pipeline email subject templates — the next deferred-feature item
+(`R-MAIL-001`) promoted to real requirements on the road to 1.0.0. Operators
+can now override the outbound email `Subject:` header per pipeline via an
+optional configuration mapping, while pipelines without an override keep the
+built-in `[{pipeline_type}] run {run_id}` format unchanged. Additive: no proto
+change, and behavior is byte-identical to v0.3.0 when the mapping is unset.
+**64 of 67 L1 requirements Implemented** at **95.02% branch coverage** over
+**1412 tests**; three intentional partials remain toward 1.0.0.
+
+### Added
+
+- **Per-pipeline email subject templates (`L2-MAIL-014`).** A new optional
+  `pipelines.subject_templates` mapping (`pipeline_type` → template string)
+  overrides the default subject for matching pipelines. Templates may reference
+  only the `{pipeline_type}` (sanitized via the same `_sanitize_filename_component`
+  chokepoint as attachment filenames) and `{run_id}` placeholders. The mapping
+  is validated at config-load time (`L3-MAIL-033`): keys must be registered
+  pipelines, templates must reference only the two allowed placeholders and be
+  valid for `str.format`, and raw CR/LF is rejected. Promotes `L3-MAIL-032` /
+  `L3-MAIL-033` to real SHALLs and lifts the `L2-MAIL-014` "SHALL NOT be
+  operator-configurable" deferral.
+
+### Changed
+
+- **`L2-MAIL-014`.** The `[{pipeline_type}] run {run_id}` format is now the
+  *default* rather than the only possible subject; a configured
+  `subject_templates` entry takes precedence for its pipeline.
+
 ## [0.3.0] — 2026-07-18
 
 Error-code stability lockfile — the second deferred-feature item (`R-ERR-002`)
@@ -123,7 +153,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/joey-huckabee/Message-Service/releases/tag/v0.1.0

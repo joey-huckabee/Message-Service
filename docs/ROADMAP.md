@@ -16,9 +16,9 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.3.0** (`R-ERR-002` — error-code stability
-lockfile + helper scripts); the next cut is **v0.4.0** — nothing is scheduled into
-it yet. Pull items from the **Deferred features** backlog below, promote each to
+each release cut. The last cut was **v0.4.0** (`R-MAIL-001` — per-pipeline email
+subject templates); the next cut is **v0.5.0** — nothing is scheduled into it
+yet. Pull items from the **Deferred features** backlog below, promote each to
 real L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
 result under a new dated section in `CHANGELOG.md`.
 
@@ -186,13 +186,6 @@ referenced by spec docs and code comments; keep the tags stable.
   in-flight runs continue to render against the old snapshot. Non-trivial: needs a
   template-snapshot token carried through the assembly workflow so `BeginRun` and
   `FinalizeRun` of the same run see consistent template metadata.
-- **R-MAIL-001 — Per-pipeline email subject template** — v1 pins the Subject header
-  to `[{pipeline_type}] run {run_id}` (L2-MAIL-014) with no override. Future
-  option: an optional `email_subject_template_ref` on `[pipelines.registered.*]`
-  so different pipelines render different subject formats. Likely a small Jinja2
-  template; the existing `_sanitize_filename_component` defense stays at the
-  post-render boundary. Additive — pipelines without an override fall back to the
-  default.
 - **R-TMPL-001 — Per-pipeline email body template** — the email body template is a
   single service-wide config value used for every finalized run. Option A
   (per-pipeline config): an optional `email_body_template_ref` on

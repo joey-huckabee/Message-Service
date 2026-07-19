@@ -51,15 +51,19 @@ usable browser dashboard:
 
 - **v0.14.0** closed the first gap: the run-status board (`L1-DASH-006`) turned
   the JSON-only runs API into a browser page.
-- **v0.15.0 (planned)** adds the **admin notification console** plus the
-  service's first **browser login page**, backed by a **configurable local admin
-  account**. In the 1.0.0 line the model is *admin-managed*: a single local admin
-  logs in and manages notification recipients (user accounts + email addresses)
-  and the subscriptions that register them. The existing JSON subscription API
-  (self-scoped) stays; **per-user self-service** — where end users log in and
-  manage their own subscriptions — depends on federated login and is therefore a
-  **2.0.0** item (below). The local admin login remains local-auth even after
-  federated login lands.
+- **v0.15.0 (planned)** adds the service's first **browser login page** and an
+  **admin console for the recipient roster** (list / create / update / disable
+  user accounts + email addresses, reset passwords), backed by a **configurable
+  local admin account** provisioned from config at startup. The model is
+  *admin-managed*, not self-service.
+- **v0.16.0 (planned)** extends the console with **admin-on-behalf-of
+  subscription management** — the admin assigns which notifications
+  (`GLOBAL`/`PIPELINE`/`TAG`) each recipient is registered for. This needs new
+  admin subscription endpoints (today's subscription API is self-scoped only).
+- **Per-user self-service** — where end users log in and manage their own
+  subscriptions — depends on federated login and is therefore a **2.0.0** item
+  (below). The local admin login remains local-auth even after federated login
+  lands.
 
 Pull the agreed items from the backlog, promote each to real L1/L2/L3
 requirements, ship, then cut 1.0.0.

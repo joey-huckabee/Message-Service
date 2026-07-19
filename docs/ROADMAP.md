@@ -38,16 +38,15 @@ correlation ids + proto-version gate). That leaves **one**:
 
 | L1 | Deferred piece | Deferral tag |
 |----|----------------|--------------|
-| L1-DASH-004 | Embedded Chart.js metrics dashboard (scrape endpoint already ships) | R-DASH-004 |
+| L1-DASH-004 | Embedded metrics dashboard — hand-authored, no external chart library (scrape endpoint already ships) | R-DASH-004 |
 
 It is not a missing-functionality bug — the operationally important half (the
 Prometheus `/metrics` scrape endpoint) already ships and is verified under the
-`L1-OBS` requirements; only the embedded in-service visualization is deferred,
-gated on standing up a browser-based test harness (see the `R-DASH-004` entry
-below). `docs/TRACE-MATRIX.md` shows `L1-DASH-004` itself as **Draft** (its own
-subtree — `L2-DASH-010`/`L2-DASH-011` — carries no verification artifact yet),
-and it is recorded on `docs/uncovered-l1-allowlist.toml` so the v0.9.0
-requirement-coverage gate tolerates the deferral without letting a *new*
+`L1-OBS` requirements; only the embedded in-service visualization is deferred
+(see the `R-DASH-004` entry below for the phased plan). `docs/TRACE-MATRIX.md`
+shows `L1-DASH-004` itself as **Draft** (its own subtree — `L2-DASH-010`/
+`L2-DASH-011` — carries no verification artifact yet), and it is recorded on
+`docs/uncovered-l1-allowlist.toml` so the v0.9.0
 uncovered L1 slip in.
 
 ## Deferred features
@@ -131,18 +130,53 @@ referenced by spec docs and code comments; keep the tags stable.
   than `=`, and may benefit from FTS5 indexing if audit volumes grow. Future work:
   extend `L2-DASH-015` with a `match_mode` query parameter (default `exact`;
   opt-in `substring`); evaluate whether the current index profile stays adequate.
-- **R-DASH-004 — Embedded Chart.js metrics dashboard** (the visualization half of
-  L1-DASH-004) — v1 implements the **scrape-endpoint half**: `GET /metrics`
-  returning Prometheus exposition format. The **embedded-visualization half** — an
-  admin route serving an HTML page that fetches `/metrics`, parses the text format
-  in JavaScript, and renders Chart.js dashboards — is deferred. Two drivers: (1)
-  the frontend JS is a different shape from v1's test patterns and needs a
-  browser-based test harness (Playwright or similar) not yet in place; (2) the
-  operationally important half is the scrape endpoint, which any Grafana/Prometheus
-  deployment already consumes. Future work, once a browser test harness exists:
-  author L3 children for `L2-DASH-010`/`L2-DASH-011`, vendor `chart.min.js`,
-  implement `GET /admin/metrics` behind `require_admin`, add Playwright e2e tests,
-  and promote `L1-DASH-004` to Implemented. Strictly additive.
+- **R-DASH-004 — Embedded metrics dashboard (hand-authored, zero external
+  dependencies)** (the visualization half of L1-DASH-004) — v1 implements the
+  **scrape-endpoint half**: `GET /metrics` returning Prometheus exposition
+  format. The **embedded-visualization half** — an admin route serving an HTML
+  page that fetches `/metrics`, parses the text format in JavaScript, and renders
+  charts — is deferred. The charting is **hand-authored HTML/CSS/JS with inline
+  SVG**, shipped as packaged static assets with **no third-party charting library
+  and no CDN**; this satisfies the offline/no-external-dependency constraint of
+  `L2-DASH-011` directly (its "e.g., Chart.js" is only an example) and keeps the
+  dependency surface minimal. The implementation draws on established charting
+  conventions (labelled axes, gridlines, hover tooltips, a small line/bar/gauge
+  vocabulary) but is written from scratch. When this increment lands it will
+  reword the `L2-DASH-011` / `L3-DASH-017` "Chart.js" example to the
+  hand-authored approach.
+
+  **Incremental plan** (execute in order when development starts):
+  1. **Route + shell.** `GET /admin/metrics` behind `require_admin`, serving a
+     static HTML shell (semantic HTML + a hand-written CSS stylesheet as a
+     packaged static asset). No data yet.
+  2. **Metrics parser (pure, unit-testable).** A standalone JS module that parses
+     the Prometheus text exposition format into a structured model. Kept free of
+     DOM access so it is unit-testable in isolation *without a browser* (Node or
+     a lightweight JS test runner, or a Python-side golden test over sample
+     `/metrics` output) — this is how the JS logic gets automated coverage while
+     the browser harness is deferred.
+  3. **Server-side fetch.** The page (or route) retrieves values by a server-side
+     HTTP GET against the service's own `/metrics` (`L2-DASH-010`), so the
+     internal view matches what external scrapers see.
+  4. **Hand-authored SVG rendering.** Render the parsed series as inline SVG
+     (time-series line, per-label bar, single-value gauge) with axes/gridlines/
+     tooltips built from scratch. No canvas library, no chart library.
+  5. **Verification.** Author the `L2-DASH-010`/`L2-DASH-011` L3 children: unit
+     tests for the parser (step 2) and a server-side test that the route is
+     admin-gated and returns the shell + expected data hooks; the visual
+     rendering is verified by **Inspection / Demonstration** (run locally and
+     review) until the browser test harness below is in place. Promote
+     `L1-DASH-004` off `docs/uncovered-l1-allowlist.toml` once its subtree has
+     at least the parser + route tests linked.
+- **Browser-based UI test harness (deferred, low priority)** — automated
+  end-to-end testing of rendered dashboard pages (a headless-browser harness such
+  as Playwright) is **deferred and deliberately kept late in the backlog**. In
+  the interim, UI-rendering aspects (the SVG dashboard, any future rendered
+  admin pages) are verified by **local manual demonstration** plus unit tests of
+  the underlying non-DOM logic (e.g. the R-DASH-004 metrics parser). This item
+  does **not** block R-DASH-004 — that work proceeds with the parser unit tests
+  and Inspection/Demonstration verification described above. Revisit when the
+  volume of browser-rendered UI justifies the harness.
 - **R-ERR-001 — gRPC error envelope upgrade to `google.rpc.Status` + `ErrorInfo`**
   — v1's error translator returns `context.abort(status, details=message,
   trailing_metadata=(("x-message-service-error-code", code),))`. The richer shape

@@ -1548,6 +1548,13 @@ single source of truth for live status.
 **Rationale**: Defense in depth against a drift mode where the committed matrix matches what the script regenerates but both encode an inconsistent state. Listing offenders makes the failure actionable rather than just a "fix it" notice.
 **Verification Method**: Test (T)
 
+#### L2-CICD-016
+
+**Parent**: L1-CICD-004
+**Statement**: A CI job SHALL run `scripts/check-requirement-coverage.py`, which reads the committed `docs/TRACE-MATRIX.md`, collects every L1 requirement whose rolled-up status is `Draft` (no linked verification artifact anywhere in its subtree), and fails the build when any such L1 is not present on the deferral allowlist at `docs/uncovered-l1-allowlist.toml`. The failure SHALL name the uncovered L1 ids. The allowlist SHALL be a TOML file of `[[allowed]]` entries, each carrying an `id` and a `reason`; an allowlisted L1 that is no longer `Draft` (it gained coverage) is permitted — the allowlist bounds which Draft L1s are tolerated, it does not require them to stay Draft.
+**Rationale**: The coverage facet of L1-CICD-004 needs a concrete gate the aggregate coverage number cannot provide. Reading the committed matrix (kept fresh by the L2-CICD-008 `--check` gate) rather than re-deriving keeps this check simple and composable with the freshness gate. A TOML allowlist with a mandatory `reason` makes each tolerated gap explicit, greppable, and reviewable at PR time, and its diff is where a reviewer notices an L1 being quietly excused.
+**Verification Method**: Test (T), Inspection (I)
+
 ### Derivations of L1-CICD-005 (test-temp isolation)
 
 #### L2-CICD-010
@@ -1606,3 +1613,4 @@ single source of truth for live status.
 | 2026-07-18 | Joey   | R-TMPL-001: added L2-TMPL-015 under L1-TMPL-001 (optional per-pipeline `pipelines.email_body_template_overrides`); reworded L2-MAIL-014 earlier for R-MAIL-001. |
 | 2026-07-18 | Joey   | L2-MAIL-014 conformance: reworded to state the subject construction applies to manual resend too (no separate resend format / no override bypass). No new L2. |
 | 2026-07-18 | Joey   | R-SWEEP-001: added L2-SWEEP-011 under L1-SWEEP-003 (optional per-pipeline `pipelines.orphan_disposition_overrides`); reworded L1-SWEEP-003. |
+| 2026-07-19 | Joey   | Requirement-coverage: added L2-CICD-016 under L1-CICD-004 (per-L1 coverage gate via `check-requirement-coverage.py` + `uncovered-l1-allowlist.toml`); reworded L1-CICD-004. |

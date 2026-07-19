@@ -1324,6 +1324,12 @@ The provenance log SHALL be emitted via a single `echo` step at the start of eac
 **L3-CICD-017** · Parent: L2-CICD-015 · Verification: I
 Artifact upload steps SHALL set `retention-days: 30` explicitly (the current GitHub default is 90 but is operator-overridable; the explicit value protects against silent reduction).
 
+**L3-CICD-018** · Parent: L2-CICD-016 · Verification: T
+`scripts/check-requirement-coverage.py` SHALL parse the L1 rows of the committed `docs/TRACE-MATRIX.md`, subtract the ids on `docs/uncovered-l1-allowlist.toml` from the set of `Draft` L1s, and exit `0` when that difference is empty, `1` when it is non-empty (printing each uncovered, non-allowlisted L1 id), and `2` when the matrix or allowlist cannot be read or parsed. Its parsing and comparison logic (matrix-L1-status parse, allowlist parse, and the uncovered-set computation) SHALL be importable so a test can exercise the clean, uncovered, and unreadable outcomes without shelling out.
+
+**L3-CICD-019** · Parent: L2-CICD-016 · Verification: I, T
+`docs/uncovered-l1-allowlist.toml` SHALL be a TOML document whose `allowed` array-of-tables holds one entry per tolerated `Draft` L1, each with a string `id` (matching the `L1-<CAT>-<NNN>` form) and a non-empty string `reason`. An entry whose `reason` is missing or empty SHALL be treated as a parse failure (exit `2`) so a tolerated gap can never be recorded without a rationale. A test SHALL assert a well-formed allowlist parses to the expected id set and that a `reason`-less entry is rejected.
+
 ---
 
 ## Document change history
@@ -1339,3 +1345,4 @@ Artifact upload steps SHALL set `retention-days: 30` explicitly (the current Git
 | 2026-07-18 | Joey   | L2-MAIL-014 conformance: added L3-MAIL-034 (1 stmt) — single shared subject construction so manual resend honors the L2-MAIL-014 default/override/sanitization (fixes the resend-only hardcoded subject). Total: 399. |
 | 2026-07-18 | Joey   | R-SWEEP-001: added L3-SWEEP-022..024 (3 stmts) under new L2-SWEEP-011 for optional per-pipeline `pipelines.orphan_disposition_overrides` (config validation, per-run resolution, override handler validation). Total: 402. |
 | 2026-07-18 | Joey   | R-API-001: promoted 4 deferred stubs to real SHALLs — L3-API-002 (gRPC per-RPC correlation interceptor + error-id reuse), L3-API-004 (CI proto-version check), L3-OBS-003 (success-path logs carry correlation_id), L3-OBS-004 (FastAPI per-request correlation middleware). Closes L1-API-001 + L1-OBS-001. Total: 402 (rewrites, no new ids). |
+| 2026-07-19 | Joey   | Requirement-coverage: added L3-CICD-018 (coverage-check script + exit codes) and L3-CICD-019 (allowlist TOML format) under new L2-CICD-016. Total: 404. |

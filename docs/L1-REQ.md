@@ -647,9 +647,9 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 
 ### L1-CICD-004
 
-**Statement**: CI SHALL fail if the regenerated `docs/TRACE-MATRIX.md` differs from the committed copy, or if any rollup row in the matrix is internally inconsistent under the propagation rule established in Increment 25a (parent status bounded below by every child's status). The build SHALL fail with a list of inconsistent rows, including the parent id and the offending children's ids and statuses.
+**Statement**: CI SHALL fail if the regenerated `docs/TRACE-MATRIX.md` differs from the committed copy, or if any rollup row in the matrix is internally inconsistent under the propagation rule established in Increment 25a (parent status bounded below by every child's status). The build SHALL fail with a list of inconsistent rows, including the parent id and the offending children's ids and statuses. CI SHALL additionally fail if any L1 requirement lacks a linked verification artifact anywhere in its subtree (trace-matrix status `Draft`), unless that L1 is recorded — with a rationale — on a documented deferral allowlist; the failure SHALL name the uncovered L1 ids.
 
-**Rationale**: 25a made the trace matrix the single source of truth for requirement status. Without a CI gate, contributors can forget to regenerate the matrix after adding `@pytest.mark.requirement` markers, or a rollup can fall out of sync with the source docs. The traceability gate ensures every merged commit carries a matrix that's both reproducible (regenerable from the same inputs) and internally coherent (no L1 claiming Implemented while a child is Draft).
+**Rationale**: 25a made the trace matrix the single source of truth for requirement status. Without a CI gate, contributors can forget to regenerate the matrix after adding `@pytest.mark.requirement` markers, or a rollup can fall out of sync with the source docs. The traceability gate ensures every merged commit carries a matrix that's both reproducible (regenerable from the same inputs) and internally coherent (no L1 claiming Implemented while a child is Draft). The requirement-coverage facet closes a further gap the aggregate `--cov-fail-under` line/branch gate cannot see: an entire L1 requirement can sit at 0% *requirement* coverage (no test links to any statement in its subtree) while overall code coverage stays high. The allowlist keeps a deliberately-deferred L1 (e.g. one gated on test infrastructure not yet in place) from blocking releases while still forcing that deferral to be explicit and reviewed.
 
 **Verification Method**: Test (T)
 
@@ -685,3 +685,4 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 |------------|--------|-------------------|
 | 2026-04-18 | Joey   | Initial L1 draft  |
 | 2026-07-18 | Joey   | R-SWEEP-001: reworded L1-SWEEP-003 to allow a per-`pipeline_type` orphan-disposition override with the global policy as fallback (no new L1). |
+| 2026-07-19 | Joey   | Requirement-coverage: reworded L1-CICD-004 to add a per-L1 verification-coverage gate (every L1 needs a linked artifact unless allowlisted). No new L1. |

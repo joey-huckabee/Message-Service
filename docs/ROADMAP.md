@@ -16,11 +16,11 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.10.0** (template author guide + stale-doc
-fixes); the next cut is **v0.11.0** — nothing is scheduled into it yet. Pull
-items from the **Deferred features** backlog below, promote each to real
-L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
-result under a new dated section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.11.0** (opt-in audit-log archival); the
+next cut is **v0.12.0** — nothing is scheduled into it yet. Pull items from the
+**Deferred features** backlog below, promote each to real L1/L2/L3 requirements
+in the L-REQ docs, implement, and record the shipped result under a new dated
+section in `CHANGELOG.md`.
 
 ## Planned
 
@@ -242,8 +242,6 @@ referenced by spec docs and code comments; keep the tags stable.
   systemd unit on Linux.
 - **Backup and restore tooling** — scripts to snapshot and restore the SQLite
   database and rendered-reports directory as an atomic unit.
-- **Audit log archival** — once retention expires (enforced by the audit-log
-  pruner), archive rather than delete, to satisfy long-term investigative needs.
 - **Metrics dashboard templates** — ship pre-built Grafana dashboards alongside
   the (deferred) embedded in-service visualization.
 

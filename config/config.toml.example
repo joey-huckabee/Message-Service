@@ -277,9 +277,20 @@ log_level = "INFO"
 #   with very large audit-log backlogs (e.g., a retention-policy
 #   tightening that suddenly makes years of rows eligible) can lower
 #   this further; the backlog drains across multiple ticks regardless.
+#
+# archive_directory  (optional, L2-OBS-019 / L3-OBS-041)
+#   When set, the retention pruner writes each expired batch to a durable
+#   archive under this directory as newline-delimited JSON
+#   (audit-archive-<date>.jsonl) BEFORE deleting the rows — so long-term
+#   investigative/compliance needs survive retention pruning. The archive is
+#   flushed to disk before the delete; if the archive write fails the tick
+#   deletes nothing (rows retained, retried next tick), so no record is ever
+#   deleted without first being archived. The directory is created and
+#   probe-validated at startup. Omit (the default) to delete without archiving.
 retention_days = 365
 cleanup_interval_hours = 24
 cleanup_batch_size = 10000
+# archive_directory = "/var/lib/message-service/audit-archive"
 
 # --- Service -----------------------------------------------------------------
 

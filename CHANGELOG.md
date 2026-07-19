@@ -12,6 +12,35 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-07-19
+
+Audit log archival — the "audit log archival" backlog item promoted to real
+requirements. Retention deletion is irreversible; sites with long-term
+investigative or compliance obligations can now have expired audit records
+written to a durable archive *before* the retention pruner deletes them, opt-in
+via a single config key. **66 of 67 L1 requirements Implemented** at **95.19%
+branch coverage** over **1470 tests**.
+
+### Added
+
+- **Opt-in audit-record archival (`L2-OBS-019`).** When
+  `observability.audit.archive_directory` is configured, each retention-pruner
+  tick fetches the exact batch of expired rows it is about to delete, writes them
+  to a durable archive (`audit-archive-<date>.jsonl`, one JSON object per line
+  carrying `timestamp` / `action` / `actor` / `resource` / `outcome` /
+  `details`), flushes to disk, and only then deletes them (`L3-OBS-043`). If the
+  archive write fails, the tick deletes nothing — the rows are retained and
+  retried next tick — so no record is ever deleted without first being archived.
+  Deletion still flows through the existing `delete_older_than` path, preserving
+  the `L3-OBS-039` sole-deleter invariant. The archive directory is created and
+  probe-validated at startup (`L3-OBS-041`). When the key is unset (the default)
+  the pruner deletes without archiving, exactly as before.
+- **`AuditLog.fetch_older_than` (`L3-OBS-042`).** A read that returns precisely
+  the rows `delete_older_than` would remove; both share an `audit_id` tiebreak so
+  that even when timestamps tie at the batch boundary, "archived == deleted" is a
+  structural guarantee. Reworded `L1-OBS-003`; added `L2-OBS-019` +
+  `L3-OBS-041`/`-042`/`-043`.
+
 ## [0.10.0] — 2026-07-19
 
 Template authoring documentation. A guide for adding, validating, versioning,
@@ -329,7 +358,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.7.0...v0.8.0

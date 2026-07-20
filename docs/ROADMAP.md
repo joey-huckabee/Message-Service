@@ -16,14 +16,12 @@
 ## Queued for the next release (`[Unreleased]`)
 
 `[Unreleased]` at the top of `CHANGELOG.md` is the live queue; it is emptied at
-each release cut. The last cut was **v0.15.0** (browser login page + admin
-recipient console + configurable local admin — `L1-AUTH-004`, `L1-DASH-007`,
-`L1-DASH-008`); the next cut is **v0.16.0** — the admin-on-behalf-of subscription
-management that extends the console (see **Toward 1.0.0** below). Pull items from
-the **Deferred features** backlog (excluding the `→ 2.0.0`-tagged items, which
-are held for the 2.0.0 milestone), promote each to real L1/L2/L3 requirements in
-the L-REQ docs, implement, and record the shipped result under a new dated
-section in `CHANGELOG.md`.
+each release cut. The last cut was **v0.16.0** (admin-on-behalf-of subscription
+management — `L1-DASH-009`); the next cut is **v0.17.0** — nothing is scheduled
+into it yet. Pull items from the **Deferred features** backlog (excluding the
+`→ 2.0.0`-tagged items, which are held for the 2.0.0 milestone), promote each to
+real L1/L2/L3 requirements in the L-REQ docs, implement, and record the shipped
+result under a new dated section in `CHANGELOG.md`.
 
 ## Planned
 
@@ -58,10 +56,10 @@ usable browser dashboard:
   / update / disable user accounts + email addresses, reset passwords), backed by
   a **configurable local admin account** (`L1-AUTH-004`) provisioned from config
   at startup. The model is *admin-managed*, not self-service.
-- **v0.16.0 (planned)** extends the console with **admin-on-behalf-of
-  subscription management** — the admin assigns which notifications
-  (`GLOBAL`/`PIPELINE`/`TAG`) each recipient is registered for. This needs new
-  admin subscription endpoints (today's subscription API is self-scoped only).
+- **v0.16.0** extended the console with **admin-on-behalf-of subscription
+  management** (`L1-DASH-009`) — the admin assigns which notifications
+  (`GLOBAL`/`PIPELINE`/`TAG`) each recipient is registered for, via a new
+  admin-gated subscription API and the console's Subscriptions tab.
 - **Per-user self-service** — where end users log in and manage their own
   subscriptions — depends on federated login and is therefore a **2.0.0** item
   (below). The local admin login remains local-auth even after federated login

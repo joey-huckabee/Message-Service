@@ -12,6 +12,45 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-07-19
+
+The admin console's **Subscriptions** tab goes live: an administrator can now
+manage *any* recipient's notification subscriptions on their behalf. Adds one L1
+(`L1-DASH-009`) — **73 of 73 L1 requirements Implemented** — at **95.34% branch
+coverage** over **1569 tests**.
+
+### Added
+
+- **Admin-on-behalf subscription management (`L1-DASH-009` / `L2-DASH-022`,
+  `L2-DASH-023`).** A new admin-gated API — `GET`/`POST`/`DELETE
+  /admin/users/{user_id}/subscriptions` — lets an administrator list, create, and
+  delete a recipient's `GLOBAL`/`PIPELINE`/`TAG` subscriptions. `PIPELINE`/`TAG`
+  targets are validated against the registered pipelines and tag vocabulary
+  exactly as self-service creation is (`422` on an unknown target); an unknown
+  target user is `404`, a duplicate is `409`. It is served by dedicated
+  `AdminSubscribe`/`AdminUnsubscribe` use cases that **audit to the acting
+  administrator** (not the target recipient) and scope a delete to the target
+  (a subscription owned by another user is `404` through that path, never a
+  cross-user delete).
+- **Subscriptions console page.** The console's previously-placeholder
+  **Subscriptions** tab is now a live page (`GET /admin/subscriptions`): pick a
+  recipient, then add (Global / Pipeline / Tag, with the target chosen from a
+  dropdown of the live vocabulary) or remove their subscriptions. The registered
+  pipelines and tag vocabulary are embedded server-side so invalid targets are
+  impossible in the UI; the dynamic data is fetched from the admin APIs, writes
+  carry the CSRF token, and a `401` redirects to `/login`. Recipients and
+  Subscriptions cross-link. Hand-authored, no external dependencies.
+
+### Fixed
+
+- **Flaky happy-path e2e (`windows-latest` / py3.12).** The end-to-end delivery
+  test asserted the run had reached `SENT` after only waiting on the SMTP-capture
+  signal, but the background assemble+deliver task commits the terminal state
+  *after* sending the email — so the run could still be `SENDING` when asserted.
+  The test now drains the background task deterministically
+  (`scheduler.await_all`) before asserting. Structural sequencing, not a longer
+  timeout.
+
 ## [0.15.0] — 2026-07-19
 
 The dashboard gets its first **browser login page** and an **admin console** for

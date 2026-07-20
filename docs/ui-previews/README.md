@@ -18,6 +18,7 @@ the corresponding API projection.
 | `runs-board-preview.html` | The run-status board — per-state summary with an "In work" total, an In-work / All / Terminal filter, a runs table with pulsing badges for active states, and click-to-expand stage detail. | Design mockup for the v0.14.0 board over the existing `GET /runs` and `GET /runs/{run_id}` APIs (`interfaces/rest/routes/runs.py`). |
 | `login-preview.html` | The browser login page — a centered sign-in card (email + password) with an error state, for the configurable local admin account. | Design mockup for the planned v0.15.0 `GET /login` page; submits to the existing JSON `POST /login`. |
 | `admin-console-preview.html` | The admin notification console — recipient roster (email, name, Admin/User role, Active/Disabled status) with create / edit / disable / reset-password actions, plus a placeholder Subscriptions tab. | Design mockup for the planned v0.15.0 `GET /admin/console` (recipient management) and v0.16.0 (subscription management). |
+| `subscriptions-tab-preview.html` | The admin console's Subscriptions tab — pick a recipient, then add (Global / Pipeline / Tag, with the target chosen from the live vocabulary) or remove their notification subscriptions. | Design mockup for the planned v0.16.0 `GET /admin/subscriptions` + admin-on-behalf subscription API. |
 
 ## Keeping these honest
 

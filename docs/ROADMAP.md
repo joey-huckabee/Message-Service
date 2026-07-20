@@ -101,22 +101,54 @@ These are grouped because they share one trigger — the ingress/dashboard cross
 a trust boundary — and are best specified and tested together rather than dribbled
 across point releases.
 
+**The rest of the additive backlog is also folded into 2.0.0** so nothing is
+forgotten. The immediate post-v0.16.0 work is a team review-and-bugfix round; once
+that settles, 2.0.0 also picks up the following (each detailed in **Deferred
+features** below):
+
+- **Delivery & durability** — outbox-backed delivery durability (`R-DELIVER-001`),
+  per-subscriber personalized email (`R-DELIVER-002`), streaming
+  `SubmitStageReport` for oversized reports (`R-DELIVER-003`), and non-webhook
+  transports (Slack / Teams / ticketing relays).
+- **Observability** — real-time dashboard updates via SSE/WebSocket (`R-OBS-002`)
+  and distributed tracing (`R-OBS-001`).
+- **Dashboard & auth** — subscription IDs → UUID4 (`R-DASH-002`), audit-log
+  substring search (`R-DASH-003`), a secrets-management / Vault review, and a
+  browser-based UI test harness (Playwright).
+- **Templates & config** — hot-reload of templates (`R-TMPL-002`) and of the tag
+  vocabulary, per-run email-body template declaration (`R-TMPL-001` Option B), and
+  richer subscription granularity (per-severity / per-submitter / boolean combos).
+- **Operations** — an air-gapped installer bundle, high-availability / multi-node,
+  and cross-host DR replication (`R-PERS-001`).
+
+A few items stay **conditional** — revisited only if their trigger emerges, not
+committed 2.0.0 scope: in-flight-state profiling and a custom WAL (only if SQLite
+write latency proves a bottleneck), email-size-distribution analysis (needs
+production data), and host-clock backward-correction hardening (only in
+clock-unstable environments).
+
 ## Deferred features
 
 Each entry is a candidate, not a commitment. `R-XXX-NNN`-tagged items are
 referenced by spec docs and code comments; keep the tags stable.
 
+**Milestone:** every item in this section is collected under the **2.0.0**
+milestone (see **Toward 2.0.0**) — 2.0.0 is the umbrella for all deferred
+additive work beyond the feature-complete, admin-managed 1.0.0 line — **except
+items marked _(conditional)_**, which are investigations revisited only if their
+trigger emerges.
+
 ### Performance and profiling
 
-- **In-flight run state backing profiling** — v1 co-locates in-flight run state in
+- **In-flight run state backing profiling _(conditional)_** — v1 co-locates in-flight run state in
   SQLite, relying on SQLite's WAL journal for durability. If profiling later shows
   SQLite write latency is a bottleneck on the gRPC ingest hot path, evaluate an
   in-memory store with a custom write-ahead log. The repository-pattern
   abstraction (L1-PERS-003) makes this swap possible without touching domain code.
-- **Email size distribution analysis** — once the Prometheus email-size histogram
+- **Email size distribution analysis _(conditional)_** — once the Prometheus email-size histogram
   has collected production data, analyze for patterns that would justify
   per-pipeline-type size limits or automatic compression strategies.
-- **R-DELIVER-001 — Outbox-backed background tasks** — `FinalizeRunUseCase`
+- **R-DELIVER-001 — Outbox-backed delivery durability → 2.0.0** — `FinalizeRunUseCase`
   schedules the assembly workflow via `BackgroundTaskScheduler`, backed by
   `asyncio.create_task`. If the process dies after `FinalizeRun` commits but
   before the task completes, the delivery is lost (the run is stuck in
@@ -158,7 +190,7 @@ referenced by spec docs and code comments; keep the tags stable.
   under-protects the expensive path). Author these as L2 derivations of
   `L1-API-005`. Collected under the **2.0.0** milestone (per-tenant fairness lands
   with the trust-boundary promotion).
-- **Host-clock validity hardening** — L2-RUN-016 records v1's assumption that the
+- **Host-clock validity hardening _(conditional)_** — L2-RUN-016 records v1's assumption that the
   host clock is monotonically non-decreasing UTC, with backward-correction
   handling explicitly out of scope. If deployment contexts emerge where backward
   NTP corrections are expected (VM pause/resume, virtualized environments with
@@ -216,12 +248,12 @@ referenced by spec docs and code comments; keep the tags stable.
 - **Subscription granularity extensions** — beyond `GLOBAL`, `PIPELINE`, `TAG`:
   consider per-severity, per-submitter, or boolean combinations if use cases
   emerge.
-- **Alternative delivery transports** — v1 delivers via SMTP. The **webhook
-  delivery transport → 2.0.0** is collected under the 2.0.0 milestone (a
+- **Alternative delivery transports → 2.0.0** — v1 delivers via SMTP. The
+  **webhook delivery transport** is the first non-SMTP adapter (a
   capture-double-testable adapter alongside the SMTP mailer, selected by
-  subscription/config). Further options remain unscheduled backlog: direct API
-  hooks into ticketing systems, Slack/Teams relays.
-- **R-DELIVER-002 — Per-subscriber email delivery** — v1 sends one email per run
+  subscription/config). Further relays — direct API hooks into ticketing systems,
+  Slack/Teams — are also collected under the 2.0.0 milestone.
+- **R-DELIVER-002 — Per-subscriber email delivery → 2.0.0** — v1 sends one email per run
   with the recipient list via BCC. Future option: one email per subscriber with
   personalization tokens (`{{subscriber.name}}`, `{{subscriber.unsubscribe_url}}`).
   Requires per-subscriber rendering and a more involved failure model. Likely
@@ -231,10 +263,10 @@ referenced by spec docs and code comments; keep the tags stable.
   **R-DELIVER-003 — Streaming `SubmitStageReport`** for very large report
   contributions that exceed the unary message-size limit (gRPC default 4 MiB).
   Revisit the latter only if concrete submitters hit the limit.
-- **R-OBS-002 — Real-time dashboard updates** — the dashboard polls the REST API
+- **R-OBS-002 — Real-time dashboard updates → 2.0.0** — the dashboard polls the REST API
   for run state. Future option: server-sent events or WebSocket push. Requires an
   event-bus abstraction the service doesn't currently have.
-- **Custom WAL for in-flight state** — dependent on the profiling item above.
+- **Custom WAL for in-flight state _(conditional)_** — dependent on the profiling item above.
   Would replace SQLite-backed in-flight state with an in-memory representation
   plus an append-only log file.
 

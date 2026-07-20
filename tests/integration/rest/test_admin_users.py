@@ -34,6 +34,10 @@ import pytest
 from httpx import ASGITransport
 
 from message_service.application.ports.clock import Clock
+from message_service.application.use_cases.admin_subscriptions import (
+    AdminSubscribeUseCase,
+    AdminUnsubscribeUseCase,
+)
 from message_service.application.use_cases.admin_users import (
     CreateUserUseCase,
     ResetPasswordUseCase,
@@ -67,6 +71,7 @@ from message_service.infrastructure.persistence.unit_of_work import (
 from message_service.infrastructure.persistence.user_repository import (
     SqliteUserRepository,
 )
+from message_service.infrastructure.tags.vocabulary_loader import InMemoryTagVocabulary
 from message_service.interfaces.rest.app import CSRF_COOKIE_NAME, create_app
 
 _T0 = datetime(2026, 4, 26, 12, 0, 0, tzinfo=UTC)
@@ -150,6 +155,13 @@ def service_like(
         reset_password=ResetPasswordUseCase(
             uow_factory=uow_factory, clock=clock, password_hasher=hasher
         ),
+        admin_subscribe=AdminSubscribeUseCase(
+            uow_factory=uow_factory,
+            clock=clock,
+            tag_vocabulary=InMemoryTagVocabulary(frozenset({"finance", "ops"})),
+            registered_pipelines=frozenset({"etl-nightly", "sales-rollup"}),
+        ),
+        admin_unsubscribe=AdminUnsubscribeUseCase(uow_factory=uow_factory, clock=clock),
     )
 
 
@@ -992,3 +1004,137 @@ async def test_admin_console_returns_html_with_admin_email(
     assert body.startswith("<!doctype html>")
     assert 'id="rows"' in body
     assert "admin@example.com" in body
+
+
+# -----------------------------------------------------------------------------
+# Admin-on-behalf subscription routes (L3-DASH-045)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-045")
+async def test_admin_list_subscriptions_requires_admin(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Unauth → 401; non-admin → 403 on the subscriptions listing."""
+    resp = await http_client.get("/admin/users/1/subscriptions")
+    assert resp.status_code == 401
+    await _login_as(http_client, uow_factory, hasher, email="user@example.com", is_admin=False)
+    resp = await http_client.get("/admin/users/1/subscriptions")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-045")
+async def test_admin_create_list_and_delete_subscription(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Admin creates a subscription for a recipient, lists it, then deletes it."""
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="jane@example.com", is_admin=False)
+
+    create = await http_client.post(
+        f"/admin/users/{target.user_id}/subscriptions",
+        json={"granularity": "TAG", "target_value": "finance"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert create.status_code == 201
+    sub = create.json()
+    assert sub["granularity"] == "TAG"
+    assert sub["target_value"] == "finance"
+    assert set(sub.keys()) == {"subscription_id", "granularity", "target_value"}
+
+    listing = await http_client.get(f"/admin/users/{target.user_id}/subscriptions")
+    assert listing.status_code == 200
+    assert [s["subscription_id"] for s in listing.json()] == [sub["subscription_id"]]
+
+    delete = await http_client.delete(
+        f"/admin/users/{target.user_id}/subscriptions/{sub['subscription_id']}",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert delete.status_code == 204
+    listing = await http_client.get(f"/admin/users/{target.user_id}/subscriptions")
+    assert listing.json() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-045")
+async def test_admin_create_subscription_unknown_user_is_404(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    resp = await http_client.post(
+        "/admin/users/4242/subscriptions",
+        json={"granularity": "GLOBAL", "target_value": None},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-045")
+async def test_admin_create_subscription_invalid_target_is_422(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="jane@example.com", is_admin=False)
+    resp = await http_client.post(
+        f"/admin/users/{target.user_id}/subscriptions",
+        json={"granularity": "TAG", "target_value": "no-such-tag"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-045")
+async def test_admin_create_duplicate_subscription_is_409(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="jane@example.com", is_admin=False)
+    body = {"granularity": "GLOBAL", "target_value": None}
+    first = await http_client.post(
+        f"/admin/users/{target.user_id}/subscriptions", json=body, headers={"X-CSRF-Token": csrf}
+    )
+    assert first.status_code == 201
+    dup = await http_client.post(
+        f"/admin/users/{target.user_id}/subscriptions", json=body, headers={"X-CSRF-Token": csrf}
+    )
+    assert dup.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-045")
+async def test_admin_delete_unknown_subscription_is_404(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="jane@example.com", is_admin=False)
+    resp = await http_client.delete(
+        f"/admin/users/{target.user_id}/subscriptions/999",
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 404

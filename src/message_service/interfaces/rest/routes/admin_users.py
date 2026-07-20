@@ -34,16 +34,23 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from message_service.application.ports.clock import iso_z
 from message_service.domain.aggregates.password import Password
+from message_service.domain.aggregates.subscription import SubscriptionGranularity
 from message_service.domain.errors import (
     DuplicateEmailError,
     InvalidEmailError,
+    PersistenceError,
     SelfProtectionError,
+    SubscriptionNotFoundError,
+    UnknownPipelineTypeError,
+    UnknownTagError,
     UserNotFoundError,
 )
+from message_service.domain.ids import SubscriptionId, UserId
 from message_service.interfaces.rest.app import require_admin_factory
 
 if TYPE_CHECKING:
     from message_service.bootstrap import Service
+    from message_service.domain.aggregates.subscription import Subscription
     from message_service.domain.aggregates.user import User
 
 
@@ -147,6 +154,25 @@ class UserListItemResponse(BaseModel):
     created_at: str
 
 
+class AdminCreateSubscriptionRequest(BaseModel):
+    """Body of ``POST /admin/users/{user_id}/subscriptions`` (L3-DASH-045)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    granularity: SubscriptionGranularity
+    target_value: str | None = Field(default=None, max_length=255)
+
+
+class AdminSubscriptionResponse(BaseModel):
+    """An admin-managed subscription projection (L3-DASH-045)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subscription_id: int
+    granularity: SubscriptionGranularity
+    target_value: str | None
+
+
 # -----------------------------------------------------------------------------
 # Projections
 # -----------------------------------------------------------------------------
@@ -162,6 +188,15 @@ def _project_user_list_item(user: User) -> UserListItemResponse:
         is_admin=user.is_admin,
         disabled=user.disabled,
         created_at=iso_z(user.created_at),
+    )
+
+
+def _project_subscription(sub: Subscription) -> AdminSubscriptionResponse:
+    """Project a :class:`Subscription` to the admin API shape."""
+    return AdminSubscriptionResponse(
+        subscription_id=int(sub.subscription_id),
+        granularity=sub.granularity,
+        target_value=sub.target_value,
     )
 
 
@@ -286,6 +321,86 @@ def build_admin_users_router(service: Service) -> APIRouter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="user not found",
+            ) from exc
+
+    # -------------------------------------------------------------------------
+    # Admin-on-behalf subscription management (L3-DASH-045)
+    # -------------------------------------------------------------------------
+
+    @router.get("/{user_id}/subscriptions")
+    async def list_user_subscriptions(
+        user_id: Annotated[int, Path(ge=1)],
+        _admin_id: int = Depends(require_admin),
+    ) -> list[AdminSubscriptionResponse]:
+        """List a recipient's subscriptions (admin-gated)."""
+        del _admin_id  # auth gate only
+        async with service.uow_factory() as uow:
+            subs = await uow.subscription_repo.list_for_user(UserId(user_id))
+        return [_project_subscription(s) for s in subs]
+
+    @router.post("/{user_id}/subscriptions", status_code=status.HTTP_201_CREATED)
+    async def create_user_subscription(
+        body: AdminCreateSubscriptionRequest,
+        user_id: Annotated[int, Path(ge=1)],
+        admin_id: int = Depends(require_admin),
+    ) -> AdminSubscriptionResponse:
+        """Create a subscription for a recipient on their behalf (L3-DASH-045).
+
+        404 if the target user does not exist; 422 for an unknown pipeline/tag
+        target; 409 if the recipient already has an identical subscription.
+        """
+        try:
+            saved = await service.admin_subscribe.execute(
+                admin_id=admin_id,
+                target_user_id=UserId(user_id),
+                granularity=body.granularity,
+                target_value=body.target_value,
+            )
+        except UserNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="user not found",
+            ) from exc
+        except (UnknownPipelineTypeError, UnknownTagError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+        except PersistenceError as exc:
+            # The unique index on (user_id, granularity, target_value) rejects
+            # duplicates; surface that as 409, re-raise anything else (→ 500).
+            if "UNIQUE" in str(exc.details.get("reason", "")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="recipient already has this subscription",
+                ) from exc
+            raise
+        return _project_subscription(saved)
+
+    @router.delete(
+        "/{user_id}/subscriptions/{subscription_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    async def delete_user_subscription(
+        user_id: Annotated[int, Path(ge=1)],
+        subscription_id: Annotated[int, Path(ge=1)],
+        admin_id: int = Depends(require_admin),
+    ) -> None:
+        """Delete a recipient's subscription (L3-DASH-045).
+
+        404 when the id is not a subscription of ``user_id`` (an admin cannot
+        remove another recipient's subscription through this path).
+        """
+        try:
+            await service.admin_unsubscribe.execute(
+                admin_id=admin_id,
+                target_user_id=UserId(user_id),
+                subscription_id=SubscriptionId(subscription_id),
+            )
+        except SubscriptionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="subscription not found",
             ) from exc
 
     return router

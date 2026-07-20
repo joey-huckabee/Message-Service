@@ -45,6 +45,10 @@ from message_service.application.ports.disposition_handler import DispositionHan
 from message_service.application.ports.mailer import Mailer
 from message_service.application.ports.report_store import ReportStore
 from message_service.application.ports.template_repository import TemplateRepository
+from message_service.application.use_cases.admin_subscriptions import (
+    AdminSubscribeUseCase,
+    AdminUnsubscribeUseCase,
+)
 from message_service.application.use_cases.admin_users import (
     CreateUserUseCase,
     ResetPasswordUseCase,
@@ -322,6 +326,8 @@ class Service:
     logout: LogoutUseCase
     subscribe: SubscribeUseCase
     unsubscribe: UnsubscribeUseCase
+    admin_subscribe: AdminSubscribeUseCase
+    admin_unsubscribe: AdminUnsubscribeUseCase
     list_past_runs: ListPastRunsUseCase
     get_run_detail: GetRunDetailUseCase
     resend_run: ResendRunUseCase
@@ -653,6 +659,13 @@ async def build_service(config: Config) -> Service:
         registered_pipelines=frozenset(config.pipelines.registered),
     )
     unsubscribe = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
+    admin_subscribe = AdminSubscribeUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        tag_vocabulary=tag_vocabulary,
+        registered_pipelines=frozenset(config.pipelines.registered),
+    )
+    admin_unsubscribe = AdminUnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
     list_past_runs = ListPastRunsUseCase(uow_factory=uow_factory)
     get_run_detail = GetRunDetailUseCase(uow_factory=uow_factory)
     resend_run = ResendRunUseCase(
@@ -718,6 +731,8 @@ async def build_service(config: Config) -> Service:
         logout=logout,
         subscribe=subscribe,
         unsubscribe=unsubscribe,
+        admin_subscribe=admin_subscribe,
+        admin_unsubscribe=admin_unsubscribe,
         list_past_runs=list_past_runs,
         get_run_detail=get_run_detail,
         resend_run=resend_run,

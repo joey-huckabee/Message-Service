@@ -45,6 +45,10 @@ from message_service_proto.v1 import message_service_pb2_grpc as pb_grpc
 from message_service.application.ports.clock import Clock
 from message_service.application.ports.mailer import Mailer
 from message_service.application.ports.report_store import NoOpReportStore
+from message_service.application.use_cases.admin_subscriptions import (
+    AdminSubscribeUseCase,
+    AdminUnsubscribeUseCase,
+)
 from message_service.application.use_cases.admin_users import (
     CreateUserUseCase,
     ResetPasswordUseCase,
@@ -343,6 +347,13 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         registered_pipelines=frozenset(service_config.pipelines.registered),
     )
     unsubscribe_uc = UnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
+    admin_subscribe_uc = AdminSubscribeUseCase(
+        uow_factory=uow_factory,
+        clock=clock,
+        tag_vocabulary=tag_vocab,
+        registered_pipelines=frozenset(service_config.pipelines.registered),
+    )
+    admin_unsubscribe_uc = AdminUnsubscribeUseCase(uow_factory=uow_factory, clock=clock)
     list_past_runs_uc = ListPastRunsUseCase(uow_factory=uow_factory)
     get_run_detail_uc = GetRunDetailUseCase(uow_factory=uow_factory)
     resend_run_uc = ResendRunUseCase(
@@ -389,6 +400,8 @@ async def service(service_config: Config) -> AsyncIterator[Service]:
         logout=logout_uc,
         subscribe=subscribe_uc,
         unsubscribe=unsubscribe_uc,
+        admin_subscribe=admin_subscribe_uc,
+        admin_unsubscribe=admin_unsubscribe_uc,
         list_past_runs=list_past_runs_uc,
         get_run_detail=get_run_detail_uc,
         resend_run=resend_run_uc,

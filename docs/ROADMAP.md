@@ -29,7 +29,7 @@ result under a new dated section in `CHANGELOG.md`.
 |---------|-------|
 | 0.14.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
 | 1.0.0 | The stable single-node, trusted-ISOLAN feature-complete release. All v1 partials are resolved and all L1 requirements are Implemented (as of v0.13.0). The precise 1.0.0 feature line is being (re)defined — see **Toward 1.0.0** below; it deliberately excludes the 2.0.0 hardening items. |
-| 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, **federated user login (OIDC via Keycloak, plus LDAP/AD)** so end users can authenticate and self-serve, per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. The **local admin account continues to use local authentication** even after federated login lands. See **Toward 2.0.0** below. |
+| 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, **federated user login (OIDC via Keycloak, plus LDAP/AD)**, **per-user self-service login & subscriptions** (end users manage their own subscriptions, not admin-on-behalf), per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. The **local admin account continues to use local authentication** even after federated login lands. See **Toward 2.0.0** below. |
 
 ## The v1 partials (all resolved)
 
@@ -60,13 +60,12 @@ usable browser dashboard:
   management** (`L1-DASH-009`) — the admin assigns which notifications
   (`GLOBAL`/`PIPELINE`/`TAG`) each recipient is registered for, via a new
   admin-gated subscription API and the console's Subscriptions tab.
-- **Per-user self-service** — where end users log in and manage their own
-  subscriptions — depends on federated login and is therefore a **2.0.0** item
-  (below). The local admin login remains local-auth even after federated login
-  lands.
 
-Pull the agreed items from the backlog, promote each to real L1/L2/L3
-requirements, ship, then cut 1.0.0.
+With v0.14.0–v0.16.0 the **admin-managed** browser dashboard is feature-complete.
+The 1.0.0 line stays admin-managed; **per-user self-service** (end users logging
+in to manage their own subscriptions) is a **2.0.0** item — see **Toward 2.0.0**
+below. Pull any further agreed items from the backlog, promote each to real
+L1/L2/L3 requirements, ship, then cut 1.0.0.
 
 ## Toward 2.0.0 — trust-boundary crossing + multi-tenant hardening
 
@@ -80,11 +79,17 @@ tagged `→ 2.0.0`:
 - **Dashboard RBAC (`R-DASH-001`)** — viewer / operator / admin roles with
   per-action gates (today every authenticated user can do everything).
 - **Federated user login (OIDC via Keycloak, plus LDAP/AD)** — lets end users
-  authenticate (and eventually self-serve their own subscriptions) through an
-  external identity provider rather than local accounts. The **local admin
-  account keeps using local authentication** so the service is never locked out
-  if the IdP is unreachable. Pairs naturally with RBAC and with promoting the
-  v0.15.0 admin notification console into per-user self-service.
+  authenticate through an external identity provider rather than local accounts.
+  The **local admin account keeps using local authentication** so the service is
+  never locked out if the IdP is unreachable. Pairs naturally with RBAC.
+- **Per-user self-service login & subscriptions** — once end users can
+  authenticate (federated login, above), promote the admin-managed console into
+  self-service: each user logs in and manages their *own* notification
+  subscriptions, rather than an administrator doing it on their behalf. Builds
+  directly on the v0.16.0 admin-on-behalf subscription surface (`L1-DASH-009`) —
+  the same use cases and validation, re-scoped from the target recipient to the
+  session user. Gated on federated login (and informed by RBAC) and therefore a
+  2.0.0 item, not a 1.0.0 one.
 - **Per-pipeline concurrency caps / per-RPC weighting** — per-tenant fairness on
   top of the global rejecting limit shipped in v0.13.0.
 - **Backup & restore tooling** — atomic snapshot/restore of the SQLite database

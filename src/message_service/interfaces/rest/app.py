@@ -51,6 +51,7 @@ from message_service.domain.aggregates.password import Password
 from message_service.interfaces.rest.admin_console import render_admin_console
 from message_service.interfaces.rest.login_page import render_login_page
 from message_service.interfaces.rest.metrics_dashboard import render_metrics_dashboard
+from message_service.interfaces.rest.subscriptions_console import render_subscriptions_console
 from message_service.observability.logging_setup import (
     bind_request_context,
     clear_request_context,
@@ -485,6 +486,27 @@ def create_app(service: Service) -> FastAPI:
             admin = await uow.user_repo.get_by_id(admin_id)
         admin_email = admin.email if admin is not None else ""
         return HTMLResponse(content=render_admin_console(admin_email))
+
+    @app.get("/admin/subscriptions", response_class=HTMLResponse)
+    async def admin_subscriptions_console(
+        admin_id: int = Depends(_require_admin_html),
+    ) -> HTMLResponse:
+        """Admin-only subscriptions console (L3-DASH-046).
+
+        Admin-gated. Embeds the registered pipelines + tag vocabulary for the
+        client's Type→target dropdowns; the client fetches recipients and a
+        recipient's subscriptions from the admin APIs.
+        """
+        async with service.uow_factory() as uow:
+            admin = await uow.user_repo.get_by_id(admin_id)
+        admin_email = admin.email if admin is not None else ""
+        return HTMLResponse(
+            content=render_subscriptions_console(
+                admin_email,
+                pipelines=sorted(service.config.pipelines.registered),
+                tags=sorted(service.tag_vocabulary.all_tags()),
+            )
+        )
 
     # -------------------------------------------------------------------------
     # Login / Logout

@@ -54,9 +54,8 @@ def render_admin_console(admin_email: str) -> str:
         "</div></div>\n"
         '<div class="wrap">\n'
         '<div class="tabs">\n'
-        '<div class="tab active">Recipients</div>\n'
-        '<div class="tab disabled" title="Subscription management ships in a later release">'
-        'Subscriptions <span class="soon">soon</span></div>\n'
+        '<span class="tab active">Recipients</span>\n'
+        '<a class="tab" href="/admin/subscriptions">Subscriptions</a>\n'
         "</div>\n"
         '<div class="head-row">\n'
         "<div><h1>Notification recipients</h1>\n"

@@ -120,11 +120,6 @@ def test_parse_allowlist_rejects_malformed_id() -> None:
 
 @pytest.mark.requirement("L3-CICD-019")
 def test_committed_allowlist_parses() -> None:
-    """The committed allowlist is well-formed.
-
-    Empty except while a spec-first release is mid-flight: the v0.16.0
-    admin-subscription L1 (L1-DASH-009) is allowlisted between its spec landing
-    and its implementation, and the list returns to empty at the release cut.
-    """
+    """The committed allowlist is well-formed and empty — every L1 is covered."""
     allowed = _M.parse_allowlist(_ALLOWLIST.read_text(encoding="utf-8"))
-    assert allowed == {"L1-DASH-009"}
+    assert allowed == set()

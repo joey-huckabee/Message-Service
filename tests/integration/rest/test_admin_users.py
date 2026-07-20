@@ -26,7 +26,7 @@ import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import aiosqlite
 import httpx
@@ -85,6 +85,10 @@ class _FixedClock(Clock):
         return self._value
 
 
+class _PipelinesStub:
+    registered: ClassVar[list[str]] = ["etl-nightly", "sales-rollup"]
+
+
 class _ConfigStub:
     def __init__(self) -> None:
         self.dashboard = DashboardConfig(host="127.0.0.1", https_only=False)
@@ -92,6 +96,7 @@ class _ConfigStub:
             session_idle_timeout_seconds=3600,
             argon2=Argon2Config(memory_cost=8, time_cost=1, parallelism=1, hash_len=16, salt_len=8),
         )
+        self.pipelines = _PipelinesStub()
 
 
 class _ServiceLike:
@@ -148,6 +153,7 @@ def service_like(
         config=_ConfigStub(),
         clock=clock,
         uow_factory=uow_factory,
+        tag_vocabulary=InMemoryTagVocabulary(frozenset({"finance", "ops"})),
         login=LoginUseCase(uow_factory=uow_factory, clock=clock, password_hasher=hasher),
         logout=LogoutUseCase(uow_factory=uow_factory, clock=clock),
         create_user=CreateUserUseCase(uow_factory=uow_factory, clock=clock, password_hasher=hasher),
@@ -1138,3 +1144,44 @@ async def test_admin_delete_unknown_subscription_is_404(
         headers={"X-CSRF-Token": csrf},
     )
     assert resp.status_code == 404
+
+
+# -----------------------------------------------------------------------------
+# GET /admin/subscriptions -- subscriptions console page (L3-DASH-046)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-046")
+async def test_subscriptions_console_requires_admin(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Unauth → 401; non-admin → 403."""
+    resp = await http_client.get("/admin/subscriptions")
+    assert resp.status_code == 401
+    await _login_as(http_client, uow_factory, hasher, email="user@example.com", is_admin=False)
+    resp = await http_client.get("/admin/subscriptions")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-046")
+async def test_subscriptions_console_returns_html_embedding_vocab(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Admin gets the console page with the embedded pipeline/tag vocabulary."""
+    await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
+    resp = await http_client.get("/admin/subscriptions")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    body = resp.text
+    assert body.startswith("<!doctype html>")
+    assert 'id="vocab-data"' in body
+    # Vocabulary embedded from the service stub (pipelines + tags).
+    assert "etl-nightly" in body
+    assert "finance" in body
+    assert "admin@example.com" in body

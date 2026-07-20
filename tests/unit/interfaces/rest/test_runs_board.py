@@ -115,6 +115,8 @@ _ALL_STATIC_ASSETS = (
     "login.js",
     "admin_console.css",
     "admin_console.js",
+    "subscriptions_console.css",
+    "subscriptions_console.js",
 )
 _FORBIDDEN_MARKERS = (
     "cdnjs",

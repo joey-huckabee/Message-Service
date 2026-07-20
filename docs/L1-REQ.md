@@ -482,6 +482,14 @@ single source of truth for live status; the source docs in this file,
 
 **Verification Method**: Test (T), Demonstration (D)
 
+### L1-DASH-009
+
+**Statement**: The dashboard SHALL allow an administrator to manage the notification subscriptions of any recipient on their behalf — listing, creating, and deleting subscriptions at each supported granularity (`GLOBAL`, `PIPELINE`, `TAG`) for a chosen recipient — through an administrator-gated browser console and its backing API. `PIPELINE` and `TAG` targets SHALL be validated against the registered pipelines and the tag vocabulary exactly as self-service subscription creation is (L1-DASH-002). Every such action SHALL be audited to the acting administrator (not the target recipient).
+
+**Rationale**: In the trusted-ISOLAN, admin-managed model there is no end-user self-service login yet (that awaits federated identity — ROADMAP), so a recipient cannot manage their own subscriptions. The administrator therefore needs to assign, on each recipient's behalf, which finalized runs they are emailed about. Reusing the same target validation as self-service (L1-DASH-002) keeps a single correctness rule for what a subscription may point at; auditing to the acting administrator (rather than the target) keeps the audit trail truthful about who made the change, mirroring the admin account-management audit posture (L1-AUTH-003).
+
+**Verification Method**: Test (T), Demonstration (D)
+
 ---
 
 ## L1-PERS: Persistence
@@ -730,3 +738,4 @@ The service is developed against a CI pipeline (GitHub Actions) that gates merge
 | 2026-07-19 | Joey   | Rate limiting: added L1-API-005 (bound concurrently-executing RPCs to a configurable limit; reject excess with RESOURCE_EXHAUSTED rather than queue unboundedly). Total L1: 68. |
 | 2026-07-19 | Joey   | Run-status board: added L1-DASH-006 (embedded browser page presenting run status incl. in-flight runs, with state filter + per-run stage drill-in; hand-authored, dependency-free like L1-DASH-004). Total L1: 69. |
 | 2026-07-19 | Joey   | Admin console + login (v0.15.0): added L1-AUTH-004 (configurable local admin provisioned from config at startup), L1-DASH-007 (browser login page), L1-DASH-008 (admin recipient-roster console over the L1-AUTH-003 account APIs). Total L1: 72. |
+| 2026-07-19 | Joey   | Admin subscription management (v0.16.0): added L1-DASH-009 (admin manages any recipient's GLOBAL/PIPELINE/TAG subscriptions on their behalf, validated like L1-DASH-002, audited to the acting admin). Total L1: 73. |

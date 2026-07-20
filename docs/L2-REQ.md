@@ -1061,6 +1061,22 @@ single source of truth for live status.
 **Rationale**: The admin console needs to enumerate recipients, but the `UserRepository` has no list method today (v1 anticipated listing via raw SQL on the dashboard page). A dedicated read endpoint with the same pagination shape as the runs listing keeps the dashboard's paging UX uniform and keeps `password_hash` off the wire.
 **Verification Method**: Test (T)
 
+### Derivations of L1-DASH-009 (admin subscription management)
+
+#### L2-DASH-022
+
+**Parent**: L1-DASH-009
+**Statement**: The service SHALL expose an admin-gated, on-behalf-of subscription API scoped by a target `user_id` path parameter: `GET /admin/users/{user_id}/subscriptions` (list the target's subscriptions), `POST /admin/users/{user_id}/subscriptions` (create one), and `DELETE /admin/users/{user_id}/subscriptions/{subscription_id}` (delete one). All three use the same `require_admin` dependency as the other `/admin/users` routes. Create accepts `{granularity, target_value}` and validates the target against the registered pipelines / tag vocabulary exactly as the self-service `SubscribeUseCase` does; an unknown target SHALL be `422`, a duplicate `409`, an unknown target user `404`. Delete SHALL `404` when no subscription with that id belongs to the target user (an admin cannot delete another user's subscription by guessing an id that belongs to a third user). These paths SHALL be served by dedicated admin use cases (not the self-scoped `SubscribeUseCase`/`UnsubscribeUseCase`, whose audit actor is the subscriber and whose delete enforces self-ownership); the admin use cases record the acting `admin_id` as the audit actor and the target user as the audit resource.
+**Rationale**: A `user_id`-scoped path mirrors the existing `/admin/users/{user_id}/password` shape and makes the target explicit and auditable. Reusing the self-service target validation keeps one correctness rule for subscription targets. Dedicated admin use cases are required because the self-scoped ones bake in the wrong actor and an ownership check that would reject an administrator acting on another account.
+**Verification Method**: Test (T)
+
+#### L2-DASH-023
+
+**Parent**: L1-DASH-009
+**Statement**: The service SHALL expose an admin-gated `GET /admin/subscriptions` route returning a self-contained HTML console (hand-authored, packaged static assets, no external dependency — same posture as `L2-DASH-011`/`L2-DASH-020`) for managing a chosen recipient's subscriptions. The page SHALL embed the registered pipelines and the tag vocabulary so the `PIPELINE`/`TAG` target is chosen from a dropdown of valid values (no free-text target); it SHALL fetch the recipient list from `GET /admin/users` and a selected recipient's subscriptions from `GET /admin/users/{user_id}/subscriptions`, and drive create/delete through `L2-DASH-022`, echoing the `msp_csrf` cookie as `X-CSRF-Token` and redirecting to `GET /login` on a `401`. The admin console's Recipients and Subscriptions views SHALL cross-link (each page's tab bar links to the other).
+**Rationale**: Embedding the (small, static-per-deployment) vocabulary lets the client offer valid-only dropdowns without a round-trip, making an invalid target impossible in the UI while the API still validates defensively. Fetching the dynamic data (recipients, a recipient's subscriptions) keeps the page live. Reusing the double-submit CSRF scheme and the 401→login redirect matches the recipient console (L2-DASH-020), so the new page adds no new auth or state-change surface.
+**Verification Method**: Test (T)
+
 ### Derivations of L1-DASH-005 (admin audit-log viewer)
 
 #### L2-DASH-015
@@ -1691,4 +1707,5 @@ single source of truth for live status.
 | 2026-07-19 | Joey   | Rate limiting: added L2-API-012 under new L1-API-005 (`grpc.max_in_flight_rpcs` rejecting interceptor; RESOURCE_EXHAUSTED + R-ERR-001 ErrorInfo reason, no proto enum bump). |
 | 2026-07-19 | Joey   | Run-status board: added L2-DASH-017 (`GET /runs/board` route + server-side summary projection, session-gated, lazy stage fetch) and L2-DASH-018 (hand-authored, dependency-free rendering) under new L1-DASH-006. |
 | 2026-07-19 | Joey   | Admin console + login (v0.15.0): added L2-AUTH-010/011 (`[auth.admin]` config + startup reconciliation) under new L1-AUTH-004; L2-DASH-019 (`GET /login` page) under new L1-DASH-007; L2-DASH-020 (`GET /admin/console` over the admin account APIs) + L2-DASH-021 (`GET /admin/users` list) under new L1-DASH-008. |
+| 2026-07-19 | Joey   | Admin subscription management (v0.16.0): added L2-DASH-022 (on-behalf-of admin subscription API `/admin/users/{id}/subscriptions` + dedicated admin use cases) and L2-DASH-023 (`GET /admin/subscriptions` console with embedded vocab dropdowns) under new L1-DASH-009. |
 | 2026-07-19 | Joey   | R-DASH-004: reworded L2-DASH-011 (hand-authored inline-SVG rendering, no third-party charting library / CDN — dropped the Chart.js example). |

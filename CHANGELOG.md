@@ -193,6 +193,19 @@ features; correctness, security, and requirements-document fixes.
   the already-redacted `template_context`) to the sensitive-key set (new
   `L3-OBS-044`).
 
+### Documentation
+
+- **Resolved the `recipient_addresses` contradiction in the requirements.** The
+  docs disagreed with themselves and with the code: some statements said delivery
+  audit rows store `recipient_addresses`, others said they must not. Settled on the
+  implemented behavior — audit rows record the sorted `recipient_addresses` (the
+  authoritative forensic record), while the structured-**log** stream stays
+  count-only because addresses are PII (`L3-OBS-006`). Reworded `L3-SUB-015`,
+  `L3-MAIL-018`, and `L3-MAIL-025` to state this split coherently and to note the
+  addresses are governed by audit retention pruning + optional archival + admin-only
+  audit access. Applied the timeless-wording principle in these three (dropped the
+  `v1 does NOT …` / `Earlier drafts …` history).
+
 ## [0.16.0] — 2026-07-19
 
 The admin console's **Subscriptions** tab goes live: an administrator can now

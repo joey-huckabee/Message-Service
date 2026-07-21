@@ -446,6 +446,22 @@ async def test_get_run_detail_returns_run_and_ordered_stages(
     assert body["run"]["run_id"] == run.run_id
     assert body["run"]["pipeline_type"] == "etl-nightly"
     assert [s["stage_id"] for s in body["stages"]] == ["extract", "transform"]
+    # L3-DASH-026: exact response shape — the run carries this keyset and no more,
+    assert set(body["run"]) == {
+        "run_id",
+        "pipeline_type",
+        "state",
+        "attachment_mode",
+        "tags",
+        "created_at",
+        "updated_at",
+    }
+    # each stage carries exactly {stage_id, state, submitted_at},
+    for stage in body["stages"]:
+        assert set(stage) == {"stage_id", "state", "submitted_at"}
+    # and the large context payloads SHALL NOT appear anywhere in the response.
+    assert "report_context_json" not in response.text
+    assert "email_body_context_json" not in response.text
 
 
 @pytest.mark.asyncio

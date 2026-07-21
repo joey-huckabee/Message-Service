@@ -234,13 +234,17 @@ async def test_fresh_run_is_not_swept(service: Service) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.requirement("L2-SWEEP-009")
+@pytest.mark.requirement("L3-SWEEP-010")
 async def test_disposition_actions_enqueued_in_config_order(
     service: Service,
 ) -> None:
-    """Orphan sweeping SHALL enqueue one ``sweeper_actions`` row per
-    configured action, in configured order. Handler invocation is the
-    dispatcher's job (14b.3) and is not asserted here."""
+    """L3-SWEEP-010: orphan sweeping SHALL insert one ``sweeper_actions`` row per
+    configured action, preserving configured order.
+
+    This verifies the ENQUEUE half only. Handler *invocation* order (L2-SWEEP-009)
+    is the dispatcher's job and is verified by
+    ``test_sweeper_action_dispatcher.test_dispatch_invokes_handlers_in_enqueue_order``
+    (L3-SWEEP-015) — not here (this test never runs a handler)."""
     stale = _make_stale_run(
         run_id="00000000-0000-4000-8000-0000000000cc",
         staleness_seconds=300,

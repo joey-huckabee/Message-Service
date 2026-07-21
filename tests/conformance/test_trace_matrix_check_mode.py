@@ -182,22 +182,33 @@ def test_check_clean_exits_zero(script_path: Path) -> None:
 
 
 @pytest.mark.requirement("L3-CICD-010")
-def test_no_args_regenerates(script_path: Path, tmp_path: Path) -> None:
-    """No args → write mode (regeneration). Verified by patching
-    TRACE_DOC to a tmp path and checking the file gets created."""
+def test_no_args_regenerates_and_check_does_not_write(script_path: Path) -> None:
+    """L3-CICD-010: no-args regenerates (writes); --check verifies WITHOUT writing.
+
+    Exercises both modes and their mutual exclusivity. (The prior version ran
+    ``--help`` and ended on an always-true ``or``, verifying neither mode nor
+    the exclusivity.) The committed matrix is current, so regeneration is a
+    byte-identical rewrite — which still proves the WRITE path runs; the file is
+    restored verbatim in the ``finally`` to keep the tree clean regardless.
+    """
     import subprocess
     import sys
 
-    # Run with a TRACE_DOC env hack would require modifying the script;
-    # simpler approach: just verify the script's argparse accepts no
-    # positional args (any subprocess invocation is enough — we don't
-    # need to actually rewrite the live matrix).
-    result = subprocess.run(
-        [sys.executable, str(script_path), "--help"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert "--check" in result.stdout
-    # Confirm there are no required positional args (per L3-CICD-010).
-    assert "positional arguments" not in result.stdout or "{}" not in result.stdout
+    trace_doc = Path(__file__).resolve().parents[2] / "docs" / "TRACE-MATRIX.md"
+    before = trace_doc.read_text(encoding="utf-8")
+    try:
+        # --check mode verifies and SHALL NOT write (mutual exclusivity).
+        check = subprocess.run(
+            [sys.executable, str(script_path), "--check"], capture_output=True, text=True
+        )
+        assert check.returncode == 0, check.stderr
+        assert "Wrote" not in check.stdout
+        assert trace_doc.read_text(encoding="utf-8") == before
+
+        # No-args regenerates (writes) and requires no positional argument.
+        regen = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
+        assert regen.returncode == 0, regen.stderr
+        assert "Wrote" in regen.stdout
+        assert "the following arguments are required" not in regen.stderr
+    finally:
+        trace_doc.write_text(before, encoding="utf-8", newline="\n")

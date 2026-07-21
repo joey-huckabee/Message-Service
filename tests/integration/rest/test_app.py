@@ -270,28 +270,41 @@ async def test_metrics_endpoint_emits_recorded_counter(
     wired to the same default registry the metrics adapter
     populates.
     """
+
     from message_service.infrastructure.observability.metrics import (
         PrometheusMetricsRecorder,
     )
 
+    def _counter(text: str) -> float:
+        """Parse the numeric value of the success-labeled delivery-outcome counter.
+
+        The registry is process-global, so the counter may already be non-zero
+        from other tests — hence we assert the DELTA, not mere presence.
+        """
+        for line in text.splitlines():
+            if (
+                not line.startswith("#")
+                and "email_delivery_outcomes_total" in line
+                and 'outcome="success"' in line
+            ):
+                return float(line.rsplit(" ", 1)[1])
+        return 0.0
+
     recorder = PrometheusMetricsRecorder()
-    # Scrape baseline.
     before = await http_client.get("/metrics")
     assert before.status_code == 200
+    before_val = _counter(before.text)
 
-    # Emit one observation. The counter name is
-    # `email_delivery_outcomes_total{outcome="success"}` per
-    # the metrics adapter's labels.
     recorder.record_email_delivery_outcome("success")
 
     after = await http_client.get("/metrics")
     assert after.status_code == 200
+    after_val = _counter(after.text)
 
-    # The "success"-labeled counter SHALL appear in the after
-    # scrape with a higher value than the before scrape (or
-    # appear at all if it wasn't there before).
-    assert "email_delivery_outcomes_total" in after.text
-    assert 'outcome="success"' in after.text
+    # The recorded observation SHALL surface as a +1 delta on the exact counter —
+    # a bare substring check passes even if the endpoint is wired to a stale/empty
+    # registry, since the metric family is already present process-wide.
+    assert after_val == before_val + 1
 
 
 # -----------------------------------------------------------------------------

@@ -169,14 +169,42 @@ async def test_admin_metrics_admin_receives_dashboard_html(
     uow_factory: SqliteUnitOfWorkFactory,
     hasher: Argon2PasswordHasher,
 ) -> None:
-    """An admin SHALL receive the self-contained HTML dashboard with embedded data."""
+    """An admin SHALL receive the self-contained HTML dashboard with embedded data.
+
+    Beyond the page scaffold, the embedded JSON model SHALL actually carry the
+    parsed metric families — a bare presence check on ``id="metrics-data"`` passes
+    even if the handler embedded an empty ``[]``. Seed a distinctive counter and
+    assert it appears in the parsed model.
+    """
+    import json
+    import re
+
+    from message_service.infrastructure.observability.metrics import (
+        PrometheusMetricsRecorder,
+    )
+
+    PrometheusMetricsRecorder().record_email_delivery_outcome("success")
+
     await _login_as(http_client, uow_factory, hasher, email="admin@example.com", is_admin=True)
     resp = await http_client.get("/admin/metrics")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/html")
     body = resp.text
     # Self-contained page: embedded JSON model + render target + inlined assets.
-    assert '<script type="application/json" id="metrics-data">' in body
     assert 'id="panels"' in body
     assert "createElementNS" in body  # the renderer JS is inlined, not linked
     assert "http://" not in body.replace("http://www.w3.org/", "")  # no external origin
+
+    # The embedded model is a real, non-empty structured parse of the exposition.
+    match = re.search(
+        r'<script type="application/json" id="metrics-data">(.*?)</script>', body, re.DOTALL
+    )
+    assert match is not None
+    families = json.loads(match.group(1))
+    assert isinstance(families, list) and families, "embedded metric model is empty"
+    delivery = next(
+        (f for f in families if "email_delivery_outcomes" in f["name"]),
+        None,
+    )
+    assert delivery is not None, "seeded counter absent from embedded model"
+    assert delivery["samples"], "delivery family has no samples in the embedded model"

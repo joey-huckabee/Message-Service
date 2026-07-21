@@ -34,14 +34,14 @@ of truth for live status; this file holds only the spec content above.
 | `SUB`     | 10       | 20       |
 | `AUTH`    | 11       | 22       |
 | `MAIL`    | 14       | 34       |
-| `DASH`    | 23       | 46       |
+| `DASH`    | 23       | 47       |
 | `PERS`    | 13       | 37       |
 | `OBS`     | 19       | 44       |
 | `ERR`     | 10       | 24       |
 | `CFG`     | 8        | 16       |
-| `DEP`     | 9        | 19       |
+| `DEP`     | 9        | 20       |
 | `CICD`    | 16       | 19       |
-| **Total** | **206**  | **433**  |
+| **Total** | **206**  | **435**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 

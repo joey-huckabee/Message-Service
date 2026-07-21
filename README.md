@@ -6,7 +6,7 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 **Latest release: v0.16.0.** The full feature scope is implemented: domain + application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, the FastAPI dashboard (subscription management, past-run views, resend, report viewer, admin template/user/audit management, embedded metrics dashboard, run-status board, admin subscriptions console), the sweeper outbox with stuck-claim recovery, report + audit-log retention pruners, and Prometheus metrics. **All 73 L1 requirements are Implemented.** The 0.x line continues toward a 1.0.0 cut (feature-complete admin-managed line; remaining 1.0.0 gates are trust-boundary hardening — mTLS + RBAC — tracked in `docs/ROADMAP.md`). See `CHANGELOG.md` for release history, `docs/ROADMAP.md` for forward-looking work, and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status).
 
-Requirement counts: **73 L1 · 206 L2 · 433 L3** across 16 categories.
+Requirement counts: **73 L1 · 206 L2 · 435 L3** across 16 categories.
 
 ## Key characteristics
 
@@ -31,7 +31,7 @@ Message-Service/
 ├── docs/
 │   ├── L1-REQ.md               # Level 1 SHALL statements (73 reqs)
 │   ├── L2-REQ.md               # Level 2 SHALL statements (206 reqs)
-│   ├── L3-REQ.md               # Level 3 SHALL statements (433 reqs)
+│   ├── L3-REQ.md               # Level 3 SHALL statements (435 reqs)
 │   ├── TRACE-MATRIX.md         # forward trace + coverage summary
 │   ├── LOGGING-AND-EXCEPTIONS.md  # exception hierarchy and log conventions
 │   ├── adr/                    # architecture decision records

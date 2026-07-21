@@ -295,10 +295,17 @@ async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     finally:
         if not exercise_task.done():
             exercise_task.cancel()
-        # Let the Windows ProactorEventLoop release socket-level
-        # resources before the test loop closes, preventing
-        # PytestUnraisableExceptionWarning at session cleanup.
-        await asyncio.sleep(0)
+        # Let the event loop release socket-level resources before the test
+        # loop closes, preventing a PytestUnraisableExceptionWarning at
+        # session cleanup. The gRPC client channel's socket is closed on a
+        # C-core poller thread; a single loop turn drains it on Windows'
+        # ProactorEventLoop, but under Linux/epoll the fd can outlive one
+        # turn (the client-close in ``exercise`` and the server-stop in
+        # ``_run`` interleave across tasks). Give the poller several real
+        # turns of real wall-clock time to close the fd, so that by
+        # session-end GC the socket is already closed and no warning fires.
+        for _ in range(5):
+            await asyncio.sleep(0.02)
 
     assert accepted is True
 

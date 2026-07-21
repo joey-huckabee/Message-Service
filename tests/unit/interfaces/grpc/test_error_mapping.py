@@ -292,20 +292,29 @@ async def test_error_severity_boundary_log_carries_error_code() -> None:
 
     The previous 'coverage' asserted the trailing metadata, not the log record.
     ``ConfigurationError`` logs at ERROR (the base ``MessageServiceError``
-    log_level) with ``error_code=ERROR_CODE_INTERNAL``.
+    log_level) with ``error_code=ERROR_CODE_INTERNAL``. Patch the module logger
+    directly rather than using ``capture_logs`` — with
+    ``cache_logger_on_first_use=True`` the cached module logger would bypass
+    ``capture_logs`` once another test has configured structlog.
     """
-    from structlog.testing import capture_logs
+    from unittest.mock import patch
+
+    import message_service.interfaces.grpc.error_mapping as error_mapping
 
     ctx = _FakeServicerContext()
     exc = ConfigurationError("boom", details={"k": "v"})
-    with capture_logs() as logs, pytest.raises(_AbortRaisedError):
+    with (
+        patch.object(error_mapping, "logger") as mock_logger,
+        pytest.raises(_AbortRaisedError),
+    ):
         await _translate_known(ctx, exc)
 
-    rejected = [r for r in logs if r.get("event") == "request_rejected"]
-    assert rejected, "expected a request_rejected boundary log record"
-    record = rejected[0]
-    assert record["log_level"] == "error"
-    assert record["error_code"] == "ERROR_CODE_INTERNAL"
+    # _translate_known emits `logger.log(exc.log_level, "request_rejected", error_code=..., ...)`.
+    mock_logger.log.assert_called_once()
+    call = mock_logger.log.call_args
+    assert call.args[0] == logging.ERROR  # ConfigurationError's log_level
+    assert call.args[1] == "request_rejected"
+    assert call.kwargs["error_code"] == "ERROR_CODE_INTERNAL"
 
 
 @pytest.mark.asyncio

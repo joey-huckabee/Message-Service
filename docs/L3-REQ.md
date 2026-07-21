@@ -393,7 +393,7 @@ At startup the composition root SHALL validate every `email_body_template_overri
 The `ReportContribution` proto message SHALL use `google.protobuf.Struct` for `context` to allow arbitrary JSON-like structure without per-template proto schemas.
 
 **L3-AGGR-002** · Parent: L2-AGGR-001 · Verification: T
-`Struct` values SHALL be converted to Python `dict` via `google.protobuf.json_format.MessageToDict` with `preserving_proto_field_name=True`, `including_default_value_fields=False`.
+`Struct` values SHALL be converted to Python `dict` via `google.protobuf.json_format.MessageToDict` with `preserving_proto_field_name=True`, `including_default_value_fields=False`. Because a `Struct` stores every number as a double, `MessageToDict` yields Python `float` for all numeric values; the conversion SHALL then recursively demote any integral, finite `float` to `int` (`42.0 → 42`) so an integer input (e.g. a record count) does not serialize to `"42.0"` and render as `42.0` in the assembled report. Genuinely fractional values and non-finite values (`inf`/`nan`) are left unchanged, and `bool` values (a `Struct` `BoolValue`) SHALL NOT be coerced to `1`/`0`. Values above `2**53` have already lost integer precision at the `Struct` boundary; this normalization does not (and cannot) recover it.
 
 **L3-AGGR-003** · Parent: L2-AGGR-002 · Verification: T
 Omitted `email_body_contribution` on the wire SHALL be detected via proto3 field presence check (`HasField` where supported, or `is None` after dict conversion).

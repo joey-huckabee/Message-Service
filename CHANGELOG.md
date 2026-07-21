@@ -109,6 +109,14 @@ features; correctness, security, and requirements-document fixes.
   `PERMANENT_SMTP_FAILURE`. It is now classified by its per-recipient refusal codes:
   permanent iff every code is permanent, transient if any recipient carries a 4xx
   (which a retry might yet deliver). `L3-MAIL-007` amended.
+- **Integer values in a stage's `Struct` context no longer render as `"42.0"`.**
+  A protobuf `Struct` stores every number as a double, so `MessageToDict` returned
+  Python floats for all numbers — a record count of `42` serialized to `"42.0"` and
+  rendered as `42.0` in the delivered email. `_struct_to_dict` now recursively
+  demotes integral, finite doubles to `int` (`42.0 → 42`), leaving fractional
+  values, non-finite values (`inf`/`nan`), and `bool` untouched. (Values above
+  `2**53` already lost integer precision at the `Struct` boundary — unrecoverable
+  here.) `L3-AGGR-002` amended.
 
 ## [0.16.0] — 2026-07-19
 

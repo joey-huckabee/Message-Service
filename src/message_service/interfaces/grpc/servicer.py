@@ -155,17 +155,51 @@ def _email_body_position_to_domain(value: int, *, run_id: str, stage_id: str) ->
 # -----------------------------------------------------------------------------
 
 
+def _demote_integral_floats(value: Any) -> Any:
+    """Recursively demote integral, finite ``float`` values to ``int``.
+
+    A protobuf ``Struct`` stores every number as a double (there is no
+    integer kind), so ``MessageToDict`` renders an input like a record
+    count of ``42`` as the Python float ``42.0`` — which then serializes
+    to ``"42.0"`` and renders as ``42.0`` in the delivered email. This
+    walk restores the natural integer form for any double whose value is
+    integral (e.g. ``42.0 -> 42``), leaving genuinely fractional values
+    (``0.5``) and non-finite values (``inf``/``nan``, whose
+    ``.is_integer()`` is ``False``) untouched.
+
+    Precision note: doubles above ``2**53`` already lost integer
+    precision at the ``Struct`` boundary; this cannot recover it, but
+    ``int(x)`` still yields the exact value the double holds.
+
+    ``bool`` is a subclass of ``int`` and is not a ``float``; it passes
+    through unchanged (a ``Struct`` ``BoolValue`` must stay ``True``/
+    ``False``, never become ``1``/``0``).
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else value
+    if isinstance(value, dict):
+        return {k: _demote_integral_floats(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_demote_integral_floats(v) for v in value]
+    return value
+
+
 def _struct_to_dict(struct: Struct) -> dict[str, Any]:
     """Convert a protobuf ``Struct`` into a plain Python ``dict``.
 
     L3-AGGR-002 pins the kwargs; we use the current (protobuf-5+) names.
+    Integral doubles are demoted to ``int`` (L3-AGGR-002) via
+    :func:`_demote_integral_floats` so integer inputs do not render as
+    ``"42.0"`` in the assembled report.
     """
     result: dict[str, Any] = MessageToDict(
         struct,
         preserving_proto_field_name=True,
         always_print_fields_with_no_presence=False,
     )
-    return result
+    return {k: _demote_integral_floats(v) for k, v in result.items()}
 
 
 # -----------------------------------------------------------------------------

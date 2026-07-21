@@ -173,6 +173,16 @@ features; correctness, security, and requirements-document fixes.
   supervisor to restart. The shutdown-time `gather` also switched to
   `return_exceptions=True` so an already-dead listener can't abort teardown before
   the scheduler drains and the DB closes (new `L3-DEP-019`).
+- **A client-influenced error field can no longer overflow the gRPC trailing
+  metadata and lose the structured error.** The `grpc-status-details-bin`
+  `ErrorInfo.metadata` packed the whole (redacted) `details` dict verbatim, so an
+  oversized value — a huge `stage_id`/`template` name, a long `invalid_tags` /
+  `validation_errors` list — could push the serialized `google.rpc.Status` past
+  gRPC's ~8 KiB trailing-metadata limit, making the entire `context.abort` fail. The
+  metadata is now size-bounded: each value is truncated to a per-value byte cap, the
+  remaining fields are dropped once a total cap is reached, and a `_truncated` marker
+  is added so the client knows the metadata is incomplete (new `L3-ERR-024`). Fixed a
+  stale docstring that claimed `details` was not serialized to the response.
 
 ## [0.16.0] — 2026-07-19
 

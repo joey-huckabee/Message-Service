@@ -58,6 +58,15 @@ _STAGE_ID_PATTERN = r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$"
 # JSON list endpoint's max page size; the client filters within this window.
 _BOARD_LIMIT = 200
 
+# Content-Security-Policy for served report HTML (L3-DASH-030). A saved report is
+# display-only HTML rendered from pipeline-supplied template context, so it must
+# never execute script or reach off-origin. ``default-src 'none'`` blocks scripts,
+# objects, frames, and network fetches; inline styles and data: images (common in
+# report bodies) are permitted. This hardens the viewer against any markup that
+# slipped through a template author's escaping.
+_REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data: 'self'; base-uri 'none'"
+_REPORT_HEADERS = {"Content-Security-Policy": _REPORT_CSP, "X-Content-Type-Options": "nosniff"}
+
 
 # -----------------------------------------------------------------------------
 # Response models
@@ -250,6 +259,7 @@ def build_runs_router(service: Service) -> APIRouter:
         return HTMLResponse(
             content=html,
             media_type="text/html; charset=utf-8",
+            headers=_REPORT_HEADERS,
         )
 
     @router.get(
@@ -277,6 +287,7 @@ def build_runs_router(service: Service) -> APIRouter:
         return HTMLResponse(
             content=html,
             media_type="text/html; charset=utf-8",
+            headers=_REPORT_HEADERS,
         )
 
     @router.post("/{run_id}/resend", status_code=status.HTTP_202_ACCEPTED)

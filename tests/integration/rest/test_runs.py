@@ -643,6 +643,12 @@ async def test_get_report_returns_saved_email_body(
     assert response.status_code == 200
     assert response.text == "<html><body>π</body></html>"
     assert response.headers["content-type"] == "text/html; charset=utf-8"
+    # L3-DASH-029: served report HTML carries a restrictive CSP (no script/network)
+    # plus nosniff, so injected markup cannot execute or exfiltrate.
+    csp = response.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "script-src" not in csp  # scripts fall through to default-src 'none'
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 @pytest.mark.asyncio

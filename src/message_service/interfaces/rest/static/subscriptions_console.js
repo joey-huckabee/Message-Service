@@ -25,8 +25,11 @@
   var recipients = [];
 
   function esc(s) {
-    return String(s).replace(/[&<>]/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c];
+    // Escape the full HTML-metacharacter set including both quote styles, so
+    // the result is safe in text nodes AND in quoted attribute values (esc()
+    // is used in `<option value="...">` attribute context here).
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
   function getCookie(name) {

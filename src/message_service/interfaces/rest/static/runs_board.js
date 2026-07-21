@@ -31,8 +31,11 @@
   var stageCache = {};
 
   function esc(s) {
-    return String(s).replace(/[&<>]/g, function (c) {
-      return { "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c];
+    // Escape the full HTML-metacharacter set including both quote styles, so
+    // the result is safe in text nodes AND in single- or double-quoted
+    // attribute values (esc() is used in both here).
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
     });
   }
   function shortId(id) { return String(id).slice(0, 8); }

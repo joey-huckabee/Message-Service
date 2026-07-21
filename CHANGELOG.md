@@ -221,6 +221,17 @@ features; correctness, security, and requirements-document fixes.
   an optimized run and a violated invariant would surface as a confusing downstream
   error. Each is now an explicit `if not <invariant>: raise` that survives `-O` and
   still narrows for mypy.
+- **The dashboard `esc()` helpers now escape quotes for attribute context.** The
+  `runs_board` and `subscriptions_console` `esc()` helpers escaped only `& < >`, but
+  are used inside double-quoted HTML attributes (`data-run="…"`, `<option value="…">`),
+  so a value containing a `"` could break out of the attribute. All three helpers
+  (incl. `admin_console`) now escape the full set `& < > " '`.
+- **Served report HTML carries a restrictive `Content-Security-Policy`.** The
+  report-viewer and per-stage `/fragment` routes served pipeline-derived HTML with no
+  CSP. They now send `default-src 'none'; style-src 'unsafe-inline'; img-src data:
+  'self'; base-uri 'none'` plus `X-Content-Type-Options: nosniff`, so any markup that
+  escaped a template author's escaping cannot execute script or reach off-origin
+  (`L3-DASH-029`/`L3-DASH-030`).
 
 ### Documentation
 

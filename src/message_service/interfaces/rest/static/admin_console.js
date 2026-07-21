@@ -16,8 +16,10 @@
   var allUsers = [];
 
   function esc(s) {
-    return String(s).replace(/[&<>"]/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    // Full HTML-metacharacter set including both quote styles (text-node and
+    // quoted-attribute safe).
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
   function getCookie(name) {

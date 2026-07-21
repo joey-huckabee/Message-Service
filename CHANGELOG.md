@@ -183,6 +183,15 @@ features; correctness, security, and requirements-document fixes.
   remaining fields are dropped once a total cap is reached, and a `_truncated` marker
   is added so the client knows the metadata is incomplete (new `L3-ERR-024`). Fixed a
   stale docstring that claimed `details` was not serialized to the response.
+- **Log/error redaction now recurses into nested payloads.** Both
+  `redact_sensitive_keys` (used by the gRPC error translator) and the structlog
+  redaction processor only inspected *top-level* keys, so a sensitive key nested one
+  level down — inside the `details=` dict routinely passed to the logger and packed
+  into the error envelope — was emitted verbatim. Redaction now recurses through
+  nested dicts and lists/tuples. Also added `instance_value` (the raw offending value
+  captured in a schema-violation error, the same class of arbitrary pipeline data as
+  the already-redacted `template_context`) to the sensitive-key set (new
+  `L3-OBS-044`).
 
 ## [0.16.0] — 2026-07-19
 

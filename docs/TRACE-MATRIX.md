@@ -364,7 +364,7 @@ the single source of truth.
 |-------|-------------|----------------|--------|
 | L2-OBS-001 | L3-OBS-001, L3-OBS-002, L3-OBS-018 | `tests/unit/observability/test_logging_setup_shape.py::test_configure_logging_callable_in_logging_setup`<br>`tests/unit/observability/test_logging_setup_shape.py::test_configure_logging_takes_level_argument`<br>`tests/unit/observability/test_logging_setup_shape.py::test_logging_setup_uses_json_renderer`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
 | L2-OBS-002 | L3-OBS-003, L3-OBS-004 | `tests/integration/persistence/test_audit_log.py::test_record_persists_event`<br>`tests/integration/test_full_pipeline.py::test_full_lifecycle_audit_trail_contains_all_events`<br>`tests/unit/interfaces/grpc/test_correlation_interceptor.py::test_interceptor_binds_correlation_id_during_rpc_and_clears_after`<br>`tests/unit/interfaces/grpc/test_correlation_interceptor.py::test_log_record_during_rpc_carries_correlation_id`<br>`tests/unit/interfaces/rest/test_correlation_middleware.py::test_middleware_binds_fresh_correlation_id_per_request`<br>`tests/unit/interfaces/rest/test_correlation_middleware.py::test_middleware_clears_context_after_dispatch` | Implemented |
-| L2-OBS-003 | L3-OBS-005, L3-OBS-006 | `tests/unit/observability/test_logging_setup_shape.py::test_redact_is_case_insensitive_on_key_names`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
+| L2-OBS-003 | L3-OBS-005, L3-OBS-006, L3-OBS-044 | `tests/unit/observability/test_logging_setup_shape.py::test_redact_is_case_insensitive_on_key_names`<br>`tests/unit/observability/test_redaction_list.py::test_instance_value_is_redacted`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_recurses_into_nested_dicts_and_lists` | Implemented |
 | L2-OBS-004 | L3-OBS-007 | `tests/integration/rest/test_app.py::test_metrics_endpoint_emits_recorded_counter`<br>`tests/integration/rest/test_app.py::test_metrics_endpoint_is_unauthenticated`<br>`tests/integration/rest/test_app.py::test_metrics_endpoint_returns_prometheus_content_type` | Implemented |
 | L2-OBS-005 | L3-OBS-008 | `tests/unit/infrastructure/observability/test_metrics.py::test_all_module_metrics_use_message_service_prefix` | Implemented |
 | L2-OBS-006 | L3-OBS-009, L3-OBS-010, L3-OBS-011 | `tests/unit/infrastructure/observability/test_metrics.py::test_email_delivery_outcome_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_state_transition_increments_labeled_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_stage_state_transition_increments_labeled_counter` | Implemented |
@@ -507,14 +507,14 @@ the single source of truth.
 | MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 9 | 23 | 46 | 1 | 46 |
 | PERS | 4 | 13 | 37 | 4 | 37 |
-| OBS | 4 | 19 | 43 | 3 | 43 |
+| OBS | 4 | 19 | 44 | 3 | 44 |
 | ERR | 4 | 10 | 24 | 0 | 24 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 19 | 1 | 19 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **432** | **66** | **432** |
+| **Total** | **73** | **206** | **433** | **66** | **433** |
 
-**Requirements verified by at least one test**: 498 of 638 (78.1%).
+**Requirements verified by at least one test**: 499 of 639 (78.1%).
 
 ### Orphan check
 

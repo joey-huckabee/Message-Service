@@ -83,3 +83,50 @@ def test_redact_handles_each_required_key() -> None:
             f"key {key!r} was not redacted: {redacted[key]!r}"
         )
     assert redacted["user"] == "alice"
+
+
+@pytest.mark.requirement("L3-OBS-044")
+def test_instance_value_is_redacted() -> None:
+    """``instance_value`` (raw offending value in a schema violation) SHALL redact.
+
+    It carries the same class of arbitrary pipeline data as ``template_context``.
+    """
+    redacted = redact_sensitive_keys({"instance_value": {"ssn": "123"}, "validator": "required"})
+    assert redacted["instance_value"] == REDACTED_PLACEHOLDER
+    assert redacted["validator"] == "required"
+
+
+@pytest.mark.requirement("L3-OBS-044")
+def test_redaction_recurses_into_nested_dicts_and_lists() -> None:
+    """A sensitive key nested inside a value SHALL be redacted, not just top-level.
+
+    Regression: the pass was shallow, so a ``password`` (or ``instance_value``)
+    inside a ``details`` payload leaked to logs / the error envelope.
+    """
+    payload: dict[str, object] = {
+        "details": {
+            "password": "hunter2",
+            "instance_value": "raw-client-data",
+            "run_id": "r-1",
+        },
+        "items": [{"secret": "s"}, {"ok": 1}],
+        "user": "alice",
+    }
+    redacted = redact_sensitive_keys(payload)
+
+    nested = redacted["details"]
+    assert isinstance(nested, dict)
+    assert nested["password"] == REDACTED_PLACEHOLDER
+    assert nested["instance_value"] == REDACTED_PLACEHOLDER
+    assert nested["run_id"] == "r-1"  # non-sensitive nested key survives
+    items = redacted["items"]
+    assert isinstance(items, list)
+    assert items[0]["secret"] == REDACTED_PLACEHOLDER
+    assert items[1]["ok"] == 1
+    assert redacted["user"] == "alice"
+    # Original is untouched (deep).
+    assert payload["details"] == {
+        "password": "hunter2",
+        "instance_value": "raw-client-data",
+        "run_id": "r-1",
+    }

@@ -1053,6 +1053,9 @@ The sensitive-field list SHALL include at minimum: `password`, `passwd`, `passwo
 **L3-OBS-006** · Parent: L2-OBS-003 · Verification: T
 Redaction SHALL be case-insensitive on the key name; a test SHALL submit `PASSWORD`, `Password`, `password` as keys and assert all three are redacted.
 
+**L3-OBS-044** · Parent: L2-OBS-003 · Verification: T
+Sensitive-key redaction (`redact_sensitive_keys` and the structlog `_redact_sensitive_fields` processor) SHALL be RECURSIVE, redacting a sensitive key at any nesting depth — inside a nested `dict`, or inside a `list`/`tuple` of dicts — not only at the top level. A shallow pass leaks: the exception `details` dicts these guard are passed to the logger as a nested `details=` value (and flowed into the error envelope per `L3-ERR-016`), so a sensitive key one level down would otherwise reach logs and clients verbatim. The sensitive-key set SHALL additionally include `instance_value` — the raw offending value captured in a schema-violation error's `details`, which carries the same class of arbitrary pipeline data as the already-redacted `template_context`. A test SHALL assert a `password`/`secret`/`instance_value` nested inside a `details` payload (and inside a list of dicts) is redacted while sibling non-sensitive keys survive, and that the input is not mutated.
+
 **L3-OBS-007** · Parent: L2-OBS-004 · Verification: I
 The Prometheus client SHALL be `prometheus_client`; the `/metrics` endpoint is a FastAPI route returning `prometheus_client.generate_latest()` with content type `text/plain; version=0.0.4; charset=utf-8`.
 

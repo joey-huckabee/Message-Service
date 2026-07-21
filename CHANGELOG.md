@@ -278,6 +278,18 @@ features; correctness, security, and requirements-document fixes.
 
 ### Tests
 
+- **Replaced the obsolete inverted dashboard-frontend tests with positive-shape
+  coverage.** `test_html_frontend_absent_in_v1.py` still pinned the pre-v0.12
+  "no HTML frontend" posture — it scanned a non-existent `rest/html/static` dir (so
+  every test passed vacuously) and asserted the *inverse* of the reworded
+  `L3-DASH-005`/`L3-DASH-010`/`L3-DASH-020`. Deleted it and added
+  `test_dashboard_static_assets.py`: the CSS/JS assets ship under `rest/static/` and
+  are inlined into self-contained pages (no `/static` mount); the shipped CSS uses
+  system-font stacks with no font files or `@font-face` (`L3-DASH-020`, previously
+  zero real coverage); and no Jinja2 dashboard templates exist (`L3-DASH-006`).
+  `L3-DASH-010` re-pointed to the subscriptions-console vocabulary-dropdown test. Also
+  corrected `L3-DASH-005`/`L3-DASH-020` text, which had wrongly described a
+  `StaticFiles` mount at `/static` — the pages inline their assets.
 - **Closed trace-matrix thin/mismatched coverage rows.** Several requirements were
   "covered" by a test that did not actually verify their claim: `L2-AGGR-010`
   (aggregation-template validation at BeginRun) mapped only to a proto-shape test —

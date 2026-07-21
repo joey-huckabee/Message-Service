@@ -25,8 +25,14 @@ def _console_js() -> str:
 
 
 @pytest.mark.requirement("L3-DASH-046")
+@pytest.mark.requirement("L3-DASH-010")
 def test_render_embeds_vocabulary_and_is_self_contained() -> None:
-    """The page embeds the pipelines/tags vocabulary and inlines its assets."""
+    """The page embeds the pipelines/tags vocabulary and inlines its assets.
+
+    L3-DASH-010: the subscription-creation UI's PIPELINE/TAG target is chosen
+    from a dropdown populated from the embedded registered-pipelines + tag
+    vocabulary (not free text).
+    """
     html = render_subscriptions_console(
         "admin@example.com", pipelines=["etl-nightly"], tags=["finance", "ops"]
     )

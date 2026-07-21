@@ -4,9 +4,9 @@ A Python service that collects per-stage reports from external ETL pipelines dur
 
 ## Status
 
-**v0.1.0 — first tagged release.** The full v1 feature scope is implemented: domain + application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, the FastAPI dashboard (subscription CRUD, past-run views, resend, admin template/user/audit management), the sweeper outbox with stuck-claim recovery, report + audit-log retention pruners, and Prometheus metrics. Of 67 L1 requirements, 62 are Implemented; the remaining 5 are deliberate v2 deferrals, each documented in `docs/ROADMAP.md` with a re-evaluation trigger. This first tag deliberately starts a 0.x line with a long runway up toward 1.0.0. See `CHANGELOG.md` for release history, `docs/ROADMAP.md` for forward-looking work, and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status, per Increment 25a).
+**Latest release: v0.16.0.** The full feature scope is implemented: domain + application use cases, persistence/SMTP/templating/scheduler/auth adapters, gRPC servicer + bootstrap, the FastAPI dashboard (subscription management, past-run views, resend, report viewer, admin template/user/audit management, embedded metrics dashboard, run-status board, admin subscriptions console), the sweeper outbox with stuck-claim recovery, report + audit-log retention pruners, and Prometheus metrics. **All 73 L1 requirements are Implemented.** The 0.x line continues toward a 1.0.0 cut (feature-complete admin-managed line; remaining 1.0.0 gates are trust-boundary hardening — mTLS + RBAC — tracked in `docs/ROADMAP.md`). See `CHANGELOG.md` for release history, `docs/ROADMAP.md` for forward-looking work, and `docs/TRACE-MATRIX.md` for live requirement-to-test traceability (the matrix is the single source of truth for status).
 
-Requirement counts: **67 L1 · 192 L2 · 393 L3** across 16 categories.
+Requirement counts: **73 L1 · 206 L2 · 433 L3** across 16 categories.
 
 ## Key characteristics
 
@@ -29,9 +29,9 @@ Message-Service/
 │   ├── linux/                  # systemd unit file
 │   └── windows/                # NSSM installation procedure
 ├── docs/
-│   ├── L1-REQ.md               # Level 1 SHALL statements (65 reqs)
-│   ├── L2-REQ.md               # Level 2 SHALL statements (186 reqs)
-│   ├── L3-REQ.md               # Level 3 SHALL statements (361 reqs)
+│   ├── L1-REQ.md               # Level 1 SHALL statements (73 reqs)
+│   ├── L2-REQ.md               # Level 2 SHALL statements (206 reqs)
+│   ├── L3-REQ.md               # Level 3 SHALL statements (433 reqs)
 │   ├── TRACE-MATRIX.md         # forward trace + coverage summary
 │   ├── LOGGING-AND-EXCEPTIONS.md  # exception hierarchy and log conventions
 │   ├── adr/                    # architecture decision records
@@ -104,7 +104,7 @@ poetry run mypy src tests
 # regenerate the requirements-to-tests trace matrix
 poetry run python scripts/build-trace-matrix.py
 
-# run the service (gRPC server runs today; FastAPI dashboard pending Increment 17+)
+# run the service (gRPC server + FastAPI dashboard)
 poetry run message-service --config config/default.toml
 ```
 

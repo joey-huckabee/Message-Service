@@ -27,7 +27,7 @@ result under a new dated section in `CHANGELOG.md`.
 
 | Version | Theme |
 |---------|-------|
-| 0.14.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
+| 0.17.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
 | 1.0.0 | The stable single-node, trusted-ISOLAN feature-complete release. All v1 partials are resolved and all L1 requirements are Implemented (as of v0.13.0). The precise 1.0.0 feature line is being (re)defined — see **Toward 1.0.0** below; it deliberately excludes the 2.0.0 hardening items. |
 | 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, **federated user login (OIDC via Keycloak, plus LDAP/AD)**, **per-user self-service login & subscriptions** (end users manage their own subscriptions, not admin-on-behalf), per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. The **local admin account continues to use local authentication** even after federated login lands. See **Toward 2.0.0** below. |
 

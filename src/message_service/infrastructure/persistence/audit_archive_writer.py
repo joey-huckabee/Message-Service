@@ -4,6 +4,15 @@ Appends expired audit records as newline-delimited JSON (one object per line) to
 a per-date file ``audit-archive-<YYYY-MM-DD>.jsonl`` under a configured
 directory. The write is flushed and ``fsync``-ed before returning so a crash
 between archive and delete cannot lose already-"archived" records.
+
+Delivery is **at-least-once**: archive precedes delete, so if the delete step
+fails after a successful archive the same rows are re-fetched and re-archived on
+the next tick — appending a duplicate line. Each record therefore carries its
+``audit_id`` so a downstream consumer can deduplicate; the archive is an
+append-only journal, not a deduplicated store. (This is a deliberate LOW-cost
+choice over a transactional outbox, which the retention pruner does not warrant.)
+The blocking file I/O is offloaded off the event loop by the caller (the pruner
+runs ``archive`` via ``asyncio.to_thread``).
 """
 
 from __future__ import annotations
@@ -20,8 +29,14 @@ from message_service.domain.aggregates.audit_event import AuditEvent
 
 
 def _event_to_record(event: AuditEvent) -> dict[str, object]:
-    """Serialize one audit event to a JSON-ready dict (L3-OBS-043 shape)."""
+    """Serialize one audit event to a JSON-ready dict (L3-OBS-043 shape).
+
+    Includes ``audit_id`` (the source-row primary key) so a consumer can
+    deduplicate the at-least-once archive. Rows come from the viewer read path
+    (``fetch_older_than``), which populates ``audit_id``.
+    """
     return {
+        "audit_id": event.audit_id,
         "timestamp": iso_z(event.timestamp),
         "action": event.action.value,
         "actor": event.actor,

@@ -232,6 +232,13 @@ features; correctness, security, and requirements-document fixes.
   'self'; base-uri 'none'` plus `X-Content-Type-Options: nosniff`, so any markup that
   escaped a template author's escaping cannot execute script or reach off-origin
   (`L3-DASH-029`/`L3-DASH-030`).
+- **Audit archival no longer blocks the event loop and its records are now
+  deduplicatable.** The retention pruner called the archive writer (a blocking
+  file write + `fsync`) directly on the event loop; it now offloads that I/O via
+  `asyncio.to_thread`. And because archival is at-least-once (a delete that fails
+  after a successful archive re-archives the same rows), each archived record now
+  carries its `audit_id` so a consumer can deduplicate the append-only journal
+  (`L3-OBS-043`).
 
 ### Documentation
 

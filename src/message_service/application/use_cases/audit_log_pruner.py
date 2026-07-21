@@ -58,6 +58,7 @@ L3-OBS-040 (anti-recursion: no audit row for the prune action)
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -166,7 +167,9 @@ class AuditLogPrunerUseCase:
                 )
             if expired:
                 try:
-                    self._archive_writer.archive(expired, as_of=now)
+                    # Offload the blocking file write + fsync off the event loop
+                    # so archival I/O cannot stall other tasks (L3-OBS-043).
+                    await asyncio.to_thread(self._archive_writer.archive, expired, as_of=now)
                 except OSError as exc:
                     _log.warning(
                         "audit_log_archive_write_failed",

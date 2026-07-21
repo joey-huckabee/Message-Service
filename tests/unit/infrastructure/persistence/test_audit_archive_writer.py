@@ -22,7 +22,7 @@ pytestmark = pytest.mark.allow_io
 _AS_OF = datetime(2026, 7, 19, 6, 0, 0, tzinfo=UTC)
 
 
-def _event(actor: str, when: datetime | None = None) -> AuditEvent:
+def _event(actor: str, when: datetime | None = None, audit_id: int | None = 1) -> AuditEvent:
     return AuditEvent(
         timestamp=when or datetime(2025, 1, 2, 3, 4, 5, tzinfo=UTC),
         action=AuditAction.LOGIN,
@@ -30,6 +30,7 @@ def _event(actor: str, when: datetime | None = None) -> AuditEvent:
         resource="session:x",
         outcome=AuditOutcome.SUCCESS,
         details={"k": "v"},
+        audit_id=audit_id,
     )
 
 
@@ -45,8 +46,17 @@ def test_archive_writes_jsonl_named_by_as_of_date(tmp_path: Path) -> None:
     assert len(lines) == 2
     records = [json.loads(line) for line in lines]
     assert [r["actor"] for r in records] == ["user:1", "user:2"]
-    # Each record carries the L3-OBS-043 shape.
-    assert set(records[0]) == {"timestamp", "action", "actor", "resource", "outcome", "details"}
+    # Each record carries the L3-OBS-043 shape, including audit_id for dedup.
+    assert set(records[0]) == {
+        "audit_id",
+        "timestamp",
+        "action",
+        "actor",
+        "resource",
+        "outcome",
+        "details",
+    }
+    assert records[0]["audit_id"] == 1
     assert records[0]["action"] == "LOGIN"
     assert records[0]["outcome"] == "SUCCESS"
     assert records[0]["details"] == {"k": "v"}

@@ -161,7 +161,8 @@ class LoginUseCase:
                 raise AuthenticationError("invalid credentials")
 
             # All clear — mint and persist the session.
-            assert user.user_id is not None  # invariant: persisted users have ids
+            if user.user_id is None:  # invariant: persisted users have ids
+                raise RuntimeError("authenticated user is missing a persisted user_id")
             plaintext_token = secrets.token_urlsafe(32)  # L3-AUTH-006
             token_hash = hashlib.sha256(plaintext_token.encode("utf-8")).hexdigest()
             session = Session(

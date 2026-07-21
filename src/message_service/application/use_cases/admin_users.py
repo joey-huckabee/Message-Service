@@ -223,7 +223,8 @@ class CreateUserUseCase:
                     ) from exc
                 raise
 
-            assert saved.user_id is not None
+            if saved.user_id is None:  # invariant: save returns a persisted id
+                raise RuntimeError("user_repo.save must return a persisted user_id")
             await uow.audit_log.record(
                 AuditEvent(
                     timestamp=now,

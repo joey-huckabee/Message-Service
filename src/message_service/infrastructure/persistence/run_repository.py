@@ -254,7 +254,10 @@ class SqliteRunRepository(RunRepository):
 def _run_to_params(run: Run) -> dict[str, Any]:
     """Flatten a :class:`Run` into a :mod:`sqlite3` parameter dict."""
     if run.attachment_mode is AttachmentMode.SINGLE_AGGREGATED:
-        assert run.aggregation_template_ref is not None  # invariant
+        if run.aggregation_template_ref is None:  # Run __post_init__ invariant
+            raise RuntimeError(
+                "SINGLE_AGGREGATED run has no aggregation_template_ref (invariant violated)"
+            )
         agg_name: str | None = run.aggregation_template_ref.name
         agg_version: str | None = run.aggregation_template_ref.version
     else:

@@ -180,7 +180,8 @@ class AdminSubscriptionResponse(BaseModel):
 
 def _project_user_list_item(user: User) -> UserListItemResponse:
     """Project a persisted :class:`User` to a roster list item (no hash)."""
-    assert user.user_id is not None  # list_paginated only returns persisted rows
+    if user.user_id is None:  # list_paginated only returns persisted rows
+        raise RuntimeError("user roster projection received a user without a persisted user_id")
     return UserListItemResponse(
         user_id=user.user_id,
         email=user.email,

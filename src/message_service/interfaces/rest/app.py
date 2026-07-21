@@ -259,7 +259,8 @@ def require_session(request: Request) -> int:
             detail="authentication required",
             headers={"WWW-Authenticate": _REALM},
         )
-    assert isinstance(user_id, int)
+    if not isinstance(user_id, int):  # invariant: session middleware sets an int user_id
+        raise RuntimeError("authenticated request is missing an integer user_id")
     return user_id
 
 

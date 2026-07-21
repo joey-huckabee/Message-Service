@@ -375,7 +375,8 @@ async def _reconcile_admin_account(
             )
             created = True
         else:
-            assert existing.user_id is not None
+            if existing.user_id is None:  # invariant: looked-up account is persisted
+                raise RuntimeError("existing admin account is missing a persisted user_id")
             await uow.user_repo.update(existing.user_id, is_admin=True, disabled=False)
             created = False
         await uow.commit()

@@ -186,7 +186,11 @@ def _substitute_env_vars(data: dict[str, Any]) -> dict[str, Any]:
     # The root is always a dict (enforced by the caller), but
     # _substitute_at_paths returns Any because it recurses into mixed
     # container types. Narrow here for the type checker.
-    assert isinstance(result, dict)
+    if not isinstance(result, dict):
+        raise ConfigurationError(
+            "config root is not a TOML table after env substitution",
+            details={"actual_type": type(result).__name__},
+        )
     return result
 
 

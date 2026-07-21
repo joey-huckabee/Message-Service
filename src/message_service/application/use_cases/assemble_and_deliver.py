@@ -775,7 +775,11 @@ class AssembleAndDeliverUseCase:
             }
             # aggregation_template_ref is guaranteed non-None here by
             # Run's __post_init__ invariant for SINGLE_AGGREGATED mode.
-            assert run.aggregation_template_ref is not None
+            if run.aggregation_template_ref is None:
+                raise RuntimeError(
+                    "SINGLE_AGGREGATED run has no aggregation_template_ref "
+                    "(Run __post_init__ invariant violated)"
+                )
             aggregated_html = self._template_renderer.render(
                 run.aggregation_template_ref, agg_context
             )

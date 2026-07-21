@@ -203,6 +203,25 @@ def test_env_var_substitution_in_substitutable_field(
 
 
 @pytest.mark.requirement("L3-CFG-012")
+@pytest.mark.requirement("L3-AUTH-018")
+def test_env_var_substitution_in_optional_nested_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ``SubstitutableStr`` under an ``Optional[...]`` section (``[auth.admin]``)
+    is still env-substituted — regression: union-typed nested models were skipped
+    by the path walker, so ``auth.admin.password`` kept its literal placeholder.
+    """
+    monkeypatch.setenv("MSG_ADMIN_PW", "s3cret-admin-pw")
+    body = (
+        _MINIMAL_TOML
+        + '\n[auth.admin]\nemail = "admin@example.com"\npassword = "${env:MSG_ADMIN_PW}"\n'
+    )
+    cfg = load_config(_write_config(tmp_path, body=body))
+    assert cfg.auth.admin is not None
+    assert cfg.auth.admin.password == "s3cret-admin-pw"
+
+
+@pytest.mark.requirement("L3-CFG-012")
 def test_env_var_substitution_multiple_vars_in_one_value(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

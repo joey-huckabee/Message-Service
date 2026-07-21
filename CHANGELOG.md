@@ -37,6 +37,13 @@ features; correctness, security, and requirements-document fixes.
 - **`asyncio.CancelledError` (and other non-`Exception` `BaseException`s) now
   propagate** out of the gRPC translator instead of being turned into a bogus
   `INTERNAL` status + ERROR log, restoring cooperative RPC cancellation.
+- **`${env:VAR}` substitution now reaches `[auth.admin].password`.** The config
+  path-walker only descended into plain nested models, skipping union-typed
+  optional sections — so a configurable local admin with an env-substituted
+  password was provisioned at startup with the *literal* `"${env:…}"` string,
+  and the real secret was never read. The walker now unwraps unions
+  (`AdminAccountConfig | None`), fixing this for any `SubstitutableStr` under an
+  `Optional[...]` section.
 
 ## [0.16.0] — 2026-07-19
 

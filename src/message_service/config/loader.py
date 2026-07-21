@@ -202,7 +202,22 @@ def _collect_substitutable_paths() -> frozenset[tuple[str, ...]]:
     Returns a frozen set of tuples, each representing the dotted path to
     a ``SubstitutableStr`` field.
     """
+    from typing import get_args
+
     from pydantic import BaseModel as _BaseModel  # local import to keep top clean
+
+    def _model_members(annot: object) -> list[type[_BaseModel]]:
+        """Return the BaseModel classes reachable from an annotation.
+
+        Handles a bare model type *and* models wrapped in a union — e.g. an
+        optional nested section typed ``AdminAccountConfig | None`` — by
+        unwrapping the union and returning its BaseModel members. Without the
+        union case, ``SubstitutableStr`` fields under an ``Optional[...]``
+        section (like ``auth.admin.password``) would never be discovered.
+        """
+        if isinstance(annot, type) and issubclass(annot, _BaseModel):
+            return [annot]
+        return [a for a in get_args(annot) if isinstance(a, type) and issubclass(a, _BaseModel)]
 
     def _walk(model_cls: type[_BaseModel], prefix: tuple[str, ...]) -> list[tuple[str, ...]]:
         found: list[tuple[str, ...]] = []
@@ -210,10 +225,8 @@ def _collect_substitutable_paths() -> frozenset[tuple[str, ...]]:
             if SUBSTITUTABLE_MARKER in field.metadata:
                 found.append((*prefix, name))
                 continue
-            annot = field.annotation
-            # Recurse into nested BaseModel fields
-            if isinstance(annot, type) and issubclass(annot, _BaseModel):
-                found.extend(_walk(annot, (*prefix, name)))
+            for member in _model_members(field.annotation):
+                found.extend(_walk(member, (*prefix, name)))
         return found
 
     return frozenset(_walk(Config, ()))

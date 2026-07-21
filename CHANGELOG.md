@@ -44,6 +44,13 @@ features; correctness, security, and requirements-document fixes.
   and the real secret was never read. The walker now unwraps unions
   (`AdminAccountConfig | None`), fixing this for any `SubstitutableStr` under an
   `Optional[...]` section.
+- **Disabling an account or resetting its password now revokes its live
+  sessions.** Neither action previously touched the session store, so a disabled
+  (or credential-reset) user's existing cookie kept authenticating until
+  idle-timeout — the account-disable control did not actually revoke access.
+  Both now delete the target's sessions (new `SessionRepository.delete_by_user_id`)
+  in the same transaction as the account change, and `require_admin` additionally
+  rejects a disabled user (new `L3-AUTH-020` / `L3-AUTH-021`).
 
 ## [0.16.0] — 2026-07-19
 

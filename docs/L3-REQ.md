@@ -653,6 +653,12 @@ The config schema SHALL carry an optional `[auth.admin]` section modeled as `Adm
 **L3-AUTH-019** · Parent: L2-AUTH-011 · Verification: T
 `build_service` SHALL, after migrations and before returning the assembled `Service`, invoke an admin-reconciliation step when `config.auth.admin` is set. The step SHALL look up the account by `config.auth.admin.email`: if absent, it SHALL `save` a new `User(email, display_name=email, password_hash=hasher.hash(password), is_admin=True, disabled=False)`; if present, it SHALL `update` the account to `is_admin=True, disabled=False` and SHALL NOT change `password_hash`. It SHALL emit `structlog` event `admin_account_reconciled` with `{email, created: bool}` and never the secret. The step SHALL be idempotent (a second run over an already-reconciled store performs the re-assert path and makes no password change). Tests SHALL cover create-when-absent (password hashed, verifiable via the hasher), re-assert-when-present (privilege/enabled restored, password untouched), and idempotence.
 
+**L3-AUTH-020** · Parent: L2-AUTH-007 · Verification: T
+Disabling an account SHALL immediately revoke its authenticated sessions. When `UpdateUserUseCase` sets `disabled=True`, it SHALL delete every session belonging to the target user (`SessionRepository.delete_by_user_id`) within the same unit of work as the account update and audit row, so the revocation commits atomically with the disable. As defense in depth against the window between a disable elsewhere and this revocation, the `require_admin` dependency SHALL additionally reject a user whose row reports `disabled=True` (treated as an unauthenticated `401`, using the same fresh-read the admin check already performs). Tests SHALL assert that a disabled user's existing session no longer authenticates and that a disabled admin is refused the admin surface.
+
+**L3-AUTH-021** · Parent: L2-AUTH-008 · Verification: T
+Resetting an account's password SHALL immediately revoke its authenticated sessions. `ResetPasswordUseCase` SHALL delete every session belonging to the target user (`SessionRepository.delete_by_user_id`) within the same unit of work as the password update and audit row. A password reset is typically performed because the prior credential is compromised, so no session established with it may survive the change. Tests SHALL assert the target's existing sessions are gone after a reset.
+
 ---
 
 ## L3-MAIL: Email delivery

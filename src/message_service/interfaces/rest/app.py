@@ -292,9 +292,12 @@ def require_admin_factory(service: Service) -> Callable[[Request], Awaitable[int
         user_id = require_session(request)
         async with service.uow_factory() as uow:
             user = await uow.user_repo.get_by_id(user_id)
-        if user is None:
-            # Session referenced a user that no longer exists. Treat
-            # like an expired session: 401 with the realm header.
+        if user is None or user.disabled:
+            # Session referenced a user that no longer exists, or one that has
+            # since been disabled. Treat like an expired session: 401. Checking
+            # `disabled` here is free (the row is already loaded) and closes the
+            # window between a disable and the session-revocation on the write
+            # path, so a disabled admin cannot linger on the admin surface.
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="authentication required",

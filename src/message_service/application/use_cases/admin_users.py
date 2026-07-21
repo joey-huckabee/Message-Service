@@ -371,6 +371,13 @@ class UpdateUserUseCase:
                     )
                 )
 
+            # Disabling an account SHALL revoke its live sessions in the same
+            # transaction, so the disable takes effect immediately rather than
+            # only at idle-timeout (a compromised/departed account is otherwise
+            # still authenticated by its existing cookie).
+            if disabled is True:
+                await uow.session_repo.delete_by_user_id(target_user_id)
+
         _log.info(
             "admin_user_updated",
             admin_id=admin_id,
@@ -454,6 +461,12 @@ class ResetPasswordUseCase:
                     },
                 )
             )
+
+            # A password reset SHALL revoke the target's live sessions in the
+            # same transaction: a reset is typically done *because* the old
+            # credential is compromised, so any session established with it must
+            # not survive the change.
+            await uow.session_repo.delete_by_user_id(target_user_id)
 
         _log.info(
             "admin_password_reset",

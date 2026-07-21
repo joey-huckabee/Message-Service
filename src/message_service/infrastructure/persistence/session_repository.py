@@ -36,6 +36,10 @@ _SQL_DELETE_EXPIRED = """
 DELETE FROM sessions WHERE last_activity_at < ?
 """
 
+_SQL_DELETE_BY_USER = """
+DELETE FROM sessions WHERE user_id = ?
+"""
+
 
 class SqliteSessionRepository(SessionRepository):
     """SQLite-backed :class:`SessionRepository`."""
@@ -76,6 +80,10 @@ class SqliteSessionRepository(SessionRepository):
 
     async def delete_expired(self, *, idle_threshold: datetime) -> int:  # noqa: D102
         cur = await self._conn.execute(_SQL_DELETE_EXPIRED, (iso_z(idle_threshold),))
+        return cur.rowcount
+
+    async def delete_by_user_id(self, user_id: int) -> int:  # noqa: D102
+        cur = await self._conn.execute(_SQL_DELETE_BY_USER, (user_id,))
         return cur.rowcount
 
 

@@ -47,6 +47,7 @@ from message_service.application.use_cases.login import LoginUseCase
 from message_service.application.use_cases.logout import LogoutUseCase
 from message_service.config.schema import Argon2Config, AuthConfig, DashboardConfig
 from message_service.domain.aggregates.password import Password
+from message_service.domain.aggregates.session import Session
 from message_service.domain.aggregates.user import User
 from message_service.infrastructure.auth.argon2_hasher import Argon2PasswordHasher
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
@@ -1185,3 +1186,122 @@ async def test_subscriptions_console_returns_html_embedding_vocab(
     assert "etl-nightly" in body
     assert "finance" in body
     assert "admin@example.com" in body
+
+
+# -----------------------------------------------------------------------------
+# Session revocation on disable / password reset (L3-AUTH-020 / L3-AUTH-021)
+# -----------------------------------------------------------------------------
+
+
+async def _seed_session(
+    uow_factory: SqliteUnitOfWorkFactory, user_id: int, token_hash: str
+) -> None:
+    async with uow_factory() as uow:
+        await uow.session_repo.save(
+            Session(
+                token_hash=token_hash,
+                user_id=user_id,
+                created_at=_T0,
+                last_activity_at=_T0,
+            )
+        )
+        await uow.commit()
+
+
+async def _session_present(uow_factory: SqliteUnitOfWorkFactory, token_hash: str) -> bool:
+    async with uow_factory() as uow:
+        return (await uow.session_repo.get_by_token_hash(token_hash)) is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-020")
+async def test_disabling_user_revokes_their_sessions(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """PATCH disabled=True deletes the target's sessions in the same UoW."""
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="bob@example.com", is_admin=False)
+    assert target.user_id is not None
+    tok = "a" * 64
+    await _seed_session(uow_factory, target.user_id, tok)
+    resp = await http_client.patch(
+        f"/admin/users/{target.user_id}",
+        json={"disabled": True},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200
+    assert await _session_present(uow_factory, tok) is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-020")
+async def test_non_disable_update_keeps_sessions(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """A display-name-only update does NOT revoke sessions."""
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="bob@example.com", is_admin=False)
+    assert target.user_id is not None
+    tok = "b" * 64
+    await _seed_session(uow_factory, target.user_id, tok)
+    resp = await http_client.patch(
+        f"/admin/users/{target.user_id}",
+        json={"display_name": "Bobby"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 200
+    assert await _session_present(uow_factory, tok) is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-021")
+async def test_password_reset_revokes_sessions(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Resetting a password deletes the target's sessions in the same UoW."""
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    target = await _seed_user(uow_factory, hasher, email="bob@example.com", is_admin=False)
+    assert target.user_id is not None
+    tok = "c" * 64
+    await _seed_session(uow_factory, target.user_id, tok)
+    resp = await http_client.post(
+        f"/admin/users/{target.user_id}/password",
+        json={"password": "brand-new-pw"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert resp.status_code == 204
+    assert await _session_present(uow_factory, tok) is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-020")
+async def test_disabled_admin_is_refused_admin_surface(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """require_admin rejects a disabled admin even if a session survives.
+
+    Disabling directly via the repo (not the use case) keeps the live session,
+    isolating the require_admin disabled-check from the write-path revocation.
+    """
+    _csrf, admin_id = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    async with uow_factory() as uow:
+        await uow.user_repo.update(admin_id, disabled=True)
+        await uow.commit()
+    resp = await http_client.get("/admin/users")
+    assert resp.status_code == 401

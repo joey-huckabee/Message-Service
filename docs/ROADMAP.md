@@ -27,7 +27,7 @@ result under a new dated section in `CHANGELOG.md`.
 
 | Version | Theme |
 |---------|-------|
-| 0.14.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
+| 0.17.0 → | Work down the deferred-feature backlog toward the 1.0.0 scope; each release promotes one or more `R-XXX` items to real requirements. **The trust-boundary and multi-tenant hardening items are explicitly NOT part of this track — they are collected under 2.0.0 below.** |
 | 1.0.0 | The stable single-node, trusted-ISOLAN feature-complete release. All v1 partials are resolved and all L1 requirements are Implemented (as of v0.13.0). The precise 1.0.0 feature line is being (re)defined — see **Toward 1.0.0** below; it deliberately excludes the 2.0.0 hardening items. |
 | 2.0.0 | **Trust-boundary crossing + multi-tenant hardening.** The service graduates from the trusted-ISOLAN plaintext model to running where the gRPC ingress and dashboard cross a trust boundary. Collects: mutual TLS on gRPC, dashboard RBAC, **federated user login (OIDC via Keycloak, plus LDAP/AD)**, **per-user self-service login & subscriptions** (end users manage their own subscriptions, not admin-on-behalf), per-pipeline concurrency caps / per-RPC weighting, backup & restore tooling, and webhook delivery transport. The **local admin account continues to use local authentication** even after federated login lands. See **Toward 2.0.0** below. |
 
@@ -157,7 +157,7 @@ trigger emerges.
   drains the outbox and retries on failure. The `BackgroundTaskScheduler` port can
   be retained; its adapter reads from the outbox instead of accepting coroutines.
   Defer until multi-node deployment is in scope. Single-node ISOLAN deployments
-  survive the current risk because the orphan sweeper (L1-RUN-006) eventually
+  survive the current risk because the orphan sweeper (L1-SWEEP-001) eventually
   reclaims stuck runs, bounded by `sweeper.run_timeout_seconds`.
 - **R-OBS-001 — Distributed tracing** — v1 has structured logging via structlog
   with `run_id` correlation; no trace spans. Future option: OpenTelemetry-based
@@ -274,7 +274,14 @@ trigger emerges.
 
 - **High availability and multi-node** — v1 is single-node. Multi-node introduces
   leader election, shared state, and coordinated orphan sweeping; substantial
-  scope.
+  scope. A prerequisite is **optimistic concurrency on run-state transitions**:
+  v1's `RunRepository.update_state` is an unconditional `UPDATE` because the
+  single-process model (`L1-DEP-001`) plus the shared-connection write lock
+  (`L2-PERS-004`) serialize all writes, so a transition's read-check and write
+  cannot interleave. Under multiple processes sharing one database, a
+  compare-and-swap (`WHERE run_id=? AND state=?`, with callers reacting to a
+  zero-row result as a lost race) would be required to prevent a cross-process
+  double-finalize / double-transition. Deferred with multi-node HA.
 - **R-PERS-001 — Cross-host replication** — v1 stores all state on the host running
   the service. Future option: Litestream-style continuous replication of the
   SQLite database to a standby host for disaster recovery. A deployment-layer

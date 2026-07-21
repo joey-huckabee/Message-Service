@@ -221,6 +221,42 @@ async def test_run_starts_server_and_shuts_down_on_event(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L1-DEP-001")
+@pytest.mark.requirement("L3-DEP-019")
+@pytest.mark.allow_io
+async def test_run_shuts_down_when_rest_task_dies_unexpectedly(tmp_path: Path) -> None:
+    """A REST serve task that dies before shutdown SHALL not leave _run hanging.
+
+    Regression: with no done-callback the task's exception went unretrieved and
+    _run blocked on shutdown_event.wait() forever — the dashboard dead but the
+    process apparently healthy. The done-callback now sets shutdown_event so the
+    whole service tears down.
+    """
+    import message_service.__main__ as entry
+
+    cfg_path = _write_config(
+        tmp_path, grpc_port=_find_free_port(), dashboard_port=_find_free_port()
+    )
+    config = load_config(cfg_path)
+    shutdown = asyncio.Event()
+
+    class _FakeUvicornServer:
+        def __init__(self) -> None:
+            self.should_exit = False
+
+        async def serve(self) -> None:
+            await asyncio.sleep(0.05)
+            raise RuntimeError("uvicorn boom")
+
+    with patch.object(entry, "_build_uvicorn_server", return_value=_FakeUvicornServer()):
+        # If the done-callback is missing, this awaits forever and wait_for trips.
+        await asyncio.wait_for(_run(config, shutdown_event=shutdown), timeout=5.0)
+
+    # The callback set the shutdown event as part of tearing down.
+    assert shutdown.is_set()
+
+
+@pytest.mark.asyncio
 @pytest.mark.allow_io
 async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     """While ``_run`` is active the server SHALL answer a real BeginRun RPC."""

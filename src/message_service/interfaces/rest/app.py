@@ -90,7 +90,11 @@ class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     email: str = Field(min_length=1, max_length=254)
-    password: str = Field(min_length=1)
+    # Cap the password length so an unauthenticated caller cannot force an
+    # arbitrarily large Argon2 verification (a CPU/memory DoS lever). 512
+    # matches the admin create/reset caps; the decoy verify on the miss path
+    # (L3-AUTH-022) pays the same bounded cost.
+    password: str = Field(min_length=1, max_length=512)
 
 
 # -----------------------------------------------------------------------------
@@ -259,7 +263,8 @@ def require_session(request: Request) -> int:
             detail="authentication required",
             headers={"WWW-Authenticate": _REALM},
         )
-    assert isinstance(user_id, int)
+    if not isinstance(user_id, int):  # invariant: session middleware sets an int user_id
+        raise RuntimeError("authenticated request is missing an integer user_id")
     return user_id
 
 
@@ -292,9 +297,12 @@ def require_admin_factory(service: Service) -> Callable[[Request], Awaitable[int
         user_id = require_session(request)
         async with service.uow_factory() as uow:
             user = await uow.user_repo.get_by_id(user_id)
-        if user is None:
-            # Session referenced a user that no longer exists. Treat
-            # like an expired session: 401 with the realm header.
+        if user is None or user.disabled:
+            # Session referenced a user that no longer exists, or one that has
+            # since been disabled. Treat like an expired session: 401. Checking
+            # `disabled` here is free (the row is already loaded) and closes the
+            # window between a disable and the session-revocation on the write
+            # path, so a disabled admin cannot linger on the admin surface.
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="authentication required",

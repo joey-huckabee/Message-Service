@@ -375,7 +375,8 @@ async def _reconcile_admin_account(
             )
             created = True
         else:
-            assert existing.user_id is not None
+            if existing.user_id is None:  # invariant: looked-up account is persisted
+                raise RuntimeError("existing admin account is missing a persisted user_id")
             await uow.user_repo.update(existing.user_id, is_admin=True, disabled=False)
             created = False
         await uow.commit()
@@ -427,19 +428,53 @@ async def build_service(config: Config) -> Service:
             orphan_codes=orphan_proto_codes,
         )
 
-    # 2. Open the SQLite connection and apply migrations.
+    # 2. Open the SQLite connection, then assemble everything else under a
+    # guard that closes the connection on ANY startup failure. Previously only
+    # a migration failure closed it; a failure in any later step (tag vocab,
+    # template manifest, report-dir probe, mailer params, disposition-handler
+    # validation, admin provisioning, …) left the connection open — leaking an
+    # fd plus aiosqlite's background thread, which under repeated construction
+    # (tests) surfaces as a ResourceWarning. On success the connection's
+    # lifecycle transfers to the UoW factory (closed by shutdown_service via
+    # uow_factory.close()). The assembly is delegated to _assemble_service so
+    # the guard can wrap the whole construction without deeply nesting it.
+    # A ``try/finally`` with a success flag closes the connection on ANY failure
+    # (including BaseException — a cancelled or interrupted startup) without an
+    # ``except BaseException`` clause, which the L3-ERR-021 chokepoint discipline
+    # reserves for the gRPC translator.
     conn: aiosqlite.Connection = await open_connection(config.persistence.sqlite_path)
+    assembled = False
     try:
-        applied = await apply_migrations(conn)
-        _log.info(
-            "migrations_applied_at_startup",
-            count=len(applied),
-            versions=[m.version for m in applied],
-        )
-    except Exception:
-        # Close the connection on failure to avoid a leaked fd.
-        await conn.close()
-        raise
+        service = await _assemble_service(config, conn)
+        assembled = True
+        return service
+    finally:
+        if not assembled:
+            await conn.close()
+
+
+async def _assemble_service(config: Config, conn: aiosqlite.Connection) -> Service:
+    """Apply migrations and construct the fully-wired :class:`Service`.
+
+    Extracted from :func:`build_service` so the caller can guard the entire
+    post-connection assembly with a single ``try/except`` that closes ``conn``
+    on any failure (connection-leak safety). Called exactly once per build.
+
+    Args:
+        config: Pre-validated configuration.
+        conn: The open SQLite connection whose ownership this assembly takes
+            (on success it is handed to the returned service's UoW factory).
+
+    Returns:
+        The assembled :class:`Service`.
+    """
+    # 2a. Apply migrations against the open connection.
+    applied = await apply_migrations(conn)
+    _log.info(
+        "migrations_applied_at_startup",
+        count=len(applied),
+        versions=[m.version for m in applied],
+    )
 
     # 3. Clock. Used by several adapters below and by all use cases.
     clock = SystemClock()

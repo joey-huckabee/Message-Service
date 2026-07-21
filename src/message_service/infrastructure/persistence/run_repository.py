@@ -146,6 +146,17 @@ class SqliteRunRepository(RunRepository):
     # -- update_state ----------------------------------------------------
 
     async def update_state(self, run_id: RunId, new_state: RunState, now: datetime) -> None:  # noqa: D102
+        # This is an unconditional UPDATE (no compare-and-swap on the current
+        # state). That is safe under the v1 deployment model: the service is
+        # single-process (L1-DEP-001) and all writes serialize behind one shared
+        # connection + asyncio.Lock held across BEGIN->COMMIT (L2-PERS-004), so a
+        # transition's read-check (transition_run against the freshly-read state,
+        # inside the same locked UoW) and this write cannot be interleaved by a
+        # concurrent writer. A cross-process double-transition (two service
+        # instances sharing one SQLite file) is the only way this TOCTOU could
+        # occur, which the single-process model does not permit; optimistic
+        # concurrency (WHERE run_id=? AND state=?) is deferred to any future
+        # multi-process deployment (see docs/ROADMAP.md, 2.0.0).
         cur = await self._conn.execute(_SQL_UPDATE_STATE, (new_state.value, iso_z(now), run_id))
         # cur.rowcount is 0 for a missing run_id — surface as NotFound so
         # use cases don't silently no-op.
@@ -254,7 +265,10 @@ class SqliteRunRepository(RunRepository):
 def _run_to_params(run: Run) -> dict[str, Any]:
     """Flatten a :class:`Run` into a :mod:`sqlite3` parameter dict."""
     if run.attachment_mode is AttachmentMode.SINGLE_AGGREGATED:
-        assert run.aggregation_template_ref is not None  # invariant
+        if run.aggregation_template_ref is None:  # Run __post_init__ invariant
+            raise RuntimeError(
+                "SINGLE_AGGREGATED run has no aggregation_template_ref (invariant violated)"
+            )
         agg_name: str | None = run.aggregation_template_ref.name
         agg_version: str | None = run.aggregation_template_ref.version
     else:

@@ -327,9 +327,12 @@ async def test_duplicate_stage_ids_raises_with_all_duplicates() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-016")
+@pytest.mark.requirement("L2-AGGR-010")
 async def test_unknown_aggregation_template_raises(
     use_case: BeginRunUseCase, template_repo: MagicMock
 ) -> None:
+    # L2-AGGR-010: the aggregation_template is validated against the manifest at
+    # BeginRun time, independently of the stage templates (role-scoped rejection).
     template_repo.exists.side_effect = lambda ref: ref != _TPL_AGG
     with pytest.raises(UnknownTemplateError) as exc_info:
         await use_case.execute(_valid_command())
@@ -380,7 +383,7 @@ async def test_latest_aggregation_template_ref_resolves_before_persistence(
     """Submitted aggregation_template_ref version='latest' SHALL be resolved before persistence.
 
     The Run aggregate persisted by the use case SHALL carry the resolved
-    canonical version (in this test, "2.0.0"), not the literal sentinel.
+    version (in this test, "2.0.0"), not the literal sentinel.
     """
     _, _, run_repo, _, _ = uow_factory
     template_repo.resolve_latest.return_value = TemplateRef(name="nightly_summary", version="2.0.0")
@@ -517,7 +520,7 @@ async def test_persisted_run_carries_resolved_version_not_sentinel(
     """L3-TMPL-012: the persisted Run is the source of truth for resolved versions.
 
     A request submitting ``version="latest"`` SHALL produce a Run
-    aggregate whose stored TemplateRef carries the canonical version
+    aggregate whose stored TemplateRef carries the resolved version
     string. Subsequent ``run_repo.get(run_id)`` reads (e.g., for
     resend or dashboard display) recover the authoritative version
     that was used.
@@ -593,6 +596,38 @@ async def test_per_stage_silently_drops_aggregation_template(
     # Stored run has no aggregation_template_ref because mode is PER_STAGE.
     assert saved_run.aggregation_template_ref is None
     assert saved_run.attachment_mode == AttachmentMode.PER_STAGE
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-018")
+async def test_per_stage_ignores_stray_latest_aggregation_ref_without_resolving(
+    use_case: BeginRunUseCase,
+    template_repo: MagicMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, Any, Any],
+) -> None:
+    """A stray ``aggregation_template_ref='latest'`` on a PER_STAGE run SHALL be ignored.
+
+    Regression: resolution once ran unconditionally, so a PER_STAGE run
+    carrying an unused ``aggregation_template_ref`` whose name has no
+    manifest entry raised ``UnknownTemplateError`` from ``resolve_latest``
+    — rejecting an otherwise-valid run. Per L3-RUN-018 the ref is dropped,
+    so ``resolve_latest`` SHALL NOT even be consulted.
+    """
+    _, _, run_repo, _, _ = uow_factory
+    template_repo.resolve_latest.side_effect = UnknownTemplateError(
+        "no such template", details={"template_name": "leftover"}
+    )
+    cmd = _valid_command(
+        attachment_mode=AttachmentMode.PER_STAGE,
+        aggregation_template_ref=TemplateRef(name="leftover", version="latest"),
+    )
+
+    run_id = await use_case.execute(cmd)  # must not raise
+
+    assert run_id
+    template_repo.resolve_latest.assert_not_called()
+    saved_run: Run = run_repo.save.call_args.args[0]
+    assert saved_run.aggregation_template_ref is None
 
 
 @pytest.mark.asyncio

@@ -242,10 +242,22 @@ class BeginRunUseCase:
         #     so the Run aggregate carries pinned versions, not the
         #     literal sentinel. Subsequent manifest updates SHALL NOT
         #     mutate already-initiated runs (L3-TMPL-011 freeze).
+        #
+        #     PER_STAGE silently ignores any supplied
+        #     aggregation_template_ref (L3-RUN-018), so its resolution is
+        #     gated on SINGLE_AGGREGATED mode — a stray
+        #     ``aggregation_template_ref`` (including a ``"latest"``
+        #     sentinel whose name has no manifest entry) on a PER_STAGE
+        #     request must NOT trigger resolution/validation and reject an
+        #     otherwise-valid run.
         # ---------------------------------------------------------------
-        resolved_aggregation_ref = self._maybe_resolve_latest(
-            cmd.aggregation_template_ref,
-            role="aggregation_template",
+        resolved_aggregation_ref = (
+            self._maybe_resolve_latest(
+                cmd.aggregation_template_ref,
+                role="aggregation_template",
+            )
+            if cmd.attachment_mode is AttachmentMode.SINGLE_AGGREGATED
+            else None
         )
         # _maybe_resolve_latest always returns a non-None TemplateRef when
         # given a non-None input. The cast is purely for type-narrowing.

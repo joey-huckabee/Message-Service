@@ -545,17 +545,17 @@ async def test_mailer_failure_ends_run_in_failed(
         run = await uow.run_repo.get(run_id)
         assert run.state is RunState.FAILED
 
-        # Audit log recorded the failure. The stored failure_reason
-        # comes from the mailer's ``EmailDeliveryError.details``
-        # (which supplies PERMANENT_SMTP_FAILURE) because
-        # AssembleAndDeliver spreads exc.details OVER its own
-        # ``reason.code`` at audit-composition time. Intentional: it
-        # lets callers (and tests) see the specific SMTP-classified
-        # reason rather than the coarse EMAIL_DELIVERY bucket.
+        # Audit log recorded the failure. The run-level ``failure_reason``
+        # stays within the ``L3-RUN-029`` closed vocabulary
+        # (``EMAIL_DELIVERY`` for an ``EmailDeliveryError``); the mailer's
+        # SMTP-level classification (``PERMANENT_SMTP_FAILURE``) is preserved
+        # under a separate ``smtp_failure_classification`` key rather than
+        # overwriting the run failure_reason (see ``L3-MAIL-008``).
         send_events = await uow.audit_log.query(action=AuditAction.SEND_REPORT)
         assert len(send_events) == 1
         failure = send_events[0]
-        assert failure.details["failure_reason"] == "PERMANENT_SMTP_FAILURE"
+        assert failure.details["failure_reason"] == "EMAIL_DELIVERY"
+        assert failure.details["smtp_failure_classification"] == "PERMANENT_SMTP_FAILURE"
         assert failure.outcome.value == "FAILURE"
 
 

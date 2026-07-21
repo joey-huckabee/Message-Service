@@ -80,6 +80,38 @@ def test_malformed_and_empty_input_do_not_raise() -> None:
 
 
 @pytest.mark.requirement("L3-DASH-036")
+def test_sample_line_with_trailing_timestamp_does_not_crash() -> None:
+    """An optional trailing timestamp SHALL be ignored, not folded into the value.
+
+    Regression: the value group swallowed the timestamp, so ``float()`` raised
+    and the whole parse (and the metrics dashboard) 500'd.
+    """
+    text = "# TYPE svc_g gauge\nsvc_g 42.0 1699999999000\n"
+    (family,) = parse_exposition(text)
+    assert family.samples[0].value == 42.0
+    # A labeled sample with a timestamp parses too.
+    text2 = '# TYPE svc_c counter\nsvc_c{k="v"} 7 1699999999000\n'
+    (family2,) = parse_exposition(text2)
+    assert family2.samples[0].value == 7.0
+    assert family2.samples[0].labels == {"k": "v"}
+
+
+@pytest.mark.requirement("L3-DASH-036")
+def test_label_value_escaped_backslash_then_n_is_not_turned_into_newline() -> None:
+    r"""``\\n`` (escaped backslash + literal n) SHALL decode to ``\`` + ``n``.
+
+    Regression: chained str.replace() decoded it to a newline. Also verifies the
+    three real escapes decode correctly in one pass.
+    """
+    # Wire form ``\\n`` → value backslash + 'n'.
+    (family,) = parse_exposition('# TYPE m gauge\nm{path="a\\\\nb"} 1.0\n')
+    assert family.samples[0].labels["path"] == "a\\nb"
+    # ``\n`` → newline; ``\"`` → quote; ``\\`` → backslash.
+    (family2,) = parse_exposition('# TYPE m2 gauge\nm2{s="x\\ny\\"z\\\\w"} 1.0\n')
+    assert family2.samples[0].labels["s"] == 'x\ny"z\\w'
+
+
+@pytest.mark.requirement("L3-DASH-036")
 def test_parses_the_services_own_exposition() -> None:
     """End-to-end: parse the real exposition the service produces."""
     from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest

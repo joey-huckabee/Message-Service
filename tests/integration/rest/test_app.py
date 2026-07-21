@@ -348,6 +348,22 @@ async def test_login_with_bad_password_returns_401(
     assert response.status_code == 401
 
 
+@pytest.mark.asyncio
+async def test_login_rejects_oversized_password_before_hashing(
+    http_client: httpx.AsyncClient,
+) -> None:
+    """An over-length password SHALL be rejected at validation (422), not hashed.
+
+    Bounds the unauthenticated Argon2 cost — an unbounded password length is a
+    CPU/memory DoS lever.
+    """
+    response = await http_client.post(
+        "/login",
+        json={"email": "alice@example.com", "password": "x" * 513},
+    )
+    assert response.status_code == 422
+
+
 # -----------------------------------------------------------------------------
 # Logout
 # -----------------------------------------------------------------------------

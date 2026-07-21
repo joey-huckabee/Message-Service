@@ -89,10 +89,31 @@ class FilesystemReportStore(ReportStore):
     # ------------------------------------------------------------------
 
     def _email_body_path(self, run_id: RunId) -> Path:
-        return self._root / str(run_id) / _EMAIL_BODY_FILENAME
+        return self._contained(self._root / str(run_id) / _EMAIL_BODY_FILENAME)
 
     def _fragment_path(self, run_id: RunId, stage_id: StageId) -> Path:
-        return self._root / str(run_id) / _FRAGMENTS_DIRNAME / f"{stage_id}.html"
+        return self._contained(self._root / str(run_id) / _FRAGMENTS_DIRNAME / f"{stage_id}.html")
+
+    def _contained(self, path: Path) -> Path:
+        """Resolve ``path`` and reject anything that escapes the report root.
+
+        ``run_id`` / ``stage_id`` flow in from the wire and become path
+        components (``stage_id`` is a bare ``NewType(str)`` with no charset
+        validation), so a value like ``../../evil`` would otherwise write or
+        read outside the report tree — arbitrary-file access. Resolving and
+        requiring containment defeats ``..`` segments, absolute paths, and
+        Windows backslash separators regardless of the caller.
+
+        Raises:
+            PersistenceError: The resolved path is not inside the report root.
+        """
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self._root.resolve()):
+            raise PersistenceError(
+                "report path escapes the report root",
+                details={"path": str(path)},
+            )
+        return resolved
 
     @staticmethod
     def _atomic_write_text(path: Path, html: str) -> None:

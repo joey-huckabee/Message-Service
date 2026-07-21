@@ -70,6 +70,7 @@ from message_service.application.use_cases.submit_stage_report_command import (
 from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import AttachmentMode
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.domain.errors import MalformedRequestError
 from message_service.interfaces.grpc.error_mapping import translate_to_grpc_status
 
 if TYPE_CHECKING:
@@ -99,8 +100,13 @@ def _attachment_mode_to_domain(value: int) -> AttachmentMode:
         return AttachmentMode.SINGLE_AGGREGATED
     try:
         return _PROTO_TO_DOMAIN_ATTACHMENT_MODE[value]
-    except KeyError as exc:  # pragma: no cover — proto validation prevents this
-        raise ValueError(f"unknown AttachmentMode enum value: {value}") from exc
+    except KeyError as exc:
+        # proto3 enums are open, so a forward-compatible client can send an
+        # unknown value; surface it as INVALID_ARGUMENT, not INTERNAL.
+        raise MalformedRequestError(
+            f"unknown AttachmentMode enum value: {value}",
+            details={"field": "attachment_mode", "value": value},
+        ) from exc
 
 
 _PROTO_TO_DOMAIN_EMAIL_BODY_POSITION: dict[int, EmailBodyPosition] = {
@@ -136,8 +142,12 @@ def _email_body_position_to_domain(value: int, *, run_id: str, stage_id: str) ->
         return EmailBodyPosition.AFTER_STAGES_SUMMARY
     try:
         return _PROTO_TO_DOMAIN_EMAIL_BODY_POSITION[value]
-    except KeyError as exc:  # pragma: no cover — proto validation prevents this
-        raise ValueError(f"unknown EmailBodyPosition enum value: {value}") from exc
+    except KeyError as exc:
+        # proto3 enums are open; surface an unknown value as INVALID_ARGUMENT.
+        raise MalformedRequestError(
+            f"unknown EmailBodyPosition enum value: {value}",
+            details={"field": "email_body_position", "value": value},
+        ) from exc
 
 
 # -----------------------------------------------------------------------------
@@ -145,17 +155,51 @@ def _email_body_position_to_domain(value: int, *, run_id: str, stage_id: str) ->
 # -----------------------------------------------------------------------------
 
 
+def _demote_integral_floats(value: Any) -> Any:
+    """Recursively demote integral, finite ``float`` values to ``int``.
+
+    A protobuf ``Struct`` stores every number as a double (there is no
+    integer kind), so ``MessageToDict`` renders an input like a record
+    count of ``42`` as the Python float ``42.0`` — which then serializes
+    to ``"42.0"`` and renders as ``42.0`` in the delivered email. This
+    walk restores the natural integer form for any double whose value is
+    integral (e.g. ``42.0 -> 42``), leaving genuinely fractional values
+    (``0.5``) and non-finite values (``inf``/``nan``, whose
+    ``.is_integer()`` is ``False``) untouched.
+
+    Precision note: doubles above ``2**53`` already lost integer
+    precision at the ``Struct`` boundary; this cannot recover it, but
+    ``int(x)`` still yields the exact value the double holds.
+
+    ``bool`` is a subclass of ``int`` and is not a ``float``; it passes
+    through unchanged (a ``Struct`` ``BoolValue`` must stay ``True``/
+    ``False``, never become ``1``/``0``).
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else value
+    if isinstance(value, dict):
+        return {k: _demote_integral_floats(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_demote_integral_floats(v) for v in value]
+    return value
+
+
 def _struct_to_dict(struct: Struct) -> dict[str, Any]:
     """Convert a protobuf ``Struct`` into a plain Python ``dict``.
 
     L3-AGGR-002 pins the kwargs; we use the current (protobuf-5+) names.
+    Integral doubles are demoted to ``int`` (L3-AGGR-002) via
+    :func:`_demote_integral_floats` so integer inputs do not render as
+    ``"42.0"`` in the assembled report.
     """
     result: dict[str, Any] = MessageToDict(
         struct,
         preserving_proto_field_name=True,
         always_print_fields_with_no_presence=False,
     )
-    return result
+    return {k: _demote_integral_floats(v) for k, v in result.items()}
 
 
 # -----------------------------------------------------------------------------
@@ -185,7 +229,15 @@ def _has_template_ref(tr: pb.TemplateRef) -> bool:
 
 
 def _template_ref_to_domain(tr: pb.TemplateRef) -> TemplateRef:
-    return TemplateRef(name=tr.name, version=tr.version)
+    try:
+        return TemplateRef(name=tr.name, version=tr.version)
+    except ValueError as exc:
+        # TemplateRef.__post_init__ rejects empty name/version — caller input,
+        # so surface as INVALID_ARGUMENT rather than INTERNAL.
+        raise MalformedRequestError(
+            f"invalid template reference: {exc}",
+            details={"name": tr.name, "version": tr.version},
+        ) from exc
 
 
 # -----------------------------------------------------------------------------

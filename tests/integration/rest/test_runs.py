@@ -141,6 +141,7 @@ async def _seed_user(
     hasher: Argon2PasswordHasher,
     *,
     email: str = "alice@example.com",
+    is_admin: bool = False,
 ) -> User:
     pw_hash = hasher.hash(Password("hunter2"))
     async with uow_factory() as uow:
@@ -151,7 +152,7 @@ async def _seed_user(
                 password_hash=pw_hash,
                 created_at=_T0,
                 disabled=False,
-                is_admin=False,
+                is_admin=is_admin,
             ),
         )
         await uow.commit()
@@ -263,9 +264,11 @@ async def _login(
     http_client: httpx.AsyncClient,
     uow_factory: SqliteUnitOfWorkFactory,
     hasher: Argon2PasswordHasher,
+    *,
+    is_admin: bool = False,
 ) -> str:
     """Seed a user, log in, return the CSRF cookie value."""
-    await _seed_user(uow_factory, hasher)
+    await _seed_user(uow_factory, hasher, is_admin=is_admin)
     response = await http_client.post(
         "/login", json={"email": "alice@example.com", "password": "hunter2"}
     )
@@ -548,7 +551,7 @@ async def test_resend_returns_202_on_success(
     resend_stub: _ResendStub,
 ) -> None:
     """A successful resend call SHALL return 202 Accepted."""
-    csrf = await _login(http_client, uow_factory, hasher)
+    csrf = await _login(http_client, uow_factory, hasher, is_admin=True)
     response = await http_client.post(
         "/runs/00000000-0000-4000-8000-000000000aa1/resend",
         headers={"X-CSRF-Token": csrf},
@@ -565,7 +568,7 @@ async def test_resend_returns_404_for_unknown_run(
     resend_stub: _ResendStub,
 ) -> None:
     """A RunNotFoundError SHALL surface as 404."""
-    csrf = await _login(http_client, uow_factory, hasher)
+    csrf = await _login(http_client, uow_factory, hasher, is_admin=True)
     resend_stub.raise_run_not_found = True
     response = await http_client.post(
         "/runs/00000000-0000-4000-8000-deadbeef0001/resend",
@@ -583,7 +586,7 @@ async def test_resend_returns_409_for_non_resendable_state(
     resend_stub: _ResendStub,
 ) -> None:
     """L3-DASH-028: non-SENT/FAILED state SHALL return 409."""
-    csrf = await _login(http_client, uow_factory, hasher)
+    csrf = await _login(http_client, uow_factory, hasher, is_admin=True)
     resend_stub.raise_invalid_state = "ORPHANED"
     response = await http_client.post(
         "/runs/00000000-0000-4000-8000-000000000bb1/resend",
@@ -601,7 +604,7 @@ async def test_resend_rejects_non_uuid_path(
     hasher: Argon2PasswordHasher,
 ) -> None:
     """L3-DASH-025: non-UUID4 path values SHALL return 422 even on POST."""
-    csrf = await _login(http_client, uow_factory, hasher)
+    csrf = await _login(http_client, uow_factory, hasher, is_admin=True)
     response = await http_client.post(
         "/runs/not-a-uuid/resend",
         headers={"X-CSRF-Token": csrf},
@@ -633,13 +636,19 @@ async def test_get_report_returns_saved_email_body(
     report_store: FilesystemReportStore,
 ) -> None:
     """L3-DASH-029: route SHALL return the saved body with text/html;charset=utf-8."""
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     report_store.save_email_body(RunId(_VIEWER_RUN), "<html><body>π</body></html>")
 
     response = await http_client.get(f"/runs/{_VIEWER_RUN}/report")
     assert response.status_code == 200
     assert response.text == "<html><body>π</body></html>"
     assert response.headers["content-type"] == "text/html; charset=utf-8"
+    # L3-DASH-029: served report HTML carries a restrictive CSP (no script/network)
+    # plus nosniff, so injected markup cannot execute or exfiltrate.
+    csp = response.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "script-src" not in csp  # scripts fall through to default-src 'none'
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 @pytest.mark.asyncio
@@ -650,7 +659,7 @@ async def test_get_report_returns_404_when_no_saved_body(
     hasher: Argon2PasswordHasher,
 ) -> None:
     """L3-DASH-029: missing saved body SHALL surface as 404 (no info disclosure)."""
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     response = await http_client.get(f"/runs/{_VIEWER_RUN}/report")
     assert response.status_code == 404
 
@@ -663,7 +672,7 @@ async def test_get_report_rejects_non_uuid_path(
     hasher: Argon2PasswordHasher,
 ) -> None:
     """L3-DASH-025-style path validator SHALL apply to the report route."""
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     response = await http_client.get("/runs/not-a-uuid/report")
     assert response.status_code == 422
 
@@ -688,7 +697,7 @@ async def test_get_fragment_returns_saved_fragment(
     report_store: FilesystemReportStore,
 ) -> None:
     """L3-DASH-030: route SHALL return saved fragment HTML with text/html;charset=utf-8."""
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     report_store.save_fragment(RunId(_VIEWER_RUN), StageId("extract"), "<p>frag</p>")
 
     response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/extract/fragment")
@@ -706,7 +715,7 @@ async def test_get_fragment_returns_404_when_stage_missing(
     report_store: FilesystemReportStore,
 ) -> None:
     """L3-DASH-030: absent stage fragment SHALL return 404 (uniform privacy)."""
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     # Save one stage; ask for another. Same uniform-404 SHALL apply.
     report_store.save_fragment(RunId(_VIEWER_RUN), StageId("extract"), "<p>frag</p>")
     response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/transform/fragment")
@@ -721,7 +730,7 @@ async def test_get_fragment_returns_404_when_run_missing(
     hasher: Argon2PasswordHasher,
 ) -> None:
     """L3-DASH-030: absent run SHALL also surface as the same 404."""
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     response = await http_client.get(f"/runs/{_VIEWER_RUN}/stages/extract/fragment")
     assert response.status_code == 404
 
@@ -733,7 +742,7 @@ async def test_get_fragment_rejects_non_uuid_run_id(
     uow_factory: SqliteUnitOfWorkFactory,
     hasher: Argon2PasswordHasher,
 ) -> None:
-    await _login(http_client, uow_factory, hasher)
+    await _login(http_client, uow_factory, hasher, is_admin=True)
     response = await http_client.get("/runs/not-a-uuid/stages/extract/fragment")
     assert response.status_code == 422
 
@@ -838,3 +847,40 @@ async def test_runs_board_renders_with_no_runs(
     response = await http_client.get("/runs/board")
     assert response.status_code == 200
     assert 'id="runs-data">[]</script>' in response.text
+
+
+# -----------------------------------------------------------------------------
+# Report viewer + resend are admin-only (L1-DASH-003)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-029")
+@pytest.mark.requirement("L3-DASH-030")
+async def test_report_viewer_and_resend_refuse_non_admin(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """A non-admin session is refused (403) on report / fragment / resend."""
+    csrf = await _login(http_client, uow_factory, hasher, is_admin=False)
+    run = "00000000-0000-4000-8000-000000000001"
+    assert (await http_client.get(f"/runs/{run}/report")).status_code == 403
+    assert (await http_client.get(f"/runs/{run}/stages/extract/fragment")).status_code == 403
+    resend = await http_client.post(f"/runs/{run}/resend", headers={"X-CSRF-Token": csrf})
+    assert resend.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-030")
+async def test_get_fragment_rejects_traversal_stage_id(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """A path-traversal stage_id is rejected by the route pattern (422)."""
+    await _login(http_client, uow_factory, hasher, is_admin=True)
+    run = "00000000-0000-4000-8000-000000000001"
+    # `..` and a leading dot are forbidden by _STAGE_ID_PATTERN.
+    assert (await http_client.get(f"/runs/{run}/stages/../fragment")).status_code in (404, 422)
+    assert (await http_client.get(f"/runs/{run}/stages/.hidden/fragment")).status_code == 422

@@ -849,6 +849,49 @@ async def test_stages_rendered_in_stage_order_not_submission_order(
     assert stage_ids == ["extract", "transform"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-AGGR-008")
+@pytest.mark.requirement("L3-AGGR-012")
+async def test_equal_stage_order_breaks_tie_on_stage_id(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+    renderer: MagicMock,
+) -> None:
+    """L2-AGGR-008: two stages sharing a stage_order SHALL sort by stage_id ascending.
+
+    The general ordering test uses distinct stage_orders and never exercises the
+    tiebreak; this one pins two stages at the SAME stage_order.
+    """
+    _, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    # A run whose two declared stages share stage_order=0 (ids 'bravo', 'alpha').
+    run = Run(
+        run_id=_RID,
+        pipeline_type="etl-nightly",
+        tags=frozenset({"production"}),
+        declared_stages=(
+            DeclaredStage(stage_id=StageId("bravo"), stage_order=0, report_template_ref=_TPL_EXT),
+            DeclaredStage(stage_id=StageId("alpha"), stage_order=0, report_template_ref=_TPL_EXT),
+        ),
+        state=RunState.READY,
+        attachment_mode=AttachmentMode.SINGLE_AGGREGATED,
+        aggregation_template_ref=_TPL_AGG,
+        subscription_predicate_tags=frozenset({"production"}),
+        created_at=_T0,
+        updated_at=_T0,
+    )
+    run_repo.set_initial(run)
+    # Return in reverse-of-expected order to force the tiebreak sort.
+    stage_repo.list_by_run.return_value = [_stage("bravo"), _stage("alpha")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+
+    await use_case.execute(_RID)
+
+    agg_call = next(c for c in renderer.render.call_args_list if c.args[0] == _TPL_AGG)
+    stage_ids = [s["stage_id"] for s in agg_call.args[1]["stages"]]
+    # Equal stage_order → lexicographic stage_id tiebreak: alpha before bravo.
+    assert stage_ids == ["alpha", "bravo"]
+
+
 # -----------------------------------------------------------------------------
 # Zero recipients (short-circuit to SENT, no mailer call)
 # -----------------------------------------------------------------------------
@@ -1037,6 +1080,129 @@ async def test_email_delivery_error_transitions_to_failed(
     assert len(failure_events) == 1
     assert failure_events[0].details["failure_reason"] == "EMAIL_DELIVERY"
     assert failure_events[0].details["recipient_count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-029")
+@pytest.mark.requirement("L3-MAIL-008")
+async def test_email_delivery_failure_reason_stays_in_vocabulary(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+) -> None:
+    """The mailer's own failure_reason detail SHALL NOT clobber the run failure_reason.
+
+    Regression: the mailer raises EmailDeliveryError with
+    details['failure_reason']='PERMANENT_SMTP_FAILURE' (its SMTP-level
+    classification). Spreading that verbatim overwrote the authoritative
+    run failure_reason ('EMAIL_DELIVERY', L3-RUN-029 closed vocab). The SMTP
+    classification is now relocated to smtp_failure_classification.
+    """
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+    # Realistic mailer error: carries its own failure_reason (the collision source).
+    mailer.send.side_effect = EmailDeliveryError(
+        "permanent SMTP failure: 550",
+        details={"failure_reason": "PERMANENT_SMTP_FAILURE", "smtp_code": 550},
+    )
+
+    await use_case.execute(_RID)
+
+    failure_events = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].outcome == AuditOutcome.FAILURE
+    ]
+    assert len(failure_events) == 1
+    details = failure_events[0].details
+    # Authoritative run failure_reason stays in the closed L3-RUN-029 vocabulary.
+    assert details["failure_reason"] == "EMAIL_DELIVERY"
+    # The SMTP-level classification is preserved, relocated, not lost.
+    assert details["smtp_failure_classification"] == "PERMANENT_SMTP_FAILURE"
+
+
+# -----------------------------------------------------------------------------
+# Concurrent-sweep reconciliation (L3-RUN-034)
+#
+# The orphan sweeper classifies by age alone (L1-SWEEP-002) and can reclaim a
+# slow SENDING delivery. When that happens the finalizing transition is illegal
+# (terminal -> SENT/FAILED); the use case must reconcile rather than raise.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-034")
+async def test_sent_reconciles_when_swept_to_terminal_mid_delivery(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+) -> None:
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+
+    # Simulate the orphan sweeper committing ORPHANED while SMTP is in flight:
+    # the email goes out, but by the time _finalize_sent re-reads the run it is
+    # already terminal.
+    def _orphan_during_send(_email: OutboundEmail) -> None:
+        run_repo.set_initial(_run(state=RunState.ORPHANED))
+
+    mailer.send.side_effect = _orphan_during_send
+
+    # Must NOT raise InvalidStateTransitionError out of the background task.
+    await use_case.execute(_RID)
+
+    mailer.send.assert_awaited_once()
+    # No SENT transition is attempted once the run is terminal.
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.SENT not in transitions
+    # A reconciliation audit row is recorded, SUCCESS (the email was delivered).
+    recon = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].details.get("reconciled_terminal_state") == "ORPHANED"
+    ]
+    assert len(recon) == 1
+    assert recon[0].outcome == AuditOutcome.SUCCESS
+    assert recon[0].action is AuditAction.SEND_REPORT
+    assert recon[0].details["recipient_count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-034")
+async def test_failed_reconciles_when_swept_to_terminal_mid_delivery(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+) -> None:
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+
+    # The delivery fails AND the run was swept to ORPHANED concurrently: the
+    # -> FAILED edge is now illegal, so reconcile with a FAILURE audit row.
+    def _orphan_then_fail(_email: OutboundEmail) -> None:
+        run_repo.set_initial(_run(state=RunState.ORPHANED))
+        raise EmailDeliveryError("SMTP 550", details={"smtp_code": 550})
+
+    mailer.send.side_effect = _orphan_then_fail
+
+    await use_case.execute(_RID)
+
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.FAILED not in transitions
+    recon = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].details.get("reconciled_terminal_state") == "ORPHANED"
+    ]
+    assert len(recon) == 1
+    assert recon[0].outcome == AuditOutcome.FAILURE
+    assert recon[0].details["failure_reason"] == "EMAIL_DELIVERY"
 
 
 # -----------------------------------------------------------------------------

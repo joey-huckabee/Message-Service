@@ -12,6 +12,277 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+Post-v0.16.0 review-and-fix pass (rounds 1 & 2) toward a 1.0.0 cut. No new
+features; correctness, security, and requirements-document fixes.
+
+### Fixed
+
+- **`iso_z` timestamp format is now fixed-width.** `datetime.isoformat()` omits
+  the fractional-seconds field when microseconds are zero, which made `iso_z`
+  variable-width; because timestamps are stored/compared as TEXT under SQLite's
+  BINARY collation, a whole-second value sorted *after* a same-second fractional
+  one, inverting chronological order. This broke the `sessions` CHECK
+  (`last_activity_at >= created_at`) on an ordinary session touch, the
+  `sweeper_actions` CHECKs, `delete_expired` filtering, and every `ORDER BY` on
+  persisted timestamps. `iso_z` now always emits six-digit microseconds (form
+  `…T00:00:00.000000Z`); `L3-RUN-025` strengthened to mandate it.
+- **gRPC now returns `INVALID_ARGUMENT` for malformed client requests** instead
+  of `INTERNAL`. Request-adaptation failures (empty `pipeline_type`, empty/negative
+  declared-stage fields, empty `run_id`/`stage_id`, missing/empty template refs,
+  and unknown/future proto enum values) previously raised `pydantic.ValidationError`
+  / `ValueError`, which the translator mapped to `INTERNAL` with a spurious ERROR
+  stack-trace log. They now map to `INVALID_ARGUMENT` with
+  `ERROR_CODE_MALFORMED_REQUEST` (validation errors surfaced as field/rule pairs,
+  never echoing the offending input value).
+- **`asyncio.CancelledError` (and other non-`Exception` `BaseException`s) now
+  propagate** out of the gRPC translator instead of being turned into a bogus
+  `INTERNAL` status + ERROR log, restoring cooperative RPC cancellation.
+- **`${env:VAR}` substitution now reaches `[auth.admin].password`.** The config
+  path-walker only descended into plain nested models, skipping union-typed
+  optional sections — so a configurable local admin with an env-substituted
+  password was provisioned at startup with the *literal* `"${env:…}"` string,
+  and the real secret was never read. The walker now unwraps unions
+  (`AdminAccountConfig | None`), fixing this for any `SubstitutableStr` under an
+  `Optional[...]` section.
+- **Disabling an account or resetting its password now revokes its live
+  sessions.** Neither action previously touched the session store, so a disabled
+  (or credential-reset) user's existing cookie kept authenticating until
+  idle-timeout — the account-disable control did not actually revoke access.
+  Both now delete the target's sessions (new `SessionRepository.delete_by_user_id`)
+  in the same transaction as the account change, and `require_admin` additionally
+  rejects a disabled user (new `L3-AUTH-020` / `L3-AUTH-021`).
+- **The report viewer and manual resend are now administrator-only.**
+  `GET /runs/{id}/report`, the per-stage `/fragment` viewer, and
+  `POST /runs/{id}/resend` were gated by `require_session`, so any authenticated
+  non-admin recipient could read any run's rendered report and trigger a resend
+  (a mass-mail). They now require `require_admin`, matching `L1-DASH-003`.
+- **Path-traversal via `stage_id` on the fragment route is closed.** `stage_id`
+  went unvalidated into a filesystem path (`<root>/<run_id>/fragments/<stage_id>.html`),
+  letting a crafted value escape the report tree — on Windows the fragment
+  *read* route (`\` passes the URL path converter) and the fragment *write* path
+  (a pipeline-declared stage id). The route now constrains `stage_id` to a safe
+  charset, and the filesystem report store rejects any resolved path that escapes
+  the configured report root (protecting read and write regardless of caller).
+- **A delivery that finishes after the orphan sweeper reclaims its run no longer
+  crashes the background task.** The sweeper classifies runs by age alone
+  (`L1-SWEEP-002`) and can reclaim a slow `SENDING` delivery whose SMTP retries
+  outlast `run_timeout_seconds`; when the delivery task then tried its
+  `SENDING -> SENT` (or `-> FAILED`) transition, the run was already `ORPHANED`
+  and the illegal transition raised an uncaught `InvalidStateTransitionError` —
+  surfacing as a spurious internal error even though the email had been sent, with
+  no `SEND_REPORT` audit row. `AssembleAndDeliverUseCase` now re-reads the run
+  inside the finalizing transaction and, if it is already terminal, records a
+  reconciliation `SEND_REPORT` audit row (with a `reconciled_terminal_state`
+  detail) and leaves the swept state intact instead of raising (new `L3-RUN-034`).
+  The SMTP mailer additionally bounds every connection with an explicit timeout
+  (default 30 s) so a hung relay cannot hold a run in `SENDING` indefinitely.
+- **`BeginRun` no longer rejects a valid `PER_STAGE` run over a stray
+  `aggregation_template_ref`.** `"latest"` resolution ran unconditionally, so a
+  `PER_STAGE` request that happened to carry an (unused) `aggregation_template_ref`
+  — which `L3-RUN-018` says to silently ignore — was resolved and validated
+  anyway; a `"latest"` sentinel whose name had no manifest entry raised
+  `UnknownTemplateError` and failed the whole run. Aggregation-template resolution
+  is now gated on `SINGLE_AGGREGATED` mode, so the stray ref is dropped without
+  being consulted.
+- **`resolve_latest` now returns the original manifest version string, not the
+  canonicalized form.** `packaging.Version` rewrites version strings on parse
+  (`"v1.0.0"` → `"1.0.0"`, `"1.0.0-alpha"` → `"1.0.0a0"`, `"1.00"` → `"1.0"`), and
+  the manifest is keyed by the *exact* stored string — so resolving `"latest"` to
+  the canonical form produced a `(name, version)` pair that was not a manifest key,
+  making the very next existence check raise `UnknownTemplateError` for a template
+  that exists. Version comparison still uses the parsed `Version`; only the
+  returned key changed. `L3-TMPL-009` amended to mandate the original key.
+- **`SubmitStageReport` now rejects submissions to already-finalized runs.** The
+  run-state guard only rejected *terminal* runs (`SENT`/`FAILED`/`ORPHANED`), so a
+  submission arriving after `FinalizeRun` moved the run to `READY` — or while it
+  was `SENDING` — was accepted: the stage was persisted but never included in the
+  already-assembled report (acknowledged-but-lost), or worse, mutated stage state
+  after finalization. The guard is now an accept-set test: only `INITIATED` and
+  `AGGREGATING` accept submissions; every other state raises `InvalidRunStateError`
+  (`FAILED_PRECONDITION`) with `run_state` + `accepting_states` details and persists
+  nothing (new `L3-STAGE-019`).
+- **An all-recipients-refused SMTP send now fails fast as permanent.**
+  `aiosmtplib.SMTPRecipientsRefused` (raised when every recipient is rejected) is a
+  bare `SMTPException` with no `.code`, so it fell through the classifier's branches
+  to the generic transient default — an all-`550` refusal was retried through the
+  full backoff schedule (minutes) and surfaced as `RETRIES_EXHAUSTED` instead of
+  `PERMANENT_SMTP_FAILURE`. It is now classified by its per-recipient refusal codes:
+  permanent iff every code is permanent, transient if any recipient carries a 4xx
+  (which a retry might yet deliver). `L3-MAIL-007` amended.
+- **Integer values in a stage's `Struct` context no longer render as `"42.0"`.**
+  A protobuf `Struct` stores every number as a double, so `MessageToDict` returned
+  Python floats for all numbers — a record count of `42` serialized to `"42.0"` and
+  rendered as `42.0` in the delivered email. `_struct_to_dict` now recursively
+  demotes integral, finite doubles to `int` (`42.0 → 42`), leaving fractional
+  values, non-finite values (`inf`/`nan`), and `bool` untouched. (Values above
+  `2**53` already lost integer precision at the `Struct` boundary — unrecoverable
+  here.) `L3-AGGR-002` amended.
+- **A manual resend whose re-render fails now records a `FAILURE` audit instead of
+  a 500.** `ResendRun` called `prepare_email` without catching its render errors
+  (`TemplateRenderError` / `RenderedSizeExceededError` / `ContextSizeExceededError`,
+  which can arise if a template was removed or a context grew past a limit since the
+  original send). The exception escaped uncaught — no `RESEND_REPORT` audit row, and
+  the resend route (which handles only `RunNotFoundError` / `InvalidRunStateError`)
+  surfaced it as an unhandled 500. Render failures are now caught and recorded as a
+  `FAILURE` `RESEND_REPORT` audit (`recipient_count=0`, `attachment_count=0`,
+  `failure_reason=<exception class>`), matching the existing delivery-failure
+  convention; only precondition failures still raise. `L3-DASH-013` amended.
+- **Login is no longer a timing oracle for account enumeration.** The unknown-email
+  and disabled-account branches raised before doing any Argon2 work, so a valid
+  email (which pays Argon2's deliberate cost) took measurably longer than an unknown
+  one — letting an attacker enumerate accounts by response time. `LoginUseCase` now
+  precomputes a decoy hash (with the injected hasher, so its cost parameters match
+  live accounts) and performs a throwaway `verify` on both miss paths — against the
+  decoy for an unknown email, against the account's real hash for a disabled one —
+  so every attempt pays the same cost. Response content was already generic
+  (`L3-AUTH-013`); this equalizes response timing (new `L3-AUTH-022`).
+- **Migrations are now genuinely atomic — a partial migration can no longer brick
+  startup.** Each migration ran via a bare `executescript`, which performs no
+  transaction wrapping (it commits any pending transaction, then autocommits each
+  statement), so a multi-statement migration that failed part-way left its earlier
+  statements committed — and the handler's `rollback()` couldn't undo them. The next
+  startup re-ran the migration from the top and failed permanently (e.g. `duplicate
+  column`). The runner now frames the migration body **and** its `_migrations`
+  bookkeeping insert in one explicit `BEGIN … COMMIT` inside the executed script, so
+  a failure rolls the whole migration back and leaves it safely retryable (new
+  `L3-PERS-036`).
+- **A failed startup no longer leaks the SQLite connection.** `build_service`
+  closed the connection only when *migrations* failed; a failure in any later
+  construction step (tag-vocabulary/template-manifest load, report-directory probe,
+  mailer parameter validation, disposition-handler validation, admin provisioning,
+  …) left the connection open — leaking an fd plus aiosqlite's background thread,
+  which under repeated construction (the test suite, `filterwarnings=error`)
+  surfaces as a `ResourceWarning`. The post-connection assembly is now delegated to
+  `_assemble_service` under a single guard that closes the connection on any
+  exception; on success its lifecycle transfers to the UoW factory as before (new
+  `L3-PERS-037`).
+- **The metrics-dashboard Prometheus parser handles escaped label values and
+  timestamped samples correctly.** Two bugs: (1) label-value unescaping used
+  chained `str.replace` calls, so `\\n` (an escaped backslash followed by a literal
+  `n`) decoded to a newline instead of `\` + `n` — now a single left-to-right pass
+  consumes each escape once; (2) the sample-line regex folded an optional trailing
+  timestamp into the value, so a timestamped sample made `float()` raise and 500'd
+  `/admin/metrics` — the timestamp is now parsed as a separate, ignored token.
+  Under `L3-DASH-036`.
+- **A dead dashboard no longer goes unnoticed.** The uvicorn serve task had no
+  done-callback, so if it died before shutdown was requested its exception went
+  unretrieved and `_run` blocked on the shutdown event forever — the dashboard down
+  while the process looked healthy. The task now carries a callback that (ignoring
+  cancellation and the normal shutdown-time completion) logs at ERROR and sets the
+  shutdown event on any unexpected exit, tearing the whole service down for a
+  supervisor to restart. The shutdown-time `gather` also switched to
+  `return_exceptions=True` so an already-dead listener can't abort teardown before
+  the scheduler drains and the DB closes (new `L3-DEP-019`).
+- **A client-influenced error field can no longer overflow the gRPC trailing
+  metadata and lose the structured error.** The `grpc-status-details-bin`
+  `ErrorInfo.metadata` packed the whole (redacted) `details` dict verbatim, so an
+  oversized value — a huge `stage_id`/`template` name, a long `invalid_tags` /
+  `validation_errors` list — could push the serialized `google.rpc.Status` past
+  gRPC's ~8 KiB trailing-metadata limit, making the entire `context.abort` fail. The
+  metadata is now size-bounded: each value is truncated to a per-value byte cap, the
+  remaining fields are dropped once a total cap is reached, and a `_truncated` marker
+  is added so the client knows the metadata is incomplete (new `L3-ERR-024`). Fixed a
+  stale docstring that claimed `details` was not serialized to the response.
+- **Log/error redaction now recurses into nested payloads.** Both
+  `redact_sensitive_keys` (used by the gRPC error translator) and the structlog
+  redaction processor only inspected *top-level* keys, so a sensitive key nested one
+  level down — inside the `details=` dict routinely passed to the logger and packed
+  into the error envelope — was emitted verbatim. Redaction now recurses through
+  nested dicts and lists/tuples. Also added `instance_value` (the raw offending value
+  captured in a schema-violation error, the same class of arbitrary pipeline data as
+  the already-redacted `template_context`) to the sensitive-key set (new
+  `L3-OBS-044`).
+
+- **The delivery `failure_reason` audit field no longer escapes its closed
+  vocabulary.** In `_finalize_failed`, `**reason.details` spread the mailer's own
+  `details["failure_reason"]` (`PERMANENT_SMTP_FAILURE` / `RETRIES_EXHAUSTED` — the
+  SMTP-level classification) *over* the authoritative run `failure_reason`, so a
+  production `EmailDeliveryError` wrote `failure_reason="PERMANENT_SMTP_FAILURE"` —
+  a value `L3-RUN-029` explicitly drops from the closed set. (Tests missed it by
+  passing a mailer error without that detail key.) The run `failure_reason` now
+  stays `EMAIL_DELIVERY`; the SMTP classification is relocated to a separate
+  `smtp_failure_classification` detail. Same fix applied to the concurrent-sweep
+  reconciliation path. `L3-MAIL-008`/`L3-RUN-029` amended.
+
+- **`SqliteSessionRepository.save` now honors its `PersistenceError` contract.**
+  A duplicate `token_hash` (or a `last_activity_at >= created_at` CHECK violation)
+  let a raw `aiosqlite.IntegrityError` leak past the adapter boundary; it is now
+  wrapped in `PersistenceError` like the other repositories.
+- **`runs.created_at` is now indexed.** The past-runs listing pages with
+  `ORDER BY created_at DESC, run_id DESC` but `created_at` had no index, forcing a
+  full scan + filesort per page. Migration `005` adds `idx_runs_created_at`.
+- **The login password length is now bounded (`max_length=512`).** An
+  unauthenticated caller could POST an arbitrarily large password and force a
+  correspondingly expensive Argon2 verification — a CPU/memory DoS lever. The cap
+  matches the admin create/reset paths; over-length input is rejected at validation
+  (422) before any hashing.
+- **Nine production `assert` statements replaced with explicit guards.** Bare
+  `assert` is stripped under `python -O`, so these invariant checks would vanish in
+  an optimized run and a violated invariant would surface as a confusing downstream
+  error. Each is now an explicit `if not <invariant>: raise` that survives `-O` and
+  still narrows for mypy.
+- **The dashboard `esc()` helpers now escape quotes for attribute context.** The
+  `runs_board` and `subscriptions_console` `esc()` helpers escaped only `& < >`, but
+  are used inside double-quoted HTML attributes (`data-run="…"`, `<option value="…">`),
+  so a value containing a `"` could break out of the attribute. All three helpers
+  (incl. `admin_console`) now escape the full set `& < > " '`.
+- **Served report HTML carries a restrictive `Content-Security-Policy`.** The
+  report-viewer and per-stage `/fragment` routes served pipeline-derived HTML with no
+  CSP. They now send `default-src 'none'; style-src 'unsafe-inline'; img-src data:
+  'self'; base-uri 'none'` plus `X-Content-Type-Options: nosniff`, so any markup that
+  escaped a template author's escaping cannot execute script or reach off-origin
+  (`L3-DASH-029`/`L3-DASH-030`).
+- **Audit archival no longer blocks the event loop and its records are now
+  deduplicatable.** The retention pruner called the archive writer (a blocking
+  file write + `fsync`) directly on the event loop; it now offloads that I/O via
+  `asyncio.to_thread`. And because archival is at-least-once (a delete that fails
+  after a successful archive re-archives the same rows), each archived record now
+  carries its `audit_id` so a consumer can deduplicate the append-only journal
+  (`L3-OBS-043`).
+
+- **The systemd unit set the wrong config env-var name.**
+  `deploy/linux/message-service.service` set `Environment="MSG_SERVICE_CONFIG=…"`,
+  but the CLI reads `MESSAGE_SERVICE_CONFIG`. Because `ExecStart` passes `--config`
+  explicitly it was dead rather than fatal, but an operator relying on the env-var
+  fallback would have been misled. Corrected to `MESSAGE_SERVICE_CONFIG`.
+
+### Tests
+
+- **Closed trace-matrix thin/mismatched coverage rows.** Several requirements were
+  "covered" by a test that did not actually verify their claim: `L2-AGGR-010`
+  (aggregation-template validation at BeginRun) mapped only to a proto-shape test —
+  now also marked on `test_unknown_aggregation_template_raises`; `L2-OBS-012`
+  (ERROR-severity logs carry `error_code`) mapped to a trailing-metadata test — now
+  has a dedicated `capture_logs` test asserting the boundary log record's
+  `error_code`; `L2-AGGR-008` (equal-`stage_order` → `stage_id` tiebreak) shared a
+  test that only exercised distinct orders — now has a dedicated tiebreak test; and
+  `L2-SUB-004`/`L2-SUB-005` (user creation, including admin, inserts no
+  subscriptions) shared a happy-path 201 test that never asserted the
+  no-side-effect — now has a dedicated test querying the subscriptions table.
+
+### Documentation
+
+- **Backed the previously-unbacked Demonstration verification methods with
+  procedure artifacts.** The browser dashboard's *visual* correctness (the
+  `L1-DASH-*` cluster) and a Linux systemd install had no demonstration procedure
+  document (only the Windows install did). Added
+  `docs/procedures/dashboard-demonstration.md` (new `L3-DASH-047`, with per-page
+  checkpoints + operator attestation, covering login/admin-console/subscriptions/
+  past-runs/report-viewer/run-board/metrics) and
+  `docs/procedures/linux-install-demonstration.md` (new `L3-DEP-020`, mirroring the
+  Windows install demonstration), each enforced by a conformance test asserting the
+  artifact and its sections exist.
+- **Resolved the `recipient_addresses` contradiction in the requirements.** The
+  docs disagreed with themselves and with the code: some statements said delivery
+  audit rows store `recipient_addresses`, others said they must not. Settled on the
+  implemented behavior — audit rows record the sorted `recipient_addresses` (the
+  authoritative forensic record), while the structured-**log** stream stays
+  count-only because addresses are PII (`L3-OBS-006`). Reworded `L3-SUB-015`,
+  `L3-MAIL-018`, and `L3-MAIL-025` to state this split coherently and to note the
+  addresses are governed by audit retention pruning + optional archival + admin-only
+  audit access. Applied the timeless-wording principle in these three (dropped the
+  `v1 does NOT …` / `Earlier drafts …` history).
+
 ## [0.16.0] — 2026-07-19
 
 The admin console's **Subscriptions** tab goes live: an administrator can now
@@ -542,7 +813,11 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.9.0...v0.10.0

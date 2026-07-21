@@ -79,7 +79,8 @@ class AuditRecordResponse(BaseModel):
 
 
 def _project_event(event: AuditEvent) -> AuditRecordResponse:
-    assert event.audit_id is not None, "viewer reads SHALL populate audit_id (L2-DASH-016)"
+    if event.audit_id is None:  # viewer reads SHALL populate audit_id (L2-DASH-016)
+        raise RuntimeError("audit viewer read returned an event without a populated audit_id")
     return AuditRecordResponse(
         audit_id=event.audit_id,
         timestamp=_iso_z(event.timestamp),

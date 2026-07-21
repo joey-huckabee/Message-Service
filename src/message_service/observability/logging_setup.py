@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 import structlog
@@ -52,6 +53,7 @@ SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
         "email_body",  # full rendered email bodies should go to filesystem, not logs
         "rendered_output",
         "template_context",  # may contain arbitrary pipeline data
+        "instance_value",  # the raw offending value in a schema-violation error
     }
 )
 
@@ -79,18 +81,41 @@ def redact_sensitive_keys(payload: dict[str, object]) -> dict[str, object]:
     with the literal string ``<redacted>`` regardless of what they
     held.
 
+    Redaction is RECURSIVE (L3-OBS-044): a sensitive key nested inside a
+    non-sensitive value (e.g. a ``password`` inside a ``details`` dict,
+    or an ``instance_value`` carrying raw pipeline data one level down)
+    is redacted too. A shallow pass would miss these — the exception
+    ``details`` dicts this function guards routinely nest one level.
+
     Args:
         payload: The dict to redact. NOT mutated in place; the
             caller keeps the original.
 
     Returns:
-        A shallow copy with sensitive keys' values replaced. Non-
-        sensitive keys keep their original references.
+        A deep copy with every sensitive key's value replaced, at any
+        nesting depth. Non-sensitive scalar values keep their original
+        references; nested containers are rebuilt.
     """
+    return _redact_mapping(payload)
+
+
+def _redact_mapping(mapping: Mapping[str, object]) -> dict[str, object]:
+    """Redact one mapping level, recursing into non-sensitive values."""
     return {
-        key: REDACTED_PLACEHOLDER if key.lower() in SENSITIVE_FIELD_NAMES else value
-        for key, value in payload.items()
+        key: REDACTED_PLACEHOLDER if key.lower() in SENSITIVE_FIELD_NAMES else _redact_value(value)
+        for key, value in mapping.items()
     }
+
+
+def _redact_value(value: object) -> object:
+    """Recurse into dicts/lists/tuples; leave scalars untouched."""
+    if isinstance(value, Mapping):
+        return _redact_mapping(value)
+    if isinstance(value, list):
+        return [_redact_value(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_value(v) for v in value)
+    return value
 
 
 def _redact_sensitive_fields(
@@ -101,11 +126,16 @@ def _redact_sensitive_fields(
     """Processor: replace values of sensitive keys with ``<redacted>``.
 
     Applied to every event dict before rendering, so no call site can leak
-    sensitive data by accident (L2-OBS-003).
+    sensitive data by accident (L2-OBS-003). Recurses into nested
+    dicts/lists (L3-OBS-044) so a sensitive key inside a ``details=``
+    payload (e.g. a nested ``password`` or an ``instance_value``) is
+    redacted, not just top-level event keys.
     """
     for key in list(event_dict.keys()):
         if key.lower() in SENSITIVE_FIELD_NAMES:
             event_dict[key] = REDACTED_PLACEHOLDER
+        else:
+            event_dict[key] = _redact_value(event_dict[key])
     return event_dict
 
 

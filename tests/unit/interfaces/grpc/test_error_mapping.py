@@ -36,6 +36,8 @@ from message_service.domain.errors import (
     ValidationError,
 )
 from message_service.interfaces.grpc.error_mapping import (
+    _MAX_METADATA_TOTAL_BYTES,
+    _MAX_METADATA_VALUE_BYTES,
     _status_code_for,
     _translate_known,
     _translate_unexpected,
@@ -134,6 +136,48 @@ async def test_context_schema_violation_carries_code_and_pointer_through_transla
     assert abort.code is grpc.StatusCode.INVALID_ARGUMENT
     metadata = dict(abort.trailing_metadata)
     assert metadata["x-message-service-error-code"] == "ERROR_CODE_CONTEXT_SCHEMA_VIOLATION"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-ERR-024")
+async def test_status_details_metadata_is_size_bounded() -> None:
+    """An oversized client-influenced details value SHALL be bounded, not lost.
+
+    Regression: the whole redacted details dict was packed verbatim, so a large
+    value could push the serialized google.rpc.Status past gRPC's ~8 KiB
+    trailing-metadata limit and make the entire abort (and structured error) fail.
+    """
+    from google.rpc import error_details_pb2, status_pb2
+
+    ctx = _FakeServicerContext()
+    exc = UnknownTagError(
+        "bad tag",
+        details={"invalid_tags": "x" * 5000, "count": 3},
+    )
+    with pytest.raises(_AbortRaisedError):
+        await _translate_known(ctx, exc)
+
+    raw = dict(ctx.aborts[0].trailing_metadata)["grpc-status-details-bin"]
+    assert isinstance(raw, bytes)
+    # The whole serialized status stays comfortably under gRPC's ~8 KiB limit.
+    assert len(raw) < 8192
+
+    status = status_pb2.Status()
+    status.ParseFromString(raw)
+    info = error_details_pb2.ErrorInfo()
+    status.details[0].Unpack(info)
+    meta = dict(info.metadata)
+
+    # The oversized value was truncated (not dropped), and marked.
+    assert len(meta["invalid_tags"].encode("utf-8")) <= _MAX_METADATA_VALUE_BYTES + 32
+    assert meta["invalid_tags"].endswith("…[truncated]")
+    # A small field survives intact.
+    assert meta["count"] == "3"
+    # The incompleteness marker is present.
+    assert meta["_truncated"] == "true"
+    # Total metadata payload respects the total cap.
+    total = sum(len(v.encode("utf-8")) for k, v in meta.items() if k != "_truncated")
+    assert total <= _MAX_METADATA_TOTAL_BYTES
 
 
 @pytest.mark.requirement("L3-ERR-014")
@@ -239,6 +283,38 @@ async def test_translate_known_redacts_sensitive_keys_in_log_record(
     # log to stdout JSON before pytest captures; the critical
     # invariant is that no sensitive value leaks.
     del redacted_seen  # silence unused-warning
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-OBS-012")
+async def test_error_severity_boundary_log_carries_error_code() -> None:
+    """L2-OBS-012: an ERROR-severity boundary log record SHALL carry `error_code`.
+
+    The previous 'coverage' asserted the trailing metadata, not the log record.
+    ``ConfigurationError`` logs at ERROR (the base ``MessageServiceError``
+    log_level) with ``error_code=ERROR_CODE_INTERNAL``. Patch the module logger
+    directly rather than using ``capture_logs`` — with
+    ``cache_logger_on_first_use=True`` the cached module logger would bypass
+    ``capture_logs`` once another test has configured structlog.
+    """
+    from unittest.mock import patch
+
+    import message_service.interfaces.grpc.error_mapping as error_mapping
+
+    ctx = _FakeServicerContext()
+    exc = ConfigurationError("boom", details={"k": "v"})
+    with (
+        patch.object(error_mapping, "logger") as mock_logger,
+        pytest.raises(_AbortRaisedError),
+    ):
+        await _translate_known(ctx, exc)
+
+    # _translate_known emits `logger.log(exc.log_level, "request_rejected", error_code=..., ...)`.
+    mock_logger.log.assert_called_once()
+    call = mock_logger.log.call_args
+    assert call.args[0] == logging.ERROR  # ConfigurationError's log_level
+    assert call.args[1] == "request_rejected"
+    assert call.kwargs["error_code"] == "ERROR_CODE_INTERNAL"
 
 
 @pytest.mark.asyncio

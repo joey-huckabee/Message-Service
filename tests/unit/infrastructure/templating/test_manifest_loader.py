@@ -121,22 +121,42 @@ def test_resolve_latest_orders_pre_release_below_final() -> None:
 
 
 @pytest.mark.requirement("L3-TMPL-009")
-def test_resolve_latest_returns_canonical_packaging_version_form() -> None:
-    """The resolved ref SHALL carry the canonical str(Version(...)) form.
+def test_resolve_latest_returns_original_manifest_version_string() -> None:
+    """The resolved ref SHALL carry the *original* manifest version string.
 
-    Manifest entry ``"1.0"`` round-trips through ``Version()`` to
-    ``"1.0"`` exactly (packaging preserves the input shape for
-    well-formed inputs); the contract is that whatever str(Version(x))
-    produces is what lands on the resolved ref.
+    ``packaging.Version`` canonicalizes on parse, but the manifest is
+    keyed by the exact stored string. resolve_latest compares by parsed
+    Version yet must return the stored key so a subsequent
+    ``exists()`` / ``get()`` lookup succeeds.
     """
-    from packaging.version import Version
-
-    entries = {("nightly", "1.0"): _meta("nightly", "1.0")}
+    entries = {("nightly", "v2.0.0"): _meta("nightly", "v2.0.0")}
     repo = InMemoryTemplateRepository(entries)
 
     ref = repo.resolve_latest("nightly")
 
-    assert ref.version == str(Version("1.0"))
+    # Canonical form would be "2.0.0"; the stored key is "v2.0.0".
+    assert ref.version == "v2.0.0"
+    assert repo.exists(ref)
+
+
+@pytest.mark.requirement("L3-TMPL-009")
+@pytest.mark.requirement("L3-TMPL-010")
+def test_resolve_latest_result_is_a_valid_manifest_key_when_version_non_canonical() -> None:
+    """A non-canonical winning version SHALL still round-trip through get().
+
+    ``"1.0.0-alpha"`` canonicalizes to ``"1.0.0a0"`` — returning the
+    canonical form would raise ``UnknownTemplateError`` for a template
+    that exists. The highest here is the final ``"1.0.0"``; but when the
+    only entry is the pre-release, the stored key must come back intact.
+    """
+    entries = {("nightly", "1.0.0-alpha"): _meta("nightly", "1.0.0-alpha")}
+    repo = InMemoryTemplateRepository(entries)
+
+    ref = repo.resolve_latest("nightly")
+
+    assert ref.version == "1.0.0-alpha"
+    # The returned ref is a real manifest key: get() must not raise.
+    assert repo.get(ref).version == "1.0.0-alpha"
 
 
 @pytest.mark.requirement("L3-TMPL-010")

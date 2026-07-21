@@ -175,6 +175,7 @@ def test_session_repository_exposes_expected_methods() -> None:
         "touch",
         "delete_by_token_hash",
         "delete_expired",
+        "delete_by_user_id",
     }
     assert expected == SessionRepository.__abstractmethods__
 

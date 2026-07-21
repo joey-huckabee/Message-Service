@@ -62,6 +62,23 @@ _FAILURE_TYPE_TRANSIENT: Final[str] = "transient"
 _FAILURE_TYPE_PERMANENT: Final[str] = "permanent"
 
 
+def _classify_response_code(code: int) -> str:
+    """Classify a single SMTP response code as transient or permanent.
+
+    Transient: ``[400, 500)`` excluding 421 (L3-MAIL-005/006).
+    Permanent: ``[500, 600)``, 421 (L3-MAIL-006/007), and any
+    unclassified code (safer than retrying forever against an unknown
+    server response).
+    """
+    if code in _PERMANENT_4XX_CODES:
+        return _FAILURE_TYPE_PERMANENT
+    if 400 <= code < 500:
+        return _FAILURE_TYPE_TRANSIENT
+    if 500 <= code < 600:
+        return _FAILURE_TYPE_PERMANENT
+    return _FAILURE_TYPE_PERMANENT
+
+
 def _classify_smtp_error(exc: BaseException) -> str:
     """Return ``"transient"`` if the exception is retryable, else ``"permanent"``.
 
@@ -76,6 +93,17 @@ def _classify_smtp_error(exc: BaseException) -> str:
     :class:`aiosmtplib.SMTPResponseException` with code in ``[500, 600)``,
     :class:`aiosmtplib.SMTPAuthenticationError`, and 421.
 
+    :class:`aiosmtplib.SMTPRecipientsRefused` (raised when *every*
+    recipient is rejected) is NOT a :class:`SMTPResponseException` and
+    carries no single ``.code`` — it holds a list of per-recipient
+    refusals. It is classified permanent iff every refusal code is
+    permanent; a transient code on any recipient warrants a retry (that
+    recipient may then be accepted, turning the all-refused error into a
+    partial success). Without this branch it fell through to the generic
+    transient default and an all-``550`` refusal was retried for minutes
+    with a ``RETRIES_EXHAUSTED`` reason instead of failing fast as
+    permanent.
+
     Args:
         exc: Exception raised during send.
 
@@ -84,17 +112,15 @@ def _classify_smtp_error(exc: BaseException) -> str:
     """
     if isinstance(exc, aiosmtplib.SMTPAuthenticationError):
         return _FAILURE_TYPE_PERMANENT
+    # Plural recipients-refused must be checked before the generic fallthrough;
+    # it is a bare SMTPException with no `.code` (its per-recipient members do).
+    if isinstance(exc, aiosmtplib.SMTPRecipientsRefused):
+        codes = [r.code for r in exc.recipients]
+        if codes and all(_classify_response_code(c) == _FAILURE_TYPE_PERMANENT for c in codes):
+            return _FAILURE_TYPE_PERMANENT
+        return _FAILURE_TYPE_TRANSIENT
     if isinstance(exc, aiosmtplib.SMTPResponseException):
-        code = exc.code
-        if code in _PERMANENT_4XX_CODES:
-            return _FAILURE_TYPE_PERMANENT
-        if 400 <= code < 500:
-            return _FAILURE_TYPE_TRANSIENT
-        if 500 <= code < 600:
-            return _FAILURE_TYPE_PERMANENT
-        # Unclassified code — default to permanent (safer than retrying
-        # forever against an unknown server response).
-        return _FAILURE_TYPE_PERMANENT
+        return _classify_response_code(exc.code)
     if isinstance(
         exc,
         aiosmtplib.SMTPServerDisconnected | aiosmtplib.SMTPConnectTimeoutError,
@@ -188,6 +214,7 @@ class AiosmtplibMailer(Mailer):
         max_retries: int = 5,
         initial_interval_seconds: float = 2.0,
         max_interval_seconds: float = 300.0,
+        timeout_seconds: float = 30.0,
     ) -> None:
         """Construct the adapter.
 
@@ -208,6 +235,13 @@ class AiosmtplibMailer(Mailer):
             initial_interval_seconds: First-attempt backoff delay
                 (applied before attempt 2).
             max_interval_seconds: Ceiling for the backoff delay.
+            timeout_seconds: Per-connection SMTP timeout (L3-RUN-034),
+                applied to connect and every subsequent command. Bounds
+                how long a single attempt can hang against an
+                unresponsive relay so a run cannot sit in ``SENDING``
+                indefinitely and race the orphan sweeper. A hung connect
+                surfaces as :class:`aiosmtplib.SMTPConnectTimeoutError`
+                (classified transient, so it retries).
 
         Raises:
             ValueError: Any numeric parameter out of range.
@@ -222,6 +256,8 @@ class AiosmtplibMailer(Mailer):
             raise ValueError("initial_interval_seconds must be positive")
         if max_interval_seconds < initial_interval_seconds:
             raise ValueError("max_interval_seconds must be >= initial_interval_seconds")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
 
         self._host = host
         self._port = port
@@ -232,6 +268,7 @@ class AiosmtplibMailer(Mailer):
         self._max_retries = max_retries
         self._initial_interval_seconds = initial_interval_seconds
         self._max_interval_seconds = max_interval_seconds
+        self._timeout_seconds = timeout_seconds
 
         # L3-MAIL-003: warn on plaintext auth at construction-time. The
         # adapter is built once at service start; this is the startup
@@ -369,6 +406,7 @@ class AiosmtplibMailer(Mailer):
             hostname=self._host,
             port=self._port,
             start_tls=False,  # we issue STARTTLS manually after connect
+            timeout=self._timeout_seconds,  # L3-RUN-034: bound each attempt
         )
         try:
             await client.connect()

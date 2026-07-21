@@ -8,7 +8,7 @@ Usage::
     def test_audit_timestamp_matches_clock(fake_clock: FakeClock) -> None:
         fake_clock.set(datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC))
         audit.record_event(...)
-        assert audit.last_event.timestamp == "2026-04-19T12:00:00Z"
+        assert audit.last_event.timestamp == "2026-04-19T12:00:00.000000Z"
 
     def test_elapsed_time_math(fake_clock: FakeClock) -> None:
         t0 = fake_clock.now()

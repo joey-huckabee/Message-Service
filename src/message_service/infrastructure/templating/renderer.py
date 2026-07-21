@@ -81,6 +81,17 @@ from message_service.domain.errors import (
 )
 
 # Whitelisted filters per L2-TMPL-008.
+#
+# NOTE on ``safe``: it is intentionally whitelisted and is load-bearing, NOT a
+# footgun. Rendering is two-level. Leaf templates (each stage's report_template)
+# render pipeline-supplied context with ``autoescape=True``, so their output is
+# already HTML-escaped. The aggregation template then composes those pre-rendered
+# fragments with ``{{ stage.rendered_html | safe }}`` — ``safe`` here says "this is
+# already-rendered, already-escaped HTML from our own sandbox, do not double-escape
+# it," not "trust raw pipeline input." Every shipped aggregation template relies on
+# this; removing ``safe`` would break composition and double-escape every fragment.
+# No un-escaped pipeline data reaches the output because the escaping happened at
+# the leaf render.
 _ALLOWED_FILTERS: frozenset[str] = frozenset(
     {
         "escape",

@@ -34,7 +34,7 @@ from message_service.domain.errors import InvalidRunStateError, RunNotFoundError
 from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import TERMINAL_STATES, RunState
 from message_service.domain.state_machines.stage_states import StageState
-from message_service.interfaces.rest.app import require_session
+from message_service.interfaces.rest.app import require_admin_factory, require_session
 from message_service.interfaces.rest.runs_board import render_runs_board
 
 if TYPE_CHECKING:
@@ -47,9 +47,25 @@ if TYPE_CHECKING:
 # obligation.
 _UUID4_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
 
+# Permitted stage-id shape on the fragment-viewer route: alphanumeric start and
+# end, with `._-` allowed internally. This forbids path-separator and
+# dot-segment values (``..``, ``\\``) so ``stage_id`` cannot traverse out of the
+# report tree on Windows (where ``\`` passes the default path converter). The
+# report store enforces path containment independently (belt and suspenders).
+_STAGE_ID_PATTERN = r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$"
+
 # Cap on runs embedded in the run-status board page (L3-DASH-037). Matches the
 # JSON list endpoint's max page size; the client filters within this window.
 _BOARD_LIMIT = 200
+
+# Content-Security-Policy for served report HTML (L3-DASH-030). A saved report is
+# display-only HTML rendered from pipeline-supplied template context, so it must
+# never execute script or reach off-origin. ``default-src 'none'`` blocks scripts,
+# objects, frames, and network fetches; inline styles and data: images (common in
+# report bodies) are permitted. This hardens the viewer against any markup that
+# slipped through a template author's escaping.
+_REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data: 'self'; base-uri 'none'"
+_REPORT_HEADERS = {"Content-Security-Policy": _REPORT_CSP, "X-Content-Type-Options": "nosniff"}
 
 
 # -----------------------------------------------------------------------------
@@ -142,6 +158,9 @@ def build_runs_router(service: Service) -> APIRouter:
         An :class:`APIRouter` mounted under ``/runs``.
     """
     router = APIRouter(prefix="/runs", tags=["runs"])
+    # The report viewer and manual resend are administrator actions per
+    # L1-DASH-003; the runs list / detail / board stay session-gated.
+    require_admin = require_admin_factory(service)
 
     @router.get("")
     async def list_runs(
@@ -219,9 +238,9 @@ def build_runs_router(service: Service) -> APIRouter:
     )
     async def get_report(
         run_id: Annotated[str, Path(pattern=_UUID4_PATTERN)],
-        _user_id: int = Depends(require_session),
+        _admin_id: int = Depends(require_admin),
     ) -> HTMLResponse:
-        """L3-DASH-029: saved email body for a run.
+        """L3-DASH-029: saved email body for a run (admin-only, L1-DASH-003).
 
         Reads via :meth:`ReportStore.read_email_body`; ``None`` is
         translated to HTTP 404 with a generic detail string. The same
@@ -230,7 +249,7 @@ def build_runs_router(service: Service) -> APIRouter:
         discloses which of those happened (uniform privacy mirroring
         L3-DASH-025).
         """
-        del _user_id
+        del _admin_id
         html = service.report_store.read_email_body(RunId(run_id))
         if html is None:
             raise HTTPException(
@@ -240,6 +259,7 @@ def build_runs_router(service: Service) -> APIRouter:
         return HTMLResponse(
             content=html,
             media_type="text/html; charset=utf-8",
+            headers=_REPORT_HEADERS,
         )
 
     @router.get(
@@ -248,16 +268,16 @@ def build_runs_router(service: Service) -> APIRouter:
     )
     async def get_fragment(
         run_id: Annotated[str, Path(pattern=_UUID4_PATTERN)],
-        stage_id: Annotated[str, Path(min_length=1, max_length=128)],
-        _user_id: int = Depends(require_session),
+        stage_id: Annotated[str, Path(min_length=1, max_length=128, pattern=_STAGE_ID_PATTERN)],
+        _admin_id: int = Depends(require_admin),
     ) -> HTMLResponse:
-        """L3-DASH-030: saved per-stage rendered fragment.
+        """L3-DASH-030: saved per-stage rendered fragment (admin-only, L1-DASH-003).
 
         Reads via :meth:`ReportStore.read_fragment`; ``None`` is
         translated to HTTP 404 with the same uniform privacy
         semantics as :func:`get_report`.
         """
-        del _user_id
+        del _admin_id
         html = service.report_store.read_fragment(RunId(run_id), StageId(stage_id))
         if html is None:
             raise HTTPException(
@@ -267,14 +287,15 @@ def build_runs_router(service: Service) -> APIRouter:
         return HTMLResponse(
             content=html,
             media_type="text/html; charset=utf-8",
+            headers=_REPORT_HEADERS,
         )
 
     @router.post("/{run_id}/resend", status_code=status.HTTP_202_ACCEPTED)
     async def resend_run(
         run_id: Annotated[str, Path(pattern=_UUID4_PATTERN)],
-        user_id: int = Depends(require_session),
+        user_id: int = Depends(require_admin),
     ) -> dict[str, str]:
-        """L1-DASH-003 / L3-DASH-012/013/027/028: manual resend.
+        """L1-DASH-003 / L3-DASH-012/013/027/028: manual resend (admin-only).
 
         State preconditions per L3-DASH-028: SENT or FAILED only;
         any other state returns HTTP 409. Non-existent runs return

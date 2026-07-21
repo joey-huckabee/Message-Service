@@ -42,7 +42,7 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
     conn = await open_connection(db)
     try:
         applied = await apply_migrations(conn)
-        assert [m.version for m in applied] == [1, 2, 3, 4]
+        assert [m.version for m in applied] == [1, 2, 3, 4, 5]
         # Domain tables from 001, sweeper outbox from 002, sessions from 003,
         # stages.email_body_position from 004.
         for table in (
@@ -129,7 +129,7 @@ async def test_reapply_is_noop(tmp_path: Path) -> None:
         second = await apply_migrations(conn)
         assert second == []  # no-op
         # Bookkeeping table records each applied migration exactly once.
-        assert await _applied_versions(conn) == [1, 2, 3, 4]
+        assert await _applied_versions(conn) == [1, 2, 3, 4, 5]
     finally:
         await conn.close()
 
@@ -248,6 +248,22 @@ async def test_sweeper_actions_pending_index_is_partial(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-024")
+async def test_runs_created_at_index_exists(tmp_path: Path) -> None:
+    """005 SHALL add an index on runs.created_at for the past-runs ORDER BY."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_runs_created_at'"
+        ) as cur:
+            assert await cur.fetchone() is not None
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L3-SWEEP-010")
 async def test_sweeper_actions_check_constraints_block_invalid_writes(
     tmp_path: Path,
@@ -347,6 +363,35 @@ async def test_multiple_migrations_applied_in_order(tmp_path: Path) -> None:
         assert await _applied_versions(conn) == [1, 2, 3]
         for t in ("first_t", "second_t", "third_t"):
             assert await _table_exists(conn, t)
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-036")
+async def test_migration_with_failing_statement_is_fully_rolled_back(tmp_path: Path) -> None:
+    """A mid-migration failure SHALL leave no earlier statement's effect nor a _migrations row.
+
+    Regression: the body ran via a bare ``executescript`` that autocommits
+    each statement, so the first (successful) statement survived a later
+    failure — bricking the next startup on re-run.
+    """
+    mig = tmp_path / "migrations"
+    mig.mkdir()
+    # Statement 1 succeeds (creates a table); statement 2 fails (no such
+    # table). With atomic framing, statement 1 must be rolled back.
+    (mig / "001_atomic.sql").write_text(
+        "CREATE TABLE atomic_probe (id INTEGER);\nINSERT INTO nonexistent_table (x) VALUES (1);\n"
+    )
+    conn = await open_connection(Path(":memory:"))
+    try:
+        with pytest.raises(PersistenceError, match="failed to apply migration"):
+            await apply_migrations(conn, migrations_dir=mig)
+
+        # The first statement's effect did not survive.
+        assert not await _table_exists(conn, "atomic_probe")
+        # No bookkeeping row was recorded, so the migration is retryable.
+        assert await _applied_versions(conn) == []
     finally:
         await conn.close()
 

@@ -25,23 +25,23 @@ of truth for live status; this file holds only the spec content above.
 
 | Code      | L2 Count | L3 Count |
 |-----------|----------|----------|
-| `API`     | 11       | 18       |
-| `RUN`     | 16       | 30       |
-| `STAGE`   | 9        | 18       |
-| `TMPL`    | 14       | 28       |
+| `API`     | 12       | 20       |
+| `RUN`     | 16       | 34       |
+| `STAGE`   | 9        | 19       |
+| `TMPL`    | 15       | 35       |
 | `AGGR`    | 10       | 20       |
-| `SWEEP`   | 10       | 21       |
+| `SWEEP`   | 11       | 24       |
 | `SUB`     | 10       | 20       |
-| `AUTH`    | 9        | 13       |
-| `MAIL`    | 14       | 28       |
-| `DASH`    | 16       | 30       |
-| `PERS`    | 13       | 35       |
-| `OBS`     | 18       | 40       |
-| `ERR`     | 10       | 22       |
+| `AUTH`    | 11       | 22       |
+| `MAIL`    | 14       | 34       |
+| `DASH`    | 23       | 46       |
+| `PERS`    | 13       | 37       |
+| `OBS`     | 19       | 44       |
+| `ERR`     | 10       | 24       |
 | `CFG`     | 8        | 16       |
-| `DEP`     | 9        | 18       |
-| `CICD`    | 15       | 17       |
-| **Total** | **192**  | **386**  |
+| `DEP`     | 9        | 19       |
+| `CICD`    | 16       | 19       |
+| **Total** | **206**  | **433**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -80,7 +80,7 @@ Service startup SHALL call `server.add_insecure_port(f"{host}:{port}")` and SHAL
 `grpc.port` SHALL be validated as an integer in [1, 65535]; out-of-range values SHALL raise `ConfigurationError` at startup.
 
 **L3-API-011** · Parent: L2-API-008 · Verification: T
-The error mapping SHALL attach `x-message-service-error-code` trailing metadata with the exception's `error_code` attribute on every error response.
+The error mapping SHALL attach `x-message-service-error-code` trailing metadata with the exception's `error_code` attribute on every error response that originates from a `MessageServiceError` (i.e. every error carrying a proto `ErrorCode` enum value). The sole exception is the concurrency-limit rejection (`L3-API-020`): its saturation cause is not a proto `ErrorCode` enum value, so it intentionally emits the additive `grpc-status-details-bin` envelope with `ErrorInfo.reason = "RESOURCE_EXHAUSTED_CONCURRENCY"` and no `x-message-service-error-code` key. A client switching on the legacy key SHALL treat its absence on a `RESOURCE_EXHAUSTED` response as that saturation signal.
 
 **L3-API-012** · Parent: L2-API-008 · Verification: T
 For each concrete `ValidationError` subclass, a test SHALL trigger the error and assert the returned gRPC status is `INVALID_ARGUMENT` with the expected error_code metadata.
@@ -186,7 +186,7 @@ The assembly task is responsible for its own state-transition handling: if it ra
 The `Clock` port SHALL expose `now() -> datetime` returning a timezone-aware UTC `datetime`; implementations are `SystemClock` and `FakeClock`.
 
 **L3-RUN-025** · Parent: L2-RUN-014 · Verification: T
-All persisted timestamps SHALL be ISO-8601 strings with literal `"Z"` suffix (not `"+00:00"`); a regex test SHALL enforce this on every written row.
+All persisted timestamps SHALL be ISO-8601 strings with a literal `"Z"` suffix (not `"+00:00"`) and a fixed-width six-digit microseconds field that is always present (form `YYYY-MM-DDTHH:MM:SS.ffffffZ`, e.g. `2026-04-19T12:00:00.000000Z`). Fixed width is required because timestamps are stored and compared as TEXT: under SQLite's BINARY collation a variable-width value would sort out of chronological order (a whole-second `...:00Z` would collate after a same-second fractional `...:00.300000Z`), breaking CHECK constraints, range predicates, and `ORDER BY`. A regex test SHALL enforce the form on every written row.
 
 **L3-RUN-026** · Parent: L2-RUN-015 · Verification: T
 Audit-first ordering SHALL be enforced by performing audit `INSERT` and state `UPDATE` in one transaction, with audit insert preceding state update in statement order.
@@ -198,7 +198,7 @@ If the audit insert fails, the state update SHALL NOT be attempted; the transact
 Direct transitions from any non-terminal state to `FAILED` SHALL be permitted without intermediate steps, supporting abort-on-error paths.
 
 **L3-RUN-029** · Parent: L2-RUN-004 · Verification: T
-Every transition into `FAILED` from the assembly + delivery pipeline SHALL record a `failure_reason` string in the audit row's `details`. The reason vocabulary is the closed set `{TEMPLATE_RENDER, RENDERED_SIZE_EXCEEDED, CONTEXT_SIZE_EXCEEDED, EMAIL_DELIVERY, EMAIL_SIZE_EXCEEDED}`, mapping one-to-one to the `MessageServiceError` subtype that triggered the transition. (Earlier drafts proposed a smaller set of `{EMAIL_SIZE_EXCEEDED, PERMANENT_SMTP_FAILURE, INTERNAL_ERROR}`; the implemented vocabulary is more granular and matches the exception hierarchy in `domain/errors.py`.) The `SENDING -> FAILED` edge specifically is reached on the `EMAIL_SIZE_EXCEEDED` (per `L3-MAIL-030`) and `EMAIL_DELIVERY` (retries-exhausted) paths.
+Every transition into `FAILED` from the assembly + delivery pipeline SHALL record a `failure_reason` string in the audit row's `details`. The reason vocabulary is the closed set `{TEMPLATE_RENDER, RENDERED_SIZE_EXCEEDED, CONTEXT_SIZE_EXCEEDED, EMAIL_DELIVERY, EMAIL_SIZE_EXCEEDED}`, mapping one-to-one to the `MessageServiceError` subtype that triggered the transition. (Earlier drafts proposed a smaller set of `{EMAIL_SIZE_EXCEEDED, PERMANENT_SMTP_FAILURE, INTERNAL_ERROR}`; the implemented vocabulary is more granular and matches the exception hierarchy in `domain/errors.py`.) The `SENDING -> FAILED` edge specifically is reached on the `EMAIL_SIZE_EXCEEDED` (per `L3-MAIL-030`) and `EMAIL_DELIVERY` (retries-exhausted) paths. An error-specific detail payload that carries its own `failure_reason` key (e.g. the mailer's SMTP-level `PERMANENT_SMTP_FAILURE`/`RETRIES_EXHAUSTED`) SHALL NOT overwrite this closed-vocabulary `failure_reason`; such a classification is relocated to a separate detail key (`smtp_failure_classification`, per `L3-MAIL-008`).
 
 **L3-RUN-030** · Parent: L2-RUN-002 · Verification: T
 `RunState` SHALL be a Python `enum.StrEnum` in `domain/state_machines/run_states.py`; comparisons use identity (`is`) in domain code.
@@ -211,6 +211,9 @@ The `SystemClock` adapter (`infrastructure/time/system_clock.py`) SHALL implemen
 
 **L3-RUN-033** · Parent: L2-RUN-016 · Verification: T
 A `FakeClock` test fixture SHALL implement the `Clock` port with operator-controlled `set(target_dt)` and `advance(delta)` methods, allowing deterministic timestamp behavior in tests. Every test that depends on time arithmetic (sweeper cutoffs, retention pruner cutoffs, audit-log ordering) SHALL receive `FakeClock` instances rather than `SystemClock`. The fixture lives in `tests/unit/application/ports/test_fake_clock_fixture.py` and is re-exported for test composition; production code SHALL never import from `tests/`. This is the dual to L3-RUN-031: the chokepoint exists so it can be substituted at the boundary, and `FakeClock` is the substitution mechanism.
+
+**L3-RUN-034** · Parent: L2-RUN-004 · Verification: T
+Because the orphan sweeper classifies a run by age alone (L1-SWEEP-002) and may therefore reclaim a run still being delivered (a slow `SENDING` delivery whose SMTP retries outlast `run_timeout_seconds`), the finalizing transitions in `AssembleAndDeliverUseCase` (`SENDING -> SENT` and `<non-terminal> -> FAILED`) SHALL re-read the run's current state inside their transition transaction and, if it is already terminal, SHALL NOT attempt the (illegal) transition. Instead the use case SHALL record a reconciliation audit event — `SEND_REPORT` with the true delivery outcome and a `reconciled_terminal_state` detail field naming the concurrently-applied terminal state — leaving that state and any disposition the sweeper already enqueued intact, and SHALL return without raising. This prevents an `InvalidStateTransitionError` from escaping the background delivery task (which would surface as a spurious internal error while the email was in fact delivered). The mailer SHALL additionally bound each SMTP connection with an explicit timeout so a hung relay cannot hold a run in `SENDING` indefinitely.
 
 ---
 
@@ -265,10 +268,13 @@ Declared-stage lookup SHALL use the run's `declared_stages_json` column (parsed 
 Run existence check SHALL precede stage membership check in code order; a test SHALL exercise "unknown run + unknown stage" and assert `RunNotFound` is raised, not `UnknownStage`.
 
 **L3-STAGE-017** · Parent: L2-STAGE-001 · Verification: T
-The sweeper SHALL drive orphan classification from the run's last-transition timestamp (the `runs.updated_at` column, per `L3-RUN-024`), not from any per-stage timestamp. The `stages` table accordingly does NOT carry a `last_transition_at` column; only `submitted_at` is stored, recording when the stage left `PENDING`. Earlier drafts of this requirement mandated a per-stage `last_transition_at`; v1 dropped that column because the run-level timestamp is sufficient for orphan disposition and avoids duplicating per-stage state-machine timestamps that no consumer needed.
+The sweeper SHALL drive orphan classification from the run's last-transition timestamp (the `runs.updated_at` column — a persisted timestamp per `L3-RUN-025`, written on every state transition), not from any per-stage timestamp. The `stages` table accordingly does NOT carry a `last_transition_at` column; only `submitted_at` is stored, recording when the stage left `PENDING`. Earlier drafts of this requirement mandated a per-stage `last_transition_at`; v1 dropped that column because the run-level timestamp is sufficient for orphan disposition and avoids duplicating per-stage state-machine timestamps that no consumer needed.
 
 **L3-STAGE-018** · Parent: L2-STAGE-002 · Verification: A
 A static check SHALL confirm no production code path references `StageState.IN_PROGRESS` as a transition target; grep results limited to test fixtures and a reserved-for-future-use comment.
+
+**L3-STAGE-019** · Parent: L2-STAGE-009 · Verification: T
+`SubmitStageReport` SHALL accept a submission only while the run is in a collecting state — `INITIATED` or `AGGREGATING`. A submission against a run in any other state SHALL be rejected with `InvalidRunStateError` (gRPC `FAILED_PRECONDITION`) whose `details` carry `run_state` (the current state) and `accepting_states` (`["INITIATED", "AGGREGATING"]`), with nothing persisted. This covers both the terminal states (`SENT`, `FAILED`, `ORPHANED`) and — critically — the post-finalization states `READY` and `SENDING`: once `FinalizeRun` has moved the run out of `AGGREGATING`, the report snapshot is already being assembled and delivered, so a late submission would either be silently lost (acknowledged but never included) or inject content after finalization. The rejection is therefore an accept-set test (`state ∈ {INITIATED, AGGREGATING}`), not a "not terminal" test.
 
 ---
 
@@ -299,7 +305,7 @@ Version parsing SHALL use `packaging.version.Version`; `"latest"` is special-cas
 Versions comparing equal via `packaging.version.Version` (e.g., `1.0` vs `1.0.0`) SHALL be treated as the same; the manifest loader rejects such equivalences as duplicates.
 
 **L3-TMPL-009** · Parent: L2-TMPL-005 · Verification: T
-`"latest"` resolution SHALL occur exactly once per run at `BeginRun` time. The literal sentinel string `"latest"` (case-sensitive, lowercase) SHALL be recognized by the resolution helper; any other value SHALL be treated as an explicit version. Comparison and ordering of candidate versions SHALL use `packaging.version.Version` from the `packaging` library (per L2-TMPL-004), and the resolved Version SHALL be serialized back to its canonical string form (`str(Version(...))`) before being stored on the Run aggregate.
+`"latest"` resolution SHALL occur exactly once per run at `BeginRun` time. The literal sentinel string `"latest"` (case-sensitive, lowercase) SHALL be recognized by the resolution helper; any other value SHALL be treated as an explicit version. Comparison and ordering of candidate versions SHALL use `packaging.version.Version` from the `packaging` library (per L2-TMPL-004). The resolved reference SHALL carry the *original manifest version string* of the winning entry — the exact key under which it is registered — NOT the canonicalized `str(Version(...))` form. Canonicalization is lossy with respect to the manifest key (`packaging` rewrites `"v1.0.0"` → `"1.0.0"`, `"1.0.0-alpha"` → `"1.0.0a0"`, `"1.00"` → `"1.0"`), so storing the canonical form would yield a `(name, version)` pair that is not a manifest key and would make the immediately-following existence check (and any later `get()`) raise `UnknownTemplateError` for a template that exists. Comparison uses the parsed `Version`; the returned/stored value is the unmodified manifest string.
 
 **L3-TMPL-010** · Parent: L2-TMPL-005 · Verification: T
 If a template name has no manifest entries, `"latest"` resolution SHALL raise `UnknownTemplateError` with `details = {"template_name": <name>}`; otherwise the resolution SHALL pick the highest `packaging.version.Version`-comparable version among entries sharing the requested name. Pre-release versions (e.g., `1.0.0rc1`) SHALL be ordered below the corresponding final per `packaging` semantics.
@@ -387,7 +393,7 @@ At startup the composition root SHALL validate every `email_body_template_overri
 The `ReportContribution` proto message SHALL use `google.protobuf.Struct` for `context` to allow arbitrary JSON-like structure without per-template proto schemas.
 
 **L3-AGGR-002** · Parent: L2-AGGR-001 · Verification: T
-`Struct` values SHALL be converted to Python `dict` via `google.protobuf.json_format.MessageToDict` with `preserving_proto_field_name=True`, `including_default_value_fields=False`.
+`Struct` values SHALL be converted to Python `dict` via `google.protobuf.json_format.MessageToDict` with `preserving_proto_field_name=True`, `including_default_value_fields=False`. Because a `Struct` stores every number as a double, `MessageToDict` yields Python `float` for all numeric values; the conversion SHALL then recursively demote any integral, finite `float` to `int` (`42.0 → 42`) so an integer input (e.g. a record count) does not serialize to `"42.0"` and render as `42.0` in the assembled report. Genuinely fractional values and non-finite values (`inf`/`nan`) are left unchanged, and `bool` values (a `Struct` `BoolValue`) SHALL NOT be coerced to `1`/`0`. Values above `2**53` have already lost integer precision at the `Struct` boundary; this normalization does not (and cannot) recover it.
 
 **L3-AGGR-003** · Parent: L2-AGGR-002 · Verification: T
 Omitted `email_body_contribution` on the wire SHALL be detected via proto3 field presence check (`HasField` where supported, or `is None` after dict conversion).
@@ -566,7 +572,7 @@ Hot-reload of the tag vocabulary is out of scope for v1 (per the deferred-featur
 Subscription creation SHALL validate the tag before insert; the dashboard surfaces validation errors inline on the form.
 
 **L3-SUB-015** · Parent: L2-SUB-009 · Verification: T
-Audit and structured-log records for run delivery SHALL emit `recipient_count` (an integer) rather than the recipient list itself. v1 does not log individual recipient email addresses (per `L3-OBS-006`'s sensitive-data discipline — email addresses are PII subject to the same redaction as `password`/`session_token`). Earlier drafts of this requirement specified casting the recipient frozenset to a sorted `list[str]` for deterministic log output; v1 dropped that in favor of count-only logging because emitting recipient addresses to logs creates a privacy surface that the count alone does not.
+Structured-log records for run delivery SHALL emit `recipient_count` (an integer) rather than the recipient list itself: recipient email addresses are PII and SHALL NOT be written to the log stream (per `L3-OBS-006`'s sensitive-data discipline, the same treatment as `password`/`session_token`). This constraint applies to the **log** surface only. The delivery **audit** rows DO record the sorted `recipient_addresses` (per `L3-MAIL-018` and the `SEND_REPORT` audit requirement) — the audit trail is the authoritative forensic record of who a report was delivered to, held in the database (not the log stream) and governed by the audit retention-pruning and optional-archival controls. The separation is deliberate: the operational log stream carries no recipient PII, while the access-controlled audit trail retains the per-recipient detail operators need for delivery investigations.
 
 **L3-SUB-016** · Parent: L2-SUB-009 · Verification: T
 A run with zero matching subscribers SHALL NOT cause an SMTP send; the run transitions to `SENT` with `recipient_count=0` in the audit log.
@@ -653,6 +659,15 @@ The config schema SHALL carry an optional `[auth.admin]` section modeled as `Adm
 **L3-AUTH-019** · Parent: L2-AUTH-011 · Verification: T
 `build_service` SHALL, after migrations and before returning the assembled `Service`, invoke an admin-reconciliation step when `config.auth.admin` is set. The step SHALL look up the account by `config.auth.admin.email`: if absent, it SHALL `save` a new `User(email, display_name=email, password_hash=hasher.hash(password), is_admin=True, disabled=False)`; if present, it SHALL `update` the account to `is_admin=True, disabled=False` and SHALL NOT change `password_hash`. It SHALL emit `structlog` event `admin_account_reconciled` with `{email, created: bool}` and never the secret. The step SHALL be idempotent (a second run over an already-reconciled store performs the re-assert path and makes no password change). Tests SHALL cover create-when-absent (password hashed, verifiable via the hasher), re-assert-when-present (privilege/enabled restored, password untouched), and idempotence.
 
+**L3-AUTH-020** · Parent: L2-AUTH-007 · Verification: T
+Disabling an account SHALL immediately revoke its authenticated sessions. When `UpdateUserUseCase` sets `disabled=True`, it SHALL delete every session belonging to the target user (`SessionRepository.delete_by_user_id`) within the same unit of work as the account update and audit row, so the revocation commits atomically with the disable. As defense in depth against the window between a disable elsewhere and this revocation, the `require_admin` dependency SHALL additionally reject a user whose row reports `disabled=True` (treated as an unauthenticated `401`, using the same fresh-read the admin check already performs). Tests SHALL assert that a disabled user's existing session no longer authenticates and that a disabled admin is refused the admin surface.
+
+**L3-AUTH-021** · Parent: L2-AUTH-008 · Verification: T
+Resetting an account's password SHALL immediately revoke its authenticated sessions. `ResetPasswordUseCase` SHALL delete every session belonging to the target user (`SessionRepository.delete_by_user_id`) within the same unit of work as the password update and audit row. A password reset is typically performed because the prior credential is compromised, so no session established with it may survive the change. Tests SHALL assert the target's existing sessions are gone after a reset.
+
+**L3-AUTH-022** · Parent: L2-AUTH-001 · Verification: T
+The login path SHALL perform an Argon2 verification on every attempt, including when the email is unknown or the account is disabled, so that response time does not reveal whether an account exists (defeating timing-based account enumeration). `LoginUseCase` SHALL precompute a decoy hash at construction using the injected `PasswordHasher` (so the decoy's cost parameters match live accounts'); the unknown-email branch SHALL run a throwaway `verify(password, decoy_hash)` and the disabled branch SHALL run a throwaway `verify(password, user.password_hash)` before auditing and raising the generic `AuthenticationError`. The decoy's plaintext is random and discarded so it never verifies. This complements the generic-failure surface of `L3-AUTH-013` (which equalizes the *response content*) by also equalizing the *response timing*.
+
 ---
 
 ## L3-MAIL: Email delivery
@@ -676,10 +691,10 @@ Transient classification catches `SMTPServerDisconnected`, `SMTPConnectTimeoutEr
 Response code `421` SHALL be excluded from transient classification and treated as permanent for the current run (RFC 5321: service not available).
 
 **L3-MAIL-007** · Parent: L2-MAIL-005 · Verification: T
-Permanent failures: `SMTPResponseException` with `code in range(500, 600)` or `SMTPAuthenticationError`.
+Permanent failures: `SMTPResponseException` with `code in range(500, 600)` or `SMTPAuthenticationError`. `SMTPRecipientsRefused` — raised when *every* recipient is rejected — SHALL be classified by its per-recipient refusal codes (it is a bare `SMTPException` carrying a list of `SMTPRecipientRefused`, each with a `.code`, and is NOT itself an `SMTPResponseException`): permanent iff every refusal code classifies permanent (per L3-MAIL-005/006), otherwise transient (a transient code on any recipient may be accepted on retry, turning the all-refused error into a partial success). It SHALL NOT fall through to the generic transient default, which would retry an all-`550` refusal to exhaustion.
 
 **L3-MAIL-008** · Parent: L2-MAIL-005 · Verification: T
-Permanent failure SHALL transition the run to `FAILED` with `failure_reason="PERMANENT_SMTP_FAILURE"` and log at ERROR with SMTP code and message.
+A permanent SMTP failure SHALL transition the run to `FAILED` with the run-level `failure_reason="EMAIL_DELIVERY"` (the `L3-RUN-029` closed-vocabulary value for an `EmailDeliveryError`) and SHALL log at ERROR with SMTP code and message. The SMTP-level classification (`PERMANENT_SMTP_FAILURE` vs `RETRIES_EXHAUSTED`) is a distinct concept from the run `failure_reason`; it SHALL be carried in the audit `details` under a separate key (`smtp_failure_classification`) and SHALL NOT overwrite the run `failure_reason` (which would otherwise put an out-of-vocabulary value in the field `L3-RUN-029` closes).
 
 **L3-MAIL-009** · Parent: L2-MAIL-006 · Verification: T
 Backoff SHALL be `min(max_interval, initial_interval * (2 ** (attempt - 1)))` with `attempt` starting at 1.
@@ -709,7 +724,7 @@ A test SHALL attempt to inject a template expression into `run_id` and assert th
 Oversized reports SHALL be written via the same atomic-rename path as successful reports; the dashboard resend endpoint SHALL locate and resend them.
 
 **L3-MAIL-018** · Parent: L2-MAIL-012 · Verification: T
-Delivery-audit row `details` SHALL include: `recipient_count` (integer), `failure_reason` (nullable string drawn from the `L3-RUN-029` vocabulary), and any error-shape fields specific to the failure type (`measured_bytes`/`limit_bytes` for `EMAIL_SIZE_EXCEEDED`, `smtp_response_code` for SMTP failures, etc.). v1 does NOT store `recipient_addresses` per `L3-SUB-015`'s PII discipline; the count alone is the audit signal. Earlier drafts of this requirement listed `recipient_addresses (JSON array)` as a column — dropped to align with `L3-SUB-015`.
+Delivery-audit row `details` SHALL include: `recipient_count` (integer), `recipient_addresses` (a sorted JSON array of strings — the authoritative per-recipient delivery record, held in the audit trail rather than the log stream per `L3-SUB-015`), `failure_reason` (nullable string drawn from the `L3-RUN-029` vocabulary), and any error-shape fields specific to the failure type (`measured_bytes`/`limit_bytes` for `EMAIL_SIZE_EXCEEDED`, `smtp_response_code` for SMTP failures, etc.).
 
 **L3-MAIL-019** · Parent: L2-MAIL-013 · Verification: T
 Audit insert and state transition SHALL be in a single `BEGIN IMMEDIATE` transaction; any failure rolls back.
@@ -730,10 +745,10 @@ v1 sends each run as a single SMTP message with the recipient list on `Bcc:` (pe
 The persisted oversized-report path SHALL be identical to a successful report's path, simplifying resend logic.
 
 **L3-MAIL-025** · Parent: L2-MAIL-012 · Verification: I
-v1 does NOT store individual `recipient_addresses` in audit rows — only `recipient_count` per `L3-MAIL-018` and `L3-SUB-015`. The PII-redaction question is therefore moot at v1; if a future deployment needs per-recipient delivery audit detail, the implementation would add an opt-in column gated by the same config flag that controls L3-OBS-006's sensitive-key redaction. Earlier drafts of this requirement mandated a redaction toggle; v1's count-only approach makes the toggle unnecessary.
+Delivery audit rows record the sorted `recipient_addresses` (per `L3-MAIL-018`), which are PII. That PII lives only in the audit trail — never in the structured-log stream (`L3-SUB-015`) — and is governed by the audit retention pruning (`L1-OBS-003`) and optional archival (`L2-OBS-019`) controls plus the dashboard's admin-only audit access. Operators who require a stricter posture can shorten the audit retention window; the addresses age out with the rest of the row.
 
 **L3-MAIL-026** · Parent: L2-MAIL-013 · Verification: I
-v1's `AssembleAndDeliverUseCase` performs the SMTP send INSIDE the same `UnitOfWork` that records the audit row and transitions the run to `SENT`. If the audit insert raises after a successful SMTP send, the UoW exception path attempts a rollback — but the email has already been delivered to the SMTP server, so the rollback only undoes the database state, not the email. The run remains in `SENDING` (the pre-transaction state) and the sweeper will reclaim it as orphaned per `L1-RUN-006`. The audit failure surfaces in the structured log via the UoW's exception path. This is acknowledged operational risk — captured in the deferred-features entry `R-DELIVER-001 — Outbox-backed background tasks`, where the proper fix (transactional outbox pattern) is documented as v2 work. Earlier drafts of this requirement specified bespoke CRITICAL-log handling; v1's "rely on the sweeper for at-least-once recovery" approach is the current contract.
+v1's `AssembleAndDeliverUseCase` performs the SMTP send INSIDE the same `UnitOfWork` that records the audit row and transitions the run to `SENT`. If the audit insert raises after a successful SMTP send, the UoW exception path attempts a rollback — but the email has already been delivered to the SMTP server, so the rollback only undoes the database state, not the email. The run remains in `SENDING` (the pre-transaction state) and the sweeper will reclaim it as orphaned per `L1-SWEEP-002`. The audit failure surfaces in the structured log via the UoW's exception path. This is acknowledged operational risk — captured in the deferred-features entry `R-DELIVER-001 — Outbox-backed background tasks`, where the proper fix (transactional outbox pattern) is documented as v2 work. Earlier drafts of this requirement specified bespoke CRITICAL-log handling; v1's "rely on the sweeper for at-least-once recovery" approach is the current contract.
 
 **L3-MAIL-027** · Parent: L2-MAIL-014 · Verification: T
 A test SHALL render the subject for a known run with a benign `pipeline_type` (matching `[a-zA-Z0-9._-]+`) and assert the produced `Subject:` value equals exactly `[{pipeline_type}] run {run_id}` — no extra whitespace, no rearrangement of components.
@@ -776,7 +791,7 @@ The factory SHALL register startup and shutdown handlers via `@app.on_event(...)
 Startup SHALL raise `ConfigurationError` if `dashboard.port == grpc.port`.
 
 **L3-DASH-005** · Parent: L2-DASH-003 · Verification: I
-v1 ships no HTML frontend — the dashboard surfaces as REST/JSON endpoints (per `L1-DASH-002`/`L1-DASH-003`/`L1-DASH-005`) returning JSON projections. The `src/message_service/interfaces/rest/html/` package contains only `__init__.py`; no `static/` subdirectory exists because no CSS/JS/font assets are shipped. When the HTML dashboard frontend lands (alongside R-DASH-004's embedded Chart.js work, or a separate frontend deferral), assets SHALL be packaged at this path and mounted via FastAPI `StaticFiles` at `/static`. The L2-DASH-003 air-gap constraint is vacuously satisfied today.
+The dashboard ships hand-authored HTML pages (login, admin console, metrics dashboard, run-status board, subscriptions console) backed by packaged static CSS/JS assets under `src/message_service/interfaces/rest/static/`, mounted via FastAPI `StaticFiles` at `/static`. Every asset SHALL be authored in-repo with NO third-party UI library, charting library, CDN reference, or other network-fetched resource — the metrics dashboard in particular renders its charts as hand-authored inline SVG, not via any external charting library. The L2-DASH-003 air-gap constraint is therefore actively satisfied: a conformance test (`L3-DASH-017`/`L3-DASH-039`) AST-/text-scans the shipped assets and asserts no external origin is referenced.
 
 **L3-DASH-006** · Parent: L2-DASH-003 · Verification: A
 v1 ships no Jinja2 HTML templates for dashboard rendering (only the email-body / per-stage-fragment / admin-notification templates which are operator-controlled and not user-facing); no `https://` or `http://` external-CDN references can exist because no HTML templates exist to scan. The L3-DASH-006 grep check is vacuously passing. When HTML dashboard templates are added, the check SHALL be wired in via a `tests/conformance/` test (the same pattern Cluster 26's CICD requirements use for inspection).
@@ -791,7 +806,7 @@ Subscription routes: `GET /subscriptions`, `POST /subscriptions`, `DELETE /subsc
 The subscription POST body Pydantic model SHALL define only `granularity` and `target_value`; extras are rejected via `model_config = ConfigDict(extra='forbid')`.
 
 **L3-DASH-010** · Parent: L2-DASH-006 · Verification: I
-*(Deferred to v2 — pairs with `R-DASH-004` and the HTML-frontend deferral.)* v1 ships no HTML subscription-creation UI; subscription creation is REST-only via `POST /subscriptions` (per `L3-DASH-008`). Tag validation at the application layer (`L3-SUB-014` rejects unknown tags with HTTP 422) provides the same correctness guarantee the UI-level `<select>` constraint would provide; the only thing the deferred UI would add is a usability improvement (operator can see the available tag set without trial-and-error). Future work, alongside the HTML frontend deferral, will populate the `<select>` from the same `TagVocabulary` port that backs `L3-SUB-014`'s server-side check.
+The administrator subscriptions console (`L3-DASH-046` / `L1-DASH-009`) ships an HTML subscription-management UI whose `PIPELINE`/`TAG` target is chosen from a `<select>` populated from the registered pipelines and the `TagVocabulary` — the same vocabulary that backs the server-side check — so an administrator sees the valid tag set without trial-and-error. Tag validation at the application layer (`L3-SUB-014` rejects unknown tags with HTTP 422) remains the authoritative correctness guarantee regardless of the UI-level `<select>` constraint; the dropdown is a usability layer over it. Direct REST subscription creation (`POST /subscriptions`, `L3-DASH-008`) remains available and is validated identically.
 
 **L3-DASH-011** · Parent: L2-DASH-007 · Verification: T
 The `require_admin` FastAPI dependency SHALL verify `is_admin` on every request; non-admin encountering admin route returns HTTP 403.
@@ -800,7 +815,7 @@ The `require_admin` FastAPI dependency SHALL verify `is_admin` on every request;
 Resend SHALL call the same `RecipientResolver` used originally; a test verifies a new subscription added between send and resend receives the resent email.
 
 **L3-DASH-013** · Parent: L2-DASH-008 · Verification: T
-A successful manual resend SHALL emit a new audit record (not overwriting the original) with `action=AuditAction.RESEND_REPORT`, `actor=user:<admin_id>`, `resource=run:<run_id>`, `outcome=SUCCESS` (or `FAILURE` on delivery failure), and `details` containing at minimum `run_id`, `recipient_count`, and `recipient_addresses`.
+A successful manual resend SHALL emit a new audit record (not overwriting the original) with `action=AuditAction.RESEND_REPORT`, `actor=user:<admin_id>`, `resource=run:<run_id>`, `outcome=SUCCESS` (or `FAILURE` on delivery failure), and `details` containing at minimum `run_id`, `recipient_count`, and `recipient_addresses`. A re-render failure (`TemplateRenderError`, `RenderedSizeExceededError`, or `ContextSizeExceededError` — a template or context that no longer renders since the original send) is likewise an expected outcome: it SHALL be caught, recorded as a `FAILURE` `RESEND_REPORT` audit row (`recipient_count=0`, `attachment_count=0`, `failure_reason=<exception class name>`), and SHALL NOT propagate out of the use case as an unhandled exception (which the resend route would surface as a 500). Only precondition failures — unknown run (`RunNotFoundError`) and non-resendable state (`InvalidRunStateError`) — raise.
 
 **L3-DASH-014** · Parent: L2-DASH-009 · Verification: T
 Template inspection routes accept only GET; POST/PATCH/DELETE against `/templates/*` return HTTP 405.
@@ -821,7 +836,7 @@ CSRF protection SHALL apply to POST/PATCH/DELETE via double-submit cookie or equ
 Subscription IDs SHALL be positive integers (minted by the SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` column on the `subscriptions` table); route validators SHALL reject non-integer or non-positive values with HTTP 422. Promotion to UUID4 is a deferred-from-v1 item; see ROADMAP Part 2 ("Subscription identifier promotion to UUID4").
 
 **L3-DASH-020** · Parent: L2-DASH-003 · Verification: I
-v1 ships no fonts because no HTML frontend exists (per `L3-DASH-005`'s reword). When the frontend lands, fonts SHALL be system fonts (via `font-family` stack only) or WOFF2 files shipped in `static/`. The L2-DASH-003 air-gap constraint is vacuously satisfied today.
+The dashboard's shipped CSS uses system-font `font-family` stacks only; NO font files (WOFF2/TTF/OTF) and NO `@font-face` remote references are shipped or fetched. The L2-DASH-003 air-gap constraint is therefore actively satisfied for fonts — the offline guarantee holds without any bundled or network-fetched typeface. Should a bundled typeface ever be needed, it SHALL be a WOFF2 file shipped under `static/` and referenced by a same-origin `@font-face`, never a CDN URL.
 
 **L3-DASH-021** · Parent: L2-DASH-007 · Verification: T
 The admin gate SHALL re-check `is_admin` on every request (not cache in the session) so role changes take effect immediately.
@@ -845,13 +860,13 @@ The run-detail response payload SHALL be a JSON object with two keys: `run` (con
 Resend SHALL re-render the run by replaying `AssembleAndDeliverUseCase` against the persisted `Stage.report_context_json` and `email_body_context_json`, rather than reading the saved-on-disk render snapshot. Saved-snapshot reads are reserved for the report-viewer routes (L2-DASH-014); the resend path is its own render so that resend output remains consistent even if the saved-snapshot file is missing or stale.
 
 **L3-DASH-028** · Parent: L2-DASH-008 · Verification: T
-`POST /runs/{run_id}/resend` SHALL accept resend only on runs in `RunState.SENT` or `RunState.FAILED`. Runs in any other state (including `RunState.ORPHANED`, which has no rendered body to resend, and any non-terminal state) SHALL return HTTP 409 with a detail string identifying the run's current state.
+`POST /runs/{run_id}/resend` SHALL be gated by `require_admin` (401 unauthenticated, 403 non-admin) — a manual resend re-mails the current subscriber list and is an administrator action per L1-DASH-003. It SHALL accept resend only on runs in `RunState.SENT` or `RunState.FAILED`. Runs in any other state (including `RunState.ORPHANED`, which has no rendered body to resend, and any non-terminal state) SHALL return HTTP 409 with a detail string identifying the run's current state.
 
 **L3-DASH-029** · Parent: L2-DASH-014 · Verification: T
-`GET /runs/{run_id}/report` SHALL return the saved email body HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_email_body(run_id)`. If the run exists but no saved body is present (e.g., for runs that pre-date the report-store implementation), the route SHALL return HTTP 404. If the run does not exist, the route SHALL also return HTTP 404 (uniform privacy, mirroring L3-DASH-025).
+`GET /runs/{run_id}/report` SHALL be gated by `require_admin` (401 unauthenticated, 403 non-admin) — viewing a rendered report is an administrator action per L1-DASH-003. It SHALL return the saved email body HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_email_body(run_id)`. If the run exists but no saved body is present, the route SHALL return HTTP 404. If the run does not exist, the route SHALL also return HTTP 404 (uniform privacy, mirroring L3-DASH-025). Because a saved report is display-only HTML rendered from pipeline-supplied template context, the response (and the `/fragment` response of L3-DASH-030) SHALL carry a restrictive `Content-Security-Policy` — `default-src 'none'` (blocking script execution, framing, objects, and off-origin fetches) with only inline styles and `data:` images permitted — plus `X-Content-Type-Options: nosniff`, so any markup that escaped a template author's escaping cannot execute or exfiltrate.
 
 **L3-DASH-030** · Parent: L2-DASH-014 · Verification: T
-`GET /runs/{run_id}/stages/{stage_id}/fragment` SHALL return the saved per-stage rendered fragment HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_fragment(run_id, stage_id)`. The same uniform-404 semantics from L3-DASH-029 apply when the run, stage, or saved fragment is absent.
+`GET /runs/{run_id}/stages/{stage_id}/fragment` SHALL be gated by `require_admin` (401 unauthenticated, 403 non-admin), like `L3-DASH-029`. It SHALL return the saved per-stage rendered fragment HTML with content type `text/html; charset=utf-8`, sourced from `ReportStore.read_fragment(run_id, stage_id)`. The same uniform-404 semantics from L3-DASH-029 apply when the run, stage, or saved fragment is absent. `stage_id` SHALL be constrained to a safe path-component charset (alphanumeric start/end, `._-` internal — no `..`, no path separators) so it cannot traverse out of the report tree; the filesystem report store SHALL additionally reject any resolved path that escapes the configured report root, protecting the write path (`save_fragment`) and read path regardless of caller.
 
 **L3-DASH-031** · Parent: L2-DASH-009 · Verification: T
 `GET /templates` SHALL be the list endpoint, gated by `require_admin` (per `L3-DASH-011`/`L3-DASH-021`). The response SHALL be a JSON list of per-template projection objects, each carrying the fields pinned in `L3-DASH-015` (`name`, `version`, repo-relative `source_path` and `context_schema_path`, and parsed schema contents) plus `kind` (one of the `TemplateKind` enum values: `REPORT_FRAGMENT`, `AGGREGATION`, `EMAIL_BODY`) and `description` (string or `null`). The Jinja2 source body itself SHALL NOT appear in the response — only the metadata projection. Ordering SHALL be deterministic: by `(name, version)` ascending.
@@ -900,6 +915,9 @@ The service SHALL expose, admin-gated, `GET /admin/users/{user_id}/subscriptions
 
 **L3-DASH-046** · Parent: L2-DASH-023 · Verification: T
 The service SHALL expose `GET /admin/subscriptions` behind `require_admin`, returning a self-contained HTML console rendered by a pure `render_subscriptions_console(admin_email, pipelines, tags)` function that embeds the registered pipelines and tag vocabulary as JSON (neutralizing `</`) for the client's `PIPELINE`/`TAG` target dropdowns. The client SHALL fetch the recipient list from `GET /admin/users`, a selected recipient's subscriptions from `GET /admin/users/{user_id}/subscriptions`, and drive create/delete through `L3-DASH-045`, echoing the `msp_csrf` cookie as `X-CSRF-Token` and redirecting to `/login` on a `401`; the recipient and subscriptions consoles SHALL cross-link. Tests SHALL assert the route is admin-gated and returns HTML embedding the vocabulary, plus an inspection test that the shipped JS reads `/admin/users`, sends the CSRF header, and references the create/delete subscription paths. The no-external-reference guarantee for these assets is covered by `L3-DASH-039`.
+
+**L3-DASH-047** · Parent: L2-DASH-006 · Verification: D
+The *visual* correctness of the browser dashboard — which cannot be fully established by automated test — SHALL be demonstrated by a procedure verification artifact at `docs/procedures/dashboard-demonstration.md` (mirroring the deployment demonstration artifact of `L3-DEP-009`). The procedure SHALL walk an operator through starting the service locally and observing each rendered page — login (`L1-DASH-007`), the administrator console (`L1-DASH-008`), the subscriptions console (`L1-DASH-002`/`L1-DASH-009`/`L2-DASH-006`), the past-runs view + report viewer + resend (`L1-DASH-003`), the run-status board (`L1-DASH-006`), and the embedded inline-SVG metrics dashboard (`L1-DASH-004`) — with per-page checkpoints and an operator-attestation block, and SHALL direct the operator to confirm (via browser dev-tools) that no off-origin resource is fetched. A conformance test SHALL assert the artifact exists and contains its per-page checkpoint sections.
 
 ---
 
@@ -1010,6 +1028,12 @@ Per-file failures (file missing on disk; permission denied; OS-level I/O error) 
 **L3-PERS-035** · Parent: L2-PERS-013 · Verification: A, I
 The report pruner SHALL be the only code path that calls `Path.unlink()`, `Path.rmdir()`, `shutil.rmtree()`, or `os.remove()` against persisted report files under `persistence.filesystem.report_directory`. The bootstrap writable-test probe (`bootstrap/service.py::_ensure_report_directory`) is a permitted exception: it creates an empty `.write_probe` file and immediately deletes it as part of L3-PERS-011's writable-test, never touching any report file produced by the `ReportStore` adapter. A conformance test SHALL AST-scan `src/` and assert that no module other than `application/use_cases/report_pruner.py` and `bootstrap/service.py` calls these filesystem-deletion functions, ensuring every report eviction goes through the audit-emitting path.
 
+**L3-PERS-036** · Parent: L2-PERS-003 · Verification: T
+Each migration SHALL be applied atomically: the migration body and its `_migrations` bookkeeping insert SHALL commit together or not at all, so a failure part-way through a multi-statement migration leaves the schema unchanged and the migration safely retryable on the next startup. Because `sqlite3.executescript` performs no implicit transaction wrapping (it only commits an already-pending transaction before running, then autocommits each statement), the runner SHALL frame the body and the bookkeeping insert in one explicit `BEGIN … COMMIT` within the executed script; on any failure it SHALL `rollback()` the open transaction. A bare `executescript(body)` — which autocommits each DDL statement — is non-conformant: a mid-migration failure would persist the earlier statements and brick the next startup (e.g. `duplicate column`). A test SHALL apply a migration whose later statement fails and assert that none of its earlier statements' effects nor its `_migrations` row survive.
+
+**L3-PERS-037** · Parent: L2-PERS-003 · Verification: T
+`build_service` SHALL guarantee that the SQLite connection it opens is closed if *any* step of the post-connection assembly fails (migrations, tag-vocabulary/template-manifest load, report-directory probe, mailer construction, disposition-handler validation, admin provisioning, or any other construction step), not only a migration failure. Otherwise a failed startup leaks the connection — an OS file descriptor plus aiosqlite's per-connection background thread — which under repeated construction (notably the test suite under `filterwarnings=error`) surfaces as a `ResourceWarning`. The post-connection assembly SHALL therefore run under a single guard that closes the connection on any exception and re-raises; on success the connection's lifecycle transfers to the `SqliteUnitOfWorkFactory` and is closed by `shutdown_service`. A test SHALL force a post-migration construction failure and assert the opened connection was closed.
+
 ---
 
 ## L3-OBS: Observability
@@ -1031,6 +1055,9 @@ The sensitive-field list SHALL include at minimum: `password`, `passwd`, `passwo
 
 **L3-OBS-006** · Parent: L2-OBS-003 · Verification: T
 Redaction SHALL be case-insensitive on the key name; a test SHALL submit `PASSWORD`, `Password`, `password` as keys and assert all three are redacted.
+
+**L3-OBS-044** · Parent: L2-OBS-003 · Verification: T
+Sensitive-key redaction (`redact_sensitive_keys` and the structlog `_redact_sensitive_fields` processor) SHALL be RECURSIVE, redacting a sensitive key at any nesting depth — inside a nested `dict`, or inside a `list`/`tuple` of dicts — not only at the top level. A shallow pass leaks: the exception `details` dicts these guard are passed to the logger as a nested `details=` value (and flowed into the error envelope per `L3-ERR-016`), so a sensitive key one level down would otherwise reach logs and clients verbatim. The sensitive-key set SHALL additionally include `instance_value` — the raw offending value captured in a schema-violation error's `details`, which carries the same class of arbitrary pipeline data as the already-redacted `template_context`. A test SHALL assert a `password`/`secret`/`instance_value` nested inside a `details` payload (and inside a list of dicts) is redacted while sibling non-sensitive keys survive, and that the input is not mutated.
 
 **L3-OBS-007** · Parent: L2-OBS-004 · Verification: I
 The Prometheus client SHALL be `prometheus_client`; the `/metrics` endpoint is a FastAPI route returning `prometheus_client.generate_latest()` with content type `text/plain; version=0.0.4; charset=utf-8`.
@@ -1141,7 +1168,7 @@ The configuration schema SHALL expose `observability.audit.archive_directory` as
 `AuditLog` SHALL expose a `fetch_older_than(cutoff, *, batch_size)` read that returns the rows the retention pruner's `delete_older_than(cutoff, batch_size)` would delete — the identical `WHERE timestamp < cutoff` selection, ordered `timestamp ASC, audit_id ASC`, capped at `batch_size`. The delete's sub-select SHALL carry the same `audit_id` tiebreak so that, even when rows share a `timestamp` at the batch boundary, the fetched batch and the deleted batch are identical. `fetch_older_than` is a read and imposes no `L3-OBS-039` sole-deleter obligation. A test SHALL assert that, for a dataset larger than `batch_size`, the fetched batch is exactly the set the subsequent `delete_older_than` removes.
 
 **L3-OBS-043** · Parent: L2-OBS-019 · Verification: T
-When `archive_directory` is configured, one pruner tick SHALL: (1) `fetch_older_than` the expired batch; (2) if non-empty, write every fetched record to a durable archive as newline-delimited JSON (one object per line carrying `timestamp`, `action`, `actor`, `resource`, `outcome`, `details`) under `archive_directory`, in a file named by the tick's clock date; (3) only then `delete_older_than` the same batch. The archive write SHALL be completed and flushed before the delete is issued; if it raises, the tick SHALL propagate/log and SHALL NOT delete (rows retained for the next tick). When `archive_directory` is unset the pruner SHALL delete without archiving, exactly as before. A test SHALL assert: archived-then-deleted equality, the JSONL shape, that an archive-writer failure leaves the rows undeleted, and that the unconfigured path writes nothing and still deletes.
+When `archive_directory` is configured, one pruner tick SHALL: (1) `fetch_older_than` the expired batch; (2) if non-empty, write every fetched record to a durable archive as newline-delimited JSON (one object per line carrying `audit_id`, `timestamp`, `action`, `actor`, `resource`, `outcome`, `details`) under `archive_directory`, in a file named by the tick's clock date; (3) only then `delete_older_than` the same batch. The archive write SHALL be completed and flushed (fsync) before the delete is issued; if it raises, the tick SHALL propagate/log and SHALL NOT delete (rows retained for the next tick). Because the write precedes the delete and the two are not one transaction, archival is **at-least-once**: a delete that fails after a successful archive re-archives the same rows next tick, appending duplicate lines — so each record carries its `audit_id` to let a consumer deduplicate (the archive is an append-only journal, not a deduplicated store; a transactional outbox is not warranted for retention pruning). The pruner SHALL run the archive writer's blocking file I/O off the event loop (e.g. `asyncio.to_thread`) so archival cannot stall other tasks. When `archive_directory` is unset the pruner SHALL delete without archiving. A test SHALL assert: archived-then-deleted equality, the JSONL shape (including `audit_id`), that an archive-writer failure leaves the rows undeleted, and that the unconfigured path writes nothing and still deletes.
 
 ---
 
@@ -1154,7 +1181,7 @@ The CLI entry point SHALL accept `--config PATH` as a required argument unless `
 CLI argument parsing uses `argparse` (the Python stdlib parser), not Typer. The resolved path SHALL be logged at INFO during startup. Earlier drafts of this requirement specified Typer; v1 chose argparse to keep the CLI's runtime dependency surface minimal — Typer would add a transitive dependency on `click` for a single `--config` flag, which `argparse` handles natively.
 
 **L3-CFG-003** · Parent: L2-CFG-002 · Verification: T
-When both `--config` and `MSG_SERVICE_CONFIG` are provided, the CLI flag SHALL win; a test asserts this precedence with both set to different paths.
+When both `--config` and `MESSAGE_SERVICE_CONFIG` are provided, the CLI flag SHALL win; a test asserts this precedence with both set to different paths.
 
 **L3-CFG-004** · Parent: L2-CFG-003 · Verification: I, T
 TOML parsing SHALL use the `tomllib` standard library module via a direct `import tomllib` statement in `config/loader.py`. The minimum Python version (L2-DEP-007) guarantees `tomllib` availability; no third-party TOML shim is required.
@@ -1253,6 +1280,12 @@ Cross-platform line-ending tests SHALL verify that templates and configs load id
 **L3-DEP-018** · Parent: L2-DEP-003 · Verification: A
 A static check SHALL assert that no `domain/` or `application/` module imports from `multiprocessing`, `subprocess`, `os.fork`, or POSIX-only signal modules.
 
+**L3-DEP-019** · Parent: L2-DEP-006 · Verification: T
+The REST (uvicorn) serve task SHALL carry a done-callback so an unexpected termination cannot go unnoticed. `_run` blocks on the shutdown `asyncio.Event`; without a callback, a serve task that dies before shutdown is requested would leave its exception unretrieved and `_run` blocked forever — the dashboard dead while the process appears healthy. The callback SHALL ignore cancellation and the normal shutdown-time completion (when the shutdown event is already set), but on any other exit (exception or unexpected return) SHALL log at ERROR and set the shutdown event so the whole service tears down (a supervisor can then restart it) rather than running half-dead. The shutdown-time `gather` of the two listeners SHALL use `return_exceptions=True` so an already-dead listener cannot abort teardown before the scheduler is drained and the database closed. A test SHALL make the serve task die before shutdown and assert `_run` returns (does not hang) with the shutdown event set.
+
+**L3-DEP-020** · Parent: L2-DEP-005 · Verification: D
+A demonstration SHALL walk through a clean Linux install of Message-Service via systemd — from unpack to running service, graceful shutdown, and clean restart — producing a procedure verification artifact at `docs/procedures/linux-install-demonstration.md` (the Linux counterpart of the Windows install demonstration of `L3-DEP-009`). The procedure SHALL mirror `deploy/linux/message-service.service` and add per-step checkpoints plus an operator-attestation block; it SHALL confirm the systemd unit's `L3-DEP-007` sandboxing/lifecycle directives, the single-process startup of `L1-DEP-001`, and the SIGTERM-driven graceful shutdown of `L1-DEP-002`. A conformance test SHALL assert the artifact exists and contains its per-step checkpoint sections.
+
 ---
 
 ## L3-ERR: Error handling and exception taxonomy
@@ -1297,7 +1330,7 @@ Each inbound interface SHALL implement its translation layer as a single functio
 Background task translation SHALL distinguish transient failures (retry-after-backoff) from permanent failures (terminate task, log CRITICAL, notify admins via the orphan notification channel).
 
 **L3-ERR-014** · Parent: L2-ERR-007 · Verification: T
-The gRPC exception translator SHALL map exceptions to gRPC status by inspecting the exception's intermediate-class membership (`isinstance` checks against `ValidationError`, `NotFoundError`, `ForbiddenError`, `PreconditionError`, `InfrastructureError`). Each leaf exception's `error_code` `ClassVar` SHALL flow through to the response as trailing metadata under the `x-message-service-error-code` key, so clients programming against specific codes can switch on it. *(The static-dict shape proposed in earlier drafts of this requirement is deferred — see ROADMAP `R-ERR-001` — pending the wire-format upgrade described in `L3-ERR-015`; the current `isinstance`-based dispatch produces equivalent behavior.)*
+The gRPC exception translator SHALL map exceptions to gRPC status by inspecting the exception's intermediate-class membership (`isinstance` checks against `ValidationError`, `NotFoundError`, `ForbiddenError`, `PreconditionError`, `InfrastructureError`). Each leaf exception's `error_code` `ClassVar` SHALL flow through to the response as trailing metadata under the `x-message-service-error-code` key, so clients programming against specific codes can switch on it. This legacy key is retained for backward compatibility alongside the structured `google.rpc.Status` + `ErrorInfo` envelope shipped additively in `grpc-status-details-bin` (`L3-ERR-023`).
 
 **L3-ERR-015** · Parent: L2-ERR-007 · Verification: T
 The client-facing error response SHALL carry, at minimum: a gRPC status code (per `L3-ERR-014`), the exception's public message (`exc.message`, not `str(exc)`), the `error_code` ClassVar as trailing metadata under `x-message-service-error-code`, and — for unexpected exceptions — a correlation id under `x-message-service-correlation-id` (per `L3-ERR-017`). The response SHALL NOT include a stack trace or the internal exception class name. *(The richer `google.rpc.Status` + `ErrorInfo` envelope now ships **additively** alongside this trailing-metadata shape — see `L3-ERR-023` — so already-deployed pipeline clients pinned to `x-message-service-error-code` keep working unchanged while newer clients can read the structured status.)*
@@ -1325,6 +1358,9 @@ A unit test SHALL deliberately raise `KeyboardInterrupt` within a traced code pa
 
 **L3-ERR-023** · Parent: L2-ERR-007 · Verification: T
 In addition to the `L3-ERR-014`/`L3-ERR-015` trailing-metadata shape (which SHALL be retained unchanged for backward compatibility), the gRPC error translator SHALL attach a `google.rpc.Status` to the aborted RPC via the standard `grpc-status-details-bin` trailing-metadata key, carrying: the gRPC status `code`; the client-facing `message`; and one `google.rpc.ErrorInfo` detail whose `reason` is the exception's `error_code`, whose `domain` is `"message-service"`, and whose `metadata` is the redacted (`L3-ERR-016`) `details` dict with values coerced to strings. This is strictly additive — a client reading only `x-message-service-error-code` is unaffected, while a client using `grpc_status.from_call` receives the structured envelope. A test SHALL parse the `grpc-status-details-bin` payload back into a `google.rpc.Status`, assert the embedded `ErrorInfo.reason`/`domain`/`metadata`, and assert the legacy `x-message-service-error-code` key is still present.
+
+**L3-ERR-024** · Parent: L2-ERR-007 · Verification: T
+The `ErrorInfo.metadata` packed into `grpc-status-details-bin` (`L3-ERR-023`) SHALL be size-bounded, because some `details` values are influenced by client input (an oversized `stage_id` / `template` name, a long `invalid_tags` / `validation_errors` list) and an unbounded serialized `google.rpc.Status` can exceed gRPC's default (~8 KiB) trailing-metadata limit — which makes the whole `context.abort` fail and loses the structured error the client needed. Each metadata value SHALL be truncated to a per-value byte cap, and once a running total reaches a total byte cap the remaining fields SHALL be dropped; any truncation or drop SHALL add a `_truncated` marker key so the client can tell the metadata is incomplete. The caps SHALL leave generous headroom under 8 KiB for the message and framing. A test SHALL construct an exception whose `details` carry an oversized value and assert the resulting envelope stays within the bound, preserves the small fields, and includes the `_truncated` marker.
 
 ---
 

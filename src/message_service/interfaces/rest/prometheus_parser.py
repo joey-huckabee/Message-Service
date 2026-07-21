@@ -13,12 +13,20 @@ import math
 import re
 from dataclasses import dataclass
 
-# A sample line: ``name{label="v",...} value`` or ``name value``.
+# A sample line: ``name{label="v",...} value [timestamp]`` or ``name value``.
+# The value is a single non-whitespace token; an optional trailing timestamp
+# (which client_python does not emit by default, but the exposition format
+# permits) is captured separately and ignored — folding it into the value would
+# make ``float()`` raise and 500 the metrics dashboard.
 _SAMPLE_RE = re.compile(
-    r"^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(?P<labels>.*)\})?\s+(?P<value>.+?)\s*$"
+    r"^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(?P<labels>.*)\})?"
+    r"\s+(?P<value>\S+)(?:\s+(?P<timestamp>\S+))?\s*$"
 )
 # One ``key="value"`` label pair; the value may contain escaped quotes/backslashes.
 _LABEL_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"')
+# Single-pass unescape of a label value: ``\`` followed by ``\``, ``"``, or ``n``.
+_LABEL_UNESCAPE_RE = re.compile(r"\\(.)")
+_LABEL_ESCAPES = {"\\": "\\", '"': '"', "n": "\n"}
 
 _HISTOGRAM_SUFFIXES = ("_bucket", "_sum", "_count")
 
@@ -55,14 +63,26 @@ def _parse_value(raw: str) -> float:
     return float(token)
 
 
+def _unescape_label_value(value: str) -> str:
+    r"""Unescape a Prometheus label value in a single left-to-right pass.
+
+    The exposition format escapes only ``\\`` (backslash), ``\"`` (quote), and
+    ``\n`` (newline). A single-pass regex is required: chained ``str.replace``
+    calls corrupt adjacent escapes — e.g. the escaped form ``\\n`` (an escaped
+    backslash followed by a literal ``n``, decoding to ``\`` + ``n``) would be
+    turned into a newline, because the ``\\`` → ``\`` replacement runs before the
+    ``\n`` → newline replacement and leaves a spurious ``\n`` for the latter to
+    eat. Consuming each backslash-escape exactly once avoids that. An
+    unrecognized escape is left verbatim (backslash included).
+    """
+    return _LABEL_UNESCAPE_RE.sub(lambda m: _LABEL_ESCAPES.get(m.group(1), m.group(0)), value)
+
+
 def _parse_labels(raw: str | None) -> dict[str, str]:
     """Parse the ``{...}`` label block into a dict, unescaping quotes/backslashes."""
     if not raw:
         return {}
-    return {
-        key: value.replace(r"\"", '"').replace(r"\\", "\\").replace(r"\n", "\n")
-        for key, value in _LABEL_RE.findall(raw)
-    }
+    return {key: _unescape_label_value(value) for key, value in _LABEL_RE.findall(raw)}
 
 
 def _family_for(sample_name: str, types: dict[str, str]) -> str | None:

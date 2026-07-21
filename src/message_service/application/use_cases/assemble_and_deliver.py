@@ -90,6 +90,7 @@ import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Final
 
 import jinja2
@@ -127,6 +128,7 @@ from message_service.domain.errors import (
 )
 from message_service.domain.ids import RunId, StageId
 from message_service.domain.state_machines.run_states import (
+    TERMINAL_STATES,
     RunState,
 )
 from message_service.domain.state_machines.run_states import (
@@ -262,6 +264,27 @@ class _FailureReason:
 
     code: str
     details: dict[str, Any]
+
+
+def _merge_failure_details(reason: _FailureReason) -> dict[str, Any]:
+    """Merge a classified reason into audit details, keeping ``code`` authoritative.
+
+    The run's ``failure_reason`` is drawn from the closed `L3-RUN-029` vocabulary
+    (``code``). Some error-specific detail payloads carry their OWN
+    ``failure_reason`` key that is a different concept — the mailer's
+    ``EmailDeliveryError.details["failure_reason"]`` is the SMTP-level
+    classification (``PERMANENT_SMTP_FAILURE`` / ``RETRIES_EXHAUSTED``), not a
+    run failure_reason. Spreading ``reason.details`` verbatim used to clobber the
+    authoritative ``code`` with that out-of-vocabulary value. Here the SMTP
+    classification is relocated to ``smtp_failure_classification`` so the
+    top-level ``failure_reason`` always stays within the closed vocabulary.
+    """
+    extra = dict(reason.details)
+    smtp_classification = extra.pop("failure_reason", None)
+    merged: dict[str, Any] = {"failure_reason": reason.code, **extra}
+    if smtp_classification is not None:
+        merged["smtp_failure_classification"] = smtp_classification
+    return merged
 
 
 @dataclass(frozen=True, slots=True)
@@ -752,7 +775,11 @@ class AssembleAndDeliverUseCase:
             }
             # aggregation_template_ref is guaranteed non-None here by
             # Run's __post_init__ invariant for SINGLE_AGGREGATED mode.
-            assert run.aggregation_template_ref is not None
+            if run.aggregation_template_ref is None:
+                raise RuntimeError(
+                    "SINGLE_AGGREGATED run has no aggregation_template_ref "
+                    "(Run __post_init__ invariant violated)"
+                )
             aggregated_html = self._template_renderer.render(
                 run.aggregation_template_ref, agg_context
             )
@@ -965,10 +992,39 @@ class AssembleAndDeliverUseCase:
         recipients: frozenset[str],
         attachment_count: int,
     ) -> None:
-        """Transition SENDING -> SENT with SEND_REPORT audit."""
+        """Transition SENDING -> SENT with SEND_REPORT audit.
+
+        L3-RUN-034: if the run was concurrently swept to a terminal
+        state (the orphan sweeper reclaims by age alone and may catch a
+        slow ``SENDING`` delivery), the email has already been sent but
+        the ``SENDING -> SENT`` edge is now illegal. Record a
+        reconciliation audit event and leave the terminal state intact
+        rather than raising an ``InvalidStateTransitionError`` out of the
+        background task.
+        """
         async with self._uow_factory() as uow:
             run = await uow.run_repo.get(run_id)
             now = self._clock.now()
+
+            if run.state in TERMINAL_STATES:
+                await self._record_reconciliation(
+                    uow=uow,
+                    run_id=run_id,
+                    now=now,
+                    terminal_state=run.state,
+                    outcome=AuditOutcome.SUCCESS,
+                    details_extra={
+                        "recipient_count": len(recipients),
+                        "attachment_count": attachment_count,
+                    },
+                )
+                _log.warning(
+                    "delivery_completed_after_terminal_transition",
+                    run_id=run_id,
+                    reconciled_terminal_state=run.state.value,
+                    recipient_count=len(recipients),
+                )
+                return
 
             audit_event = AuditEvent(
                 timestamp=now,
@@ -1011,10 +1067,33 @@ class AssembleAndDeliverUseCase:
         Handles the case where the run may still be in ``SENDING`` or
         any non-terminal state at the time of failure. The state
         machine permits any non-terminal -> FAILED edge.
+
+        L3-RUN-034: if the run was concurrently swept to a terminal
+        state, the ``-> FAILED`` edge is now illegal. Record a
+        reconciliation audit event (preserving the classified
+        ``failure_reason``) and leave the terminal state intact rather
+        than raising.
         """
         async with self._uow_factory() as uow:
             run = await uow.run_repo.get(run_id)
             now = self._clock.now()
+
+            if run.state in TERMINAL_STATES:
+                await self._record_reconciliation(
+                    uow=uow,
+                    run_id=run_id,
+                    now=now,
+                    terminal_state=run.state,
+                    outcome=AuditOutcome.FAILURE,
+                    details_extra=_merge_failure_details(reason),
+                )
+                _log.warning(
+                    "delivery_failed_after_terminal_transition",
+                    run_id=run_id,
+                    reconciled_terminal_state=run.state.value,
+                    failure_reason=reason.code,
+                )
+                return
 
             audit_event = AuditEvent(
                 timestamp=now,
@@ -1024,11 +1103,10 @@ class AssembleAndDeliverUseCase:
                 outcome=AuditOutcome.FAILURE,
                 details={
                     "run_id": run_id,
-                    "failure_reason": reason.code,
                     "prior_state": run.state.value,
                     "new_state": RunState.FAILED.value,
                     "timestamp": iso_z(now),
-                    **reason.details,
+                    **_merge_failure_details(reason),
                 },
             )
 
@@ -1046,6 +1124,43 @@ class AssembleAndDeliverUseCase:
         # L1-OBS-002 metrics, post-commit.
         self._metrics.record_run_state_transition(RunState.FAILED)
         self._metrics.observe_run_duration_seconds(duration_seconds)
+
+    async def _record_reconciliation(
+        self,
+        *,
+        uow: UnitOfWork,
+        run_id: RunId,
+        now: datetime,
+        terminal_state: RunState,
+        outcome: AuditOutcome,
+        details_extra: dict[str, Any],
+    ) -> None:
+        """Record a SEND_REPORT audit row without a state transition (L3-RUN-034).
+
+        Used when the run was concurrently swept to a terminal state
+        while delivery was in flight. The audit row documents that the
+        delivery attempt completed (with ``outcome``) *after* the run had
+        already reached ``terminal_state``, so operators can correlate an
+        already-sent (or already-failed) email with the terminal run. No
+        ``runs.state`` UPDATE is issued — the sweeper's terminal state and
+        any disposition it enqueued are left intact.
+        """
+        audit_event = AuditEvent(
+            timestamp=now,
+            action=AuditAction.SEND_REPORT,
+            actor="system:assemble_and_deliver",
+            resource=f"run:{run_id}",
+            outcome=outcome,
+            details={
+                "run_id": run_id,
+                "prior_state": terminal_state.value,
+                "new_state": terminal_state.value,
+                "reconciled_terminal_state": terminal_state.value,
+                "timestamp": iso_z(now),
+                **details_extra,
+            },
+        )
+        await uow.audit_log.record(audit_event)
 
     async def _transition(
         self,

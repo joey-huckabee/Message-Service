@@ -16,6 +16,7 @@ import pytest
 
 from message_service.domain.aggregates.session import Session
 from message_service.domain.aggregates.user import User
+from message_service.domain.errors import PersistenceError
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.session_repository import (
@@ -91,6 +92,20 @@ async def test_get_by_token_hash_returns_none_when_absent(
 
 
 @pytest.mark.asyncio
+async def test_save_duplicate_token_hash_raises_persistence_error(
+    session_repo: SqliteSessionRepository, user_id: int
+) -> None:
+    """A duplicate token_hash SHALL surface as PersistenceError, not IntegrityError.
+
+    The port declares PersistenceError; a raw aiosqlite.IntegrityError must not
+    leak past the adapter boundary.
+    """
+    await session_repo.save(_session(_HASH_A, user_id))
+    with pytest.raises(PersistenceError):
+        await session_repo.save(_session(_HASH_A, user_id))
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L2-AUTH-006")
 @pytest.mark.requirement("L3-AUTH-010")
 async def test_touch_updates_last_activity_at(
@@ -150,3 +165,37 @@ async def test_delete_expired_only_removes_below_threshold(
     assert deleted == 1
     assert await session_repo.get_by_token_hash(_HASH_A) is not None
     assert await session_repo.get_by_token_hash(_HASH_B) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-020")
+async def test_delete_by_user_id_removes_only_that_users_sessions(
+    session_repo: SqliteSessionRepository,
+    conn: aiosqlite.Connection,
+    user_id: int,
+) -> None:
+    """delete_by_user_id deletes the target's sessions and returns the count,
+    leaving other users' sessions intact.
+    """
+    other = await SqliteUserRepository(conn).save(
+        User(email="bob@example.com", display_name="Bob", password_hash="h", created_at=_T0)
+    )
+    assert other.user_id is not None
+    await session_repo.save(_session(_HASH_A, user_id))
+    await session_repo.save(_session(_HASH_B, user_id))
+    other_hash = "c" * 64
+    await session_repo.save(_session(other_hash, other.user_id))
+
+    deleted = await session_repo.delete_by_user_id(user_id)
+    assert deleted == 2
+    assert await session_repo.get_by_token_hash(_HASH_A) is None
+    assert await session_repo.get_by_token_hash(_HASH_B) is None
+    assert await session_repo.get_by_token_hash(other_hash) is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-020")
+async def test_delete_by_user_id_noop_when_no_sessions(
+    session_repo: SqliteSessionRepository, user_id: int
+) -> None:
+    assert await session_repo.delete_by_user_id(user_id) == 0

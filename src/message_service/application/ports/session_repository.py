@@ -74,5 +74,15 @@ class SessionRepository(ABC):
         log lines from the cleanup task).
         """
 
+    @abstractmethod
+    async def delete_by_user_id(self, user_id: int) -> int:
+        """Delete every session belonging to ``user_id``.
+
+        Used to revoke a principal's live sessions when their account is
+        disabled or its password is reset, so those actions take effect
+        immediately rather than only at idle-timeout. Returns the number of
+        rows deleted. No-op (returns 0) when the user has no sessions.
+        """
+
 
 __all__ = ["SessionRepository"]

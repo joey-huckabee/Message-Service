@@ -44,6 +44,7 @@ from message_service.domain.aggregates.audit_event import (
     AuditEvent,
     AuditOutcome,
 )
+from message_service.domain.aggregates.password import Password
 from message_service.domain.aggregates.session import Session
 
 if TYPE_CHECKING:
@@ -53,7 +54,6 @@ if TYPE_CHECKING:
     from message_service.application.ports.clock import Clock
     from message_service.application.ports.password_hasher import PasswordHasher
     from message_service.application.ports.unit_of_work import UnitOfWork
-    from message_service.domain.aggregates.password import Password
 
 _log = structlog.get_logger(__name__)
 
@@ -103,6 +103,14 @@ class LoginUseCase:
         self._uow_factory = uow_factory
         self._clock = clock
         self._hasher = password_hasher
+        # L3-AUTH-022: a decoy hash used to equalize login timing. The
+        # unknown-email path performs a throwaway verify against this so
+        # its response time matches the valid-email path (which pays the
+        # Argon2 cost); otherwise the absence of that cost is a timing
+        # oracle for account enumeration. Generated with the injected
+        # hasher so the decoy's cost parameters match live users'. The
+        # plaintext is random and discarded, so the decoy never verifies.
+        self._decoy_hash = password_hasher.hash(Password(secrets.token_urlsafe(32)))
 
     async def execute(self, *, email: str, password: Password) -> LoginResult:
         """Authenticate ``email`` + ``password`` and return a fresh session.
@@ -129,10 +137,17 @@ class LoginUseCase:
             now = self._clock.now()
 
             if user is None:
+                # L3-AUTH-022: pay the Argon2 cost against a decoy so the
+                # unknown-email response time matches the valid-email path.
+                self._hasher.verify(password, self._decoy_hash)
                 await self._audit_failure(uow, now, email, reason="unknown_email")
                 await uow.commit()
                 raise AuthenticationError("invalid credentials")
             if user.disabled:
+                # L3-AUTH-022: still verify (against the account's real
+                # hash) so a disabled account is timing-indistinguishable
+                # from an enabled one; the result is discarded.
+                self._hasher.verify(password, user.password_hash)
                 await self._audit_failure(
                     uow, now, email, reason="account_disabled", user_id=user.user_id
                 )
@@ -146,7 +161,8 @@ class LoginUseCase:
                 raise AuthenticationError("invalid credentials")
 
             # All clear — mint and persist the session.
-            assert user.user_id is not None  # invariant: persisted users have ids
+            if user.user_id is None:  # invariant: persisted users have ids
+                raise RuntimeError("authenticated user is missing a persisted user_id")
             plaintext_token = secrets.token_urlsafe(32)  # L3-AUTH-006
             token_hash = hashlib.sha256(plaintext_token.encode("utf-8")).hexdigest()
             session = Session(

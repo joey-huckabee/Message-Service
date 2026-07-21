@@ -247,6 +247,60 @@ async def test_login_disabled_account_raises_and_audits_failure(
     assert failures[0].resource == f"user:{seeded.user_id}"
 
 
+class _SpyHasher:
+    """Wraps a real hasher and records every verify() call's encoded_hash."""
+
+    def __init__(self, inner: Argon2PasswordHasher) -> None:
+        self._inner = inner
+        self.verify_hashes: list[str] = []
+
+    def hash(self, password: Password) -> str:
+        return self._inner.hash(password)
+
+    def verify(self, password: Password, encoded_hash: str) -> bool:
+        self.verify_hashes.append(encoded_hash)
+        return self._inner.verify(password, encoded_hash)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-022")
+async def test_login_unknown_email_still_runs_a_verify(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Unknown email SHALL pay one Argon2 verify (against the decoy) — no timing oracle."""
+    spy = _SpyHasher(hasher)
+    login_uc = LoginUseCase(uow_factory=uow_factory, clock=clock, password_hasher=spy)  # type: ignore[arg-type]
+
+    with pytest.raises(AuthenticationError):
+        await login_uc.execute(email="nobody@example.com", password=Password("hunter2"))
+
+    # Exactly one verify ran, and it was against the decoy — never a
+    # user's stored hash (there is no user).
+    assert len(spy.verify_hashes) == 1
+    assert spy.verify_hashes[0] == login_uc._decoy_hash
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-AUTH-022")
+async def test_login_disabled_account_still_runs_a_verify(
+    uow_factory: SqliteUnitOfWorkFactory,
+    clock: _FixedClock,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Disabled account SHALL pay one Argon2 verify (against its real hash)."""
+    seeded = await _seed_user(uow_factory, hasher, disabled=True)
+    spy = _SpyHasher(hasher)
+    login_uc = LoginUseCase(uow_factory=uow_factory, clock=clock, password_hasher=spy)  # type: ignore[arg-type]
+
+    with pytest.raises(AuthenticationError):
+        await login_uc.execute(email="alice@example.com", password=Password("hunter2"))
+
+    assert len(spy.verify_hashes) == 1
+    assert spy.verify_hashes[0] == seeded.password_hash
+
+
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-013")
 @pytest.mark.requirement("L3-OBS-034")

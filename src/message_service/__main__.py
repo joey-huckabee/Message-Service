@@ -244,6 +244,30 @@ async def _run(
             rest_server.serve(),
             name="rest-server",
         )
+
+        def _on_rest_task_done(task: asyncio.Task[None]) -> None:
+            """Surface an unexpected death of the REST serve task.
+
+            Without this the task's exception would go unretrieved and the
+            main coroutine would block on ``shutdown_event.wait()`` forever —
+            the dashboard dead but the process apparently healthy. On any
+            non-cancellation exit before shutdown was requested, log at ERROR
+            and set ``shutdown_event`` so the whole service exits (and a
+            process supervisor can restart it) rather than running half-dead.
+            """
+            if task.cancelled():
+                return
+            exc = task.exception()
+            if shutdown_event.is_set():
+                # Expected: the shutdown path awaits this task after signalling.
+                return
+            if exc is not None:
+                _log.error("rest_server_task_failed", error=str(exc), exc_info=exc)
+            else:
+                _log.error("rest_server_task_exited_unexpectedly")
+            shutdown_event.set()
+
+        rest_serve_task.add_done_callback(_on_rest_task_done)
         _log.info(
             "rest_server_listening",
             address=f"{config.dashboard.host}:{config.dashboard.port}",
@@ -273,12 +297,20 @@ async def _run(
         # Signal uvicorn to drain in-flight requests and exit. Then
         # gracefully stop the gRPC server. Both run in parallel under
         # the same grace budget; we collect their completions afterward.
+        # ``return_exceptions=True`` so a listener that already died (e.g. the
+        # REST task failed pre-shutdown and tripped the done-callback, or its
+        # graceful drain errors) cannot abort the teardown before the
+        # ``finally`` drains the scheduler and closes the DB. Any exception is
+        # logged; the REST failure was already surfaced by the done-callback.
         rest_server.should_exit = True
-        await asyncio.gather(
+        results = await asyncio.gather(
             grpc_server.stop(grace=grace),
             rest_serve_task,
-            return_exceptions=False,
+            return_exceptions=True,
         )
+        for result in results:
+            if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                _log.error("shutdown_task_error", error=str(result), exc_info=result)
     finally:
         # Always drain the scheduler + close the DB, even if either
         # listener failed to come up. ``shutdown_service`` is idempotent.

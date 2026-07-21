@@ -30,8 +30,10 @@ import grpc
 import structlog
 from google.protobuf import any_pb2
 from google.rpc import error_details_pb2, status_pb2
+from pydantic import ValidationError as PydanticValidationError
 
 from message_service.domain.errors import (
+    MalformedRequestError,
     MessageServiceError,
     NotFoundError,
     PreconditionError,
@@ -46,13 +48,49 @@ _ERROR_INFO_DOMAIN = "message-service"
 # Standard trailing-metadata key gRPC uses to carry a serialized google.rpc.Status.
 _STATUS_DETAILS_KEY = "grpc-status-details-bin"
 
+# Size bounds on the ErrorInfo.metadata packed into grpc-status-details-bin
+# (L3-ERR-024). Some `details` values are influenced by client input (e.g. an
+# oversized stage_id, template name, or a long list of invalid tags/validation
+# errors). Without a bound the serialized google.rpc.Status can exceed gRPC's
+# default ~8 KiB trailing-metadata limit, which makes the whole abort fail and
+# LOSES the structured error the client needed. We cap each value and the total,
+# leaving generous headroom under 8 KiB for the message + framing overhead.
+_MAX_METADATA_VALUE_BYTES = 1024
+_MAX_METADATA_TOTAL_BYTES = 4096
+_TRUNCATION_MARKER = "…[truncated]"
+
 
 def _stringify(details: Mapping[str, Any]) -> dict[str, str]:
-    """Coerce a details dict to the ``map<string, string>`` ErrorInfo.metadata shape."""
-    return {
-        key: value if isinstance(value, str) else json.dumps(value, default=str)
-        for key, value in details.items()
-    }
+    """Coerce a details dict to a size-bounded ``map<string, string>`` (L3-ERR-024).
+
+    Each value is stringified, then truncated to ``_MAX_METADATA_VALUE_BYTES``;
+    once the running total reaches ``_MAX_METADATA_TOTAL_BYTES`` the remaining
+    fields are dropped. Any truncation or drop adds a ``_truncated`` marker so a
+    client can tell the metadata is not complete. Keeping the packed
+    ``google.rpc.Status`` small guarantees the abort's trailing metadata fits
+    under gRPC's limit and the structured error actually reaches the client.
+    """
+    result: dict[str, str] = {}
+    total = 0
+    truncated = False
+    # Deterministic order so truncation drops the same fields across replays.
+    for key in sorted(details):
+        value = details[key]
+        text = value if isinstance(value, str) else json.dumps(value, default=str)
+        encoded = text.encode("utf-8")
+        if len(encoded) > _MAX_METADATA_VALUE_BYTES:
+            text = encoded[:_MAX_METADATA_VALUE_BYTES].decode("utf-8", errors="ignore")
+            text += _TRUNCATION_MARKER
+            truncated = True
+        field_bytes = len(text.encode("utf-8"))
+        if total + field_bytes > _MAX_METADATA_TOTAL_BYTES:
+            truncated = True
+            continue  # drop this (and, effectively, larger later) field
+        result[key] = text
+        total += field_bytes
+    if truncated:
+        result["_truncated"] = "true"
+    return result
 
 
 def _status_details_bin(
@@ -115,11 +153,42 @@ async def translate_to_grpc_status(
     Args:
         context: The servicer context for the in-flight RPC.
         exc: The exception to translate.
+
+    Raises:
+        BaseException: Re-raises any ``BaseException`` that is not an
+            ``Exception`` (``asyncio.CancelledError``, ``KeyboardInterrupt``,
+            ``SystemExit``) rather than translating it, so cooperative
+            cancellation and interpreter shutdown propagate unchanged.
     """
+    # Control-flow exceptions (cancellation, shutdown) must never be turned into
+    # a gRPC status — re-raise so grpc.aio's cancellation machinery sees them.
+    if not isinstance(exc, Exception):
+        raise exc
     if isinstance(exc, MessageServiceError):
         await _translate_known(context, exc)
+    elif isinstance(exc, PydanticValidationError):
+        # A request-adaptation validation failure is caller-supplied bad input,
+        # not a server fault: translate it to INVALID_ARGUMENT (not INTERNAL).
+        await _translate_known(context, _malformed_from_pydantic(exc))
     else:
         await _translate_unexpected(context, exc)
+
+
+def _malformed_from_pydantic(exc: PydanticValidationError) -> MalformedRequestError:
+    """Build a :class:`MalformedRequestError` from a pydantic validation failure.
+
+    The per-error ``loc`` (field path) and ``type`` (rule name) are surfaced so
+    the client can locate the problem; the offending input value is deliberately
+    NOT included, so no caller-supplied data is echoed back in the error.
+    """
+    problems = [
+        {"field": ".".join(str(p) for p in err["loc"]), "error": err["type"]}
+        for err in exc.errors()
+    ]
+    return MalformedRequestError(
+        "request validation failed",
+        details={"validation_errors": problems},
+    )
 
 
 async def _translate_known(
@@ -131,14 +200,14 @@ async def _translate_known(
     The boundary log level comes from the exception's class-level
     ``log_level`` ClassVar (added in Step 2 of Increment 22). The
     exception's ``details`` dict is run through
-    :func:`redact_sensitive_keys` (per `L3-ERR-016`) before being
-    logged or — if the wire-format upgrade in `R-ERR-001` ever
-    lands — flowed into trailing metadata. The ``details`` dict is
-    NOT currently serialized to the response (only ``error_code``
-    is, in trailing metadata) so the redacted copy is currently only
-    used in the log record; pre-redacting still matters because the
-    structlog processor only redacts top-level event keys, not
-    values nested inside a ``details=`` argument.
+    :func:`redact_sensitive_keys` (per `L3-ERR-016`) before being both
+    logged AND flowed into the ``grpc-status-details-bin`` envelope
+    (the `R-ERR-001` wire upgrade landed — see `L3-ERR-023`). Pre-redacting
+    matters because the structlog processor only redacts top-level event
+    keys, not values nested inside a ``details=`` argument, and the same
+    redacted copy is what reaches the client. The envelope's metadata is
+    additionally size-bounded (`L3-ERR-024`) so a client-influenced field
+    cannot overflow gRPC's trailing-metadata limit and lose the error.
     """
     status = _status_code_for(exc)
     safe_details = redact_sensitive_keys(exc.details)

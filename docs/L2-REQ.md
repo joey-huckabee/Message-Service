@@ -22,23 +22,23 @@ single source of truth for live status.
 
 | Code      | Title                                  | L2 Count |
 |-----------|----------------------------------------|----------|
-| `API`     | gRPC interface                         | 11       |
+| `API`     | gRPC interface                         | 12       |
 | `RUN`     | Run lifecycle                          | 16       |
 | `STAGE`   | Stage lifecycle and idempotency        | 9        |
-| `TMPL`    | Template governance and sandboxing     | 14       |
+| `TMPL`    | Template governance and sandboxing     | 15       |
 | `AGGR`    | Aggregation and composition            | 10       |
-| `SWEEP`   | Orphan detection and disposition       | 10       |
+| `SWEEP`   | Orphan detection and disposition       | 11       |
 | `SUB`     | Subscriptions and tags                 | 10       |
-| `AUTH`    | Authentication                         | 6        |
-| `MAIL`    | Email delivery                         | 13       |
-| `DASH`    | Dashboard                              | 14       |
+| `AUTH`    | Authentication                         | 11       |
+| `MAIL`    | Email delivery                         | 14       |
+| `DASH`    | Dashboard                              | 23       |
 | `PERS`    | Persistence                            | 13       |
-| `OBS`     | Observability                          | 18       |
+| `OBS`     | Observability                          | 19       |
 | `ERR`     | Error handling and exception taxonomy  | 10       |
 | `CFG`     | Configuration                          | 8        |
 | `DEP`     | Deployment                             | 9        |
-| `CICD`    | Continuous integration and delivery    | 15       |
-| **Total** |                                        | **186**  |
+| `CICD`    | Continuous integration and delivery    | 16       |
+| **Total** |                                        | **206**  |
 
 ---
 
@@ -273,8 +273,8 @@ single source of truth for live status.
 #### L2-STAGE-001
 
 **Parent**: L1-STAGE-001
-**Statement**: Stage state records SHALL be persisted one per (run_id, stage_id) tuple, with the state value constrained to the enumerated set `PENDING`, `IN_PROGRESS`, `SUBMITTED`, `ACCEPTED`, `RETRIED`, `TIMEOUT`, `FAILED`.
-**Rationale**: Per-stage records support fine-grained orphan detection and audit.
+**Statement**: Stage state records SHALL be persisted one per (run_id, stage_id) tuple, with the state value constrained by a SQL `CHECK` to the enumerated set `PENDING`, `SUBMITTED`, `ACCEPTED`, `RETRIED`, `TIMEOUT`, `FAILED`. `IN_PROGRESS` is reserved in the state-name namespace (per L1-STAGE-001) but is NOT a persisted value in v1 and is excluded from the `CHECK` constraint.
+**Rationale**: Per-stage records support fine-grained orphan detection and audit. Excluding the reserved `IN_PROGRESS` from the persisted set keeps the database from accepting a state the v1 state machine never produces.
 **Verification Method**: Inspection (I), Test (T)
 
 #### L2-STAGE-002
@@ -454,7 +454,7 @@ single source of truth for live status.
 #### L2-TMPL-015
 
 **Parent**: L1-TMPL-001
-**Statement**: The email body template rendered for a finalized run SHALL default to the service-wide `templates.email_body_template_ref`. An operator MAY override it per pipeline via the optional `pipelines.email_body_template_overrides` configuration mapping (`pipeline_type` → a `(name, version)` template reference): when the run's `pipeline_type` has an entry, assembly SHALL render the email body from the override reference, and otherwise from the service-wide default. Each override reference SHALL name a `(name, version)` pair present in the template manifest — validated at startup per L1-TMPL-001, failing service start when a referenced template is absent — and each key SHALL be a member of `pipelines.registered`. Override references use the same explicit-version model as the service-wide default (the `"latest"` sentinel is resolved only for request-supplied refs at `BeginRun` initiation per L2-TMPL-007, not for the service-configured body template).
+**Statement**: The email body template rendered for a finalized run SHALL default to the service-wide `templates.email_body_template_ref`. An operator MAY override it per pipeline via the optional `pipelines.email_body_template_overrides` configuration mapping (`pipeline_type` → a `(name, version)` template reference): when the run's `pipeline_type` has an entry, assembly SHALL render the email body from the override reference, and otherwise from the service-wide default. Each override reference SHALL name a `(name, version)` pair present in the template manifest — validated at startup per L1-TMPL-001, failing service start when a referenced template is absent — and each key SHALL be a member of `pipelines.registered`. Override references use the same explicit-version model as the service-wide default (the `"latest"` sentinel is resolved only for request-supplied refs at `BeginRun` initiation per L2-TMPL-005, not for the service-configured body template).
 **Rationale**: Different pipelines often want visually distinct notification emails; a per-pipeline override keeps that operator-configurable without a proto change or a per-run declaration. Reusing the manifest-reference model preserves L1-TMPL-001's guarantee that every rendered template is a manifest-registered one, and startup validation surfaces a misconfigured override before any run is finalized. Additive: pipelines without an override are byte-identical to the prior single-template behavior.
 **Verification Method**: Test (T), Inspection (I)
 
@@ -1251,8 +1251,8 @@ single source of truth for live status.
 #### L2-OBS-007
 
 **Parent**: L1-OBS-003
-**Statement**: Audit records SHALL be stored in a single `audit_log` table with the schema `(audit_id, timestamp, event_type, run_id, details_json)`, supporting queries filtered by `event_type` and date range.
-**Rationale**: A unified table simplifies querying and retention enforcement across event types.
+**Statement**: Audit records SHALL be stored in a single `audit_log` table with the schema `(audit_id, timestamp, action, actor, resource, outcome, details_json)` (with `outcome` constrained to `SUCCESS`/`FAILURE`), supporting queries filtered by `action`, `resource`, and date range.
+**Rationale**: A unified table simplifies querying and retention enforcement across event types. The `actor`/`resource`/`outcome` triple records who acted on what and how it resolved; the `run_id` a record pertains to is carried inside `details_json` (and encoded in `resource`, e.g. `run:<run_id>`) rather than as a dedicated column.
 **Verification Method**: Test (T), Inspection (I)
 
 #### L2-OBS-008
@@ -1432,14 +1432,14 @@ single source of truth for live status.
 #### L2-CFG-001
 
 **Parent**: L1-CFG-001
-**Statement**: The configuration file path SHALL be accepted via the `--config` command-line argument and via the `MSG_SERVICE_CONFIG` environment variable.
+**Statement**: The configuration file path SHALL be accepted via the `--config` command-line argument and via the `MESSAGE_SERVICE_CONFIG` environment variable.
 **Rationale**: Both options are conventional; supporting both gives operators flexibility in deployment scripting.
 **Verification Method**: Test (T)
 
 #### L2-CFG-002
 
 **Parent**: L1-CFG-001
-**Statement**: When both `--config` and `MSG_SERVICE_CONFIG` are provided, `--config` SHALL take precedence.
+**Statement**: When both `--config` and `MESSAGE_SERVICE_CONFIG` are provided, `--config` SHALL take precedence.
 **Rationale**: Explicit command-line arguments conventionally override environment variables.
 **Verification Method**: Test (T)
 
@@ -1447,7 +1447,7 @@ single source of truth for live status.
 
 **Parent**: L1-CFG-001
 **Statement**: TOML parsing SHALL use the `tomllib` standard library module.
-**Rationale**: `tomllib` is available in the standard library on Python 3.11+, and the project's minimum Python version is 3.12 (see L2-DEP-008); no third-party TOML shim is required.
+**Rationale**: `tomllib` is available in the standard library on Python 3.11+, and the project's minimum Python version is 3.12 (see L2-DEP-007); no third-party TOML shim is required.
 **Verification Method**: Inspection (I)
 
 ### Derivations of L1-CFG-002 (schema validation at startup)

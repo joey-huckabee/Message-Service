@@ -274,7 +274,14 @@ trigger emerges.
 
 - **High availability and multi-node** — v1 is single-node. Multi-node introduces
   leader election, shared state, and coordinated orphan sweeping; substantial
-  scope.
+  scope. A prerequisite is **optimistic concurrency on run-state transitions**:
+  v1's `RunRepository.update_state` is an unconditional `UPDATE` because the
+  single-process model (`L1-DEP-001`) plus the shared-connection write lock
+  (`L2-PERS-004`) serialize all writes, so a transition's read-check and write
+  cannot interleave. Under multiple processes sharing one database, a
+  compare-and-swap (`WHERE run_id=? AND state=?`, with callers reacting to a
+  zero-row result as a lost race) would be required to prevent a cross-process
+  double-finalize / double-transition. Deferred with multi-node HA.
 - **R-PERS-001 — Cross-host replication** — v1 stores all state on the host running
   the service. Future option: Litestream-style continuous replication of the
   SQLite database to a standby host for disaster recovery. A deployment-layer

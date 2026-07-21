@@ -159,10 +159,10 @@ the single source of truth.
 | L2-AGGR-004 | L3-AGGR-006, L3-AGGR-007, L3-AGGR-019 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_happy_path_single_aggregated_sends_one_attachment`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_rendered_size_exceeded_transitions_to_failed`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_template_render_error_transitions_to_failed` | Implemented |
 | L2-AGGR-005 | L3-AGGR-008, L3-AGGR-009, L3-AGGR-020 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_pending_stages_excluded_from_assembly`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_produces_one_attachment_per_non_empty_stage`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_whitespace_only_excluded_as_empty`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_per_stage_with_all_empty_produces_zero_attachments`<br>`tests/unit/infrastructure/email/test_aiosmtplib_mailer.py::test_mime_message_includes_attachments` | Implemented |
 | L2-AGGR-006 | L3-AGGR-010, L3-AGGR-011 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_caps_at_255_bytes`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_per_stage_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_sanitizes_both_components`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_build_attachment_filename_single_aggregated_mode`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_sanitize_filename_replaces_disallowed_chars_with_underscore` | Implemented |
-| L2-AGGR-007 | L3-AGGR-012 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
-| L2-AGGR-008 | L3-AGGR-013, L3-AGGR-014 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
+| L2-AGGR-007 | L3-AGGR-012 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_equal_stage_order_breaks_tie_on_stage_id`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
+| L2-AGGR-008 | L3-AGGR-013, L3-AGGR-014 | `tests/unit/application/use_cases/test_assemble_and_deliver.py::test_equal_stage_order_breaks_tie_on_stage_id`<br>`tests/unit/application/use_cases/test_assemble_and_deliver.py::test_stages_rendered_in_stage_order_not_submission_order` | Implemented |
 | L2-AGGR-009 | L3-AGGR-015 | `tests/unit/application/use_cases/test_begin_run.py::test_single_aggregated_without_template_raises` | Implemented |
-| L2-AGGR-010 | L3-AGGR-016 | `tests/unit/interfaces/grpc/test_proto_aggr_shape.py::test_template_metadata_has_per_template_schema_field` | Implemented |
+| L2-AGGR-010 | L3-AGGR-016 | `tests/unit/application/use_cases/test_begin_run.py::test_unknown_aggregation_template_raises`<br>`tests/unit/interfaces/grpc/test_proto_aggr_shape.py::test_template_metadata_has_per_template_schema_field` | Implemented |
 
 ### L1-SWEEP: Orphan detection and disposition
 
@@ -208,8 +208,8 @@ the single source of truth.
 | L2-SUB-001 | L3-SUB-001, L3-SUB-002, L3-SUB-019 | `tests/integration/persistence/test_subscription_repository.py::test_duplicate_global_subscription_rejected`<br>`tests/integration/persistence/test_subscription_repository.py::test_duplicate_pipeline_subscription_rejected`<br>`tests/unit/domain/aggregates/test_subscription.py::test_rejects_naive_created_at`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_subscriptions_granularity_check_constraint`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_subscriptions_partial_unique_indexes` | Implemented |
 | L2-SUB-002 | L3-SUB-003, L3-SUB-004 | `tests/integration/persistence/test_subscription_repository.py::test_add_global_subscription_persists`<br>`tests/integration/persistence/test_subscription_repository.py::test_add_global_with_target_value_rejected`<br>`tests/integration/persistence/test_subscription_repository.py::test_add_pipeline_without_target_rejected`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_rejects_non_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_global_subscription_constructs_with_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_empty_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_non_global_rejects_null_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_pipeline_subscription_requires_target`<br>`tests/unit/domain/aggregates/test_subscription.py::test_subscription_is_frozen`<br>`tests/unit/domain/aggregates/test_subscription.py::test_tag_subscription_requires_target` | Implemented |
 | L2-SUB-003 | L3-SUB-005, L3-SUB-006, L3-SUB-020 | `tests/integration/persistence/test_subscription_repository.py::test_empty_tags_does_not_break_query`<br>`tests/integration/persistence/test_subscription_repository.py::test_global_subscription_matches_every_run`<br>`tests/integration/persistence/test_subscription_repository.py::test_pipeline_subscription_matches_matching_pipeline_only`<br>`tests/integration/persistence/test_subscription_repository.py::test_tag_subscription_matches_matching_tag` | Implemented |
-| L2-SUB-004 | L3-SUB-007 | `tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201` | Implemented |
-| L2-SUB-005 | L3-SUB-008 | `tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201` | Implemented |
+| L2-SUB-004 | L3-SUB-007 | `tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201`<br>`tests/integration/rest/test_admin_users.py::test_create_user_inserts_no_subscriptions_even_for_admin` | Implemented |
+| L2-SUB-005 | L3-SUB-008 | `tests/integration/rest/test_admin_users.py::test_create_user_happy_path_returns_201`<br>`tests/integration/rest/test_admin_users.py::test_create_user_inserts_no_subscriptions_even_for_admin` | Implemented |
 | L2-SUB-006 | L3-SUB-009, L3-SUB-010 | `tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_all_tags_returns_frozenset`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_contains_is_case_sensitive`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_accepts_empty_vocabulary`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_accepts_well_formed_tag_names`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_raises_on_malformed_toml`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_raises_when_file_missing`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_reads_multiple_tags`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_duplicate_tag_names`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_malformed_tag_name`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_tag_without_name`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_unknown_tag_key`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_loader_rejects_unknown_top_level_key` | Implemented |
 | L2-SUB-007 | L3-SUB-011, L3-SUB-012 | `tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_no_sighup_handler_registered_for_tag_vocabulary_reload`<br>`tests/unit/infrastructure/tags/test_vocabulary_loader.py::test_all_tags_returns_frozenset` | Implemented |
 | L2-SUB-008 | L3-SUB-013, L3-SUB-014 | `tests/integration/rest/test_subscriptions.py::test_post_unknown_tag_returns_422`<br>`tests/unit/application/use_cases/test_begin_run.py::test_multiple_unknown_tags_all_reported` | Implemented |
@@ -373,7 +373,7 @@ the single source of truth.
 | L2-OBS-009 | L3-OBS-017 | `tests/integration/persistence/test_audit_log_pruner.py::test_old_rows_are_deleted_recent_rows_preserved` | Implemented |
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_log_level_is_warning`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_log_level_default_is_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_log_level_is_info` | Implemented |
 | L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown`<br>`tests/unit/observability/test_logging_setup_shape.py::test_no_log_level_hot_reload_path_exists` | Implemented |
-| L2-OBS-012 | L3-OBS-023, L3-OBS-024 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata` | Implemented |
+| L2-OBS-012 | L3-OBS-023, L3-OBS-024 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_error_severity_boundary_log_carries_error_code`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata` | Implemented |
 | L2-OBS-013 | L3-OBS-025, L3-OBS-026, L3-OBS-027 | `tests/unit/application/use_cases/test_begin_run.py::test_audit_event_is_begin_run_success`<br>`tests/unit/application/use_cases/test_finalize_run.py::test_audit_event_captures_finalize_run_transition`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata` | Implemented |
 | L2-OBS-014 | L3-OBS-028, L3-OBS-029 | `tests/unit/application/use_cases/test_finalize_run.py::test_audit_event_captures_finalize_run_transition`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_audit_event_captures_retry_metadata` | Implemented |
 | L2-OBS-015 | L3-OBS-030 | `tests/unit/application/use_cases/test_sweeper.py::test_tick_records_sweep_orphan_audit_event` | Implemented |
@@ -500,21 +500,21 @@ the single source of truth.
 | RUN | 5 | 16 | 34 | 9 | 34 |
 | STAGE | 4 | 9 | 19 | 8 | 19 |
 | TMPL | 5 | 15 | 35 | 8 | 35 |
-| AGGR | 4 | 10 | 20 | 5 | 20 |
+| AGGR | 4 | 10 | 20 | 7 | 20 |
 | SWEEP | 3 | 11 | 24 | 6 | 24 |
-| SUB | 4 | 10 | 20 | 2 | 20 |
+| SUB | 4 | 10 | 20 | 4 | 20 |
 | AUTH | 4 | 11 | 22 | 5 | 22 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 9 | 23 | 47 | 1 | 47 |
 | PERS | 4 | 13 | 37 | 4 | 37 |
-| OBS | 4 | 19 | 44 | 3 | 44 |
+| OBS | 4 | 19 | 44 | 4 | 44 |
 | ERR | 4 | 10 | 24 | 0 | 24 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 20 | 1 | 20 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **435** | **66** | **435** |
+| **Total** | **73** | **206** | **435** | **71** | **435** |
 
-**Requirements verified by at least one test**: 501 of 641 (78.2%).
+**Requirements verified by at least one test**: 506 of 641 (78.9%).
 
 ### Orphan check
 

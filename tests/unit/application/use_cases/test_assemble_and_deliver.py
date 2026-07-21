@@ -849,6 +849,49 @@ async def test_stages_rendered_in_stage_order_not_submission_order(
     assert stage_ids == ["extract", "transform"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L2-AGGR-008")
+@pytest.mark.requirement("L3-AGGR-012")
+async def test_equal_stage_order_breaks_tie_on_stage_id(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+    renderer: MagicMock,
+) -> None:
+    """L2-AGGR-008: two stages sharing a stage_order SHALL sort by stage_id ascending.
+
+    The general ordering test uses distinct stage_orders and never exercises the
+    tiebreak; this one pins two stages at the SAME stage_order.
+    """
+    _, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    # A run whose two declared stages share stage_order=0 (ids 'bravo', 'alpha').
+    run = Run(
+        run_id=_RID,
+        pipeline_type="etl-nightly",
+        tags=frozenset({"production"}),
+        declared_stages=(
+            DeclaredStage(stage_id=StageId("bravo"), stage_order=0, report_template_ref=_TPL_EXT),
+            DeclaredStage(stage_id=StageId("alpha"), stage_order=0, report_template_ref=_TPL_EXT),
+        ),
+        state=RunState.READY,
+        attachment_mode=AttachmentMode.SINGLE_AGGREGATED,
+        aggregation_template_ref=_TPL_AGG,
+        subscription_predicate_tags=frozenset({"production"}),
+        created_at=_T0,
+        updated_at=_T0,
+    )
+    run_repo.set_initial(run)
+    # Return in reverse-of-expected order to force the tiebreak sort.
+    stage_repo.list_by_run.return_value = [_stage("bravo"), _stage("alpha")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+
+    await use_case.execute(_RID)
+
+    agg_call = next(c for c in renderer.render.call_args_list if c.args[0] == _TPL_AGG)
+    stage_ids = [s["stage_id"] for s in agg_call.args[1]["stages"]]
+    # Equal stage_order → lexicographic stage_id tiebreak: alpha before bravo.
+    assert stage_ids == ["alpha", "bravo"]
+
+
 # -----------------------------------------------------------------------------
 # Zero recipients (short-circuit to SENT, no mailer call)
 # -----------------------------------------------------------------------------

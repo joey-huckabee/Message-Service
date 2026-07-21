@@ -351,6 +351,47 @@ async def test_create_user_happy_path_returns_201(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L2-SUB-004")
+@pytest.mark.requirement("L2-SUB-005")
+async def test_create_user_inserts_no_subscriptions_even_for_admin(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    sqlite_conn: aiosqlite.Connection,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """Creating a user (including an admin) SHALL insert no subscription records.
+
+    L2-SUB-004: user creation has no subscription side effect. L2-SUB-005: an
+    admin-privileged account is subject to the same no-active-subscription
+    opt-in default as a regular account.
+    """
+    csrf, _ = await _login_as(
+        http_client, uow_factory, hasher, email="admin@example.com", is_admin=True
+    )
+    response = await http_client.post(
+        "/admin/users",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "email": "fresh-admin@example.com",
+            "display_name": "fresh admin",
+            "password": "fresh-password-1",
+            "is_admin": True,  # admin privilege — still opt-in default (L2-SUB-005)
+            "disabled": False,
+        },
+    )
+    assert response.status_code == 201
+    new_user_id = response.json()["user_id"]
+
+    # No subscription rows exist for the freshly-created account.
+    async with sqlite_conn.execute(
+        "SELECT COUNT(*) FROM subscriptions WHERE user_id = ?", (new_user_id,)
+    ) as cur:
+        row = await cur.fetchone()
+    assert row is not None
+    assert row[0] == 0
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-016")
 async def test_create_user_persists_argon2id_hash(
     http_client: httpx.AsyncClient,

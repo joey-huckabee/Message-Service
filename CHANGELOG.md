@@ -246,6 +246,20 @@ features; correctness, security, and requirements-document fixes.
   explicitly it was dead rather than fatal, but an operator relying on the env-var
   fallback would have been misled. Corrected to `MESSAGE_SERVICE_CONFIG`.
 
+### Tests
+
+- **Closed trace-matrix thin/mismatched coverage rows.** Several requirements were
+  "covered" by a test that did not actually verify their claim: `L2-AGGR-010`
+  (aggregation-template validation at BeginRun) mapped only to a proto-shape test —
+  now also marked on `test_unknown_aggregation_template_raises`; `L2-OBS-012`
+  (ERROR-severity logs carry `error_code`) mapped to a trailing-metadata test — now
+  has a dedicated `capture_logs` test asserting the boundary log record's
+  `error_code`; `L2-AGGR-008` (equal-`stage_order` → `stage_id` tiebreak) shared a
+  test that only exercised distinct orders — now has a dedicated tiebreak test; and
+  `L2-SUB-004`/`L2-SUB-005` (user creation, including admin, inserts no
+  subscriptions) shared a happy-path 201 test that never asserted the
+  no-side-effect — now has a dedicated test querying the subscriptions table.
+
 ### Documentation
 
 - **Backed the previously-unbacked Demonstration verification methods with

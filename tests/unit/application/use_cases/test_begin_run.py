@@ -327,9 +327,12 @@ async def test_duplicate_stage_ids_raises_with_all_duplicates() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-RUN-016")
+@pytest.mark.requirement("L2-AGGR-010")
 async def test_unknown_aggregation_template_raises(
     use_case: BeginRunUseCase, template_repo: MagicMock
 ) -> None:
+    # L2-AGGR-010: the aggregation_template is validated against the manifest at
+    # BeginRun time, independently of the stage templates (role-scoped rejection).
     template_repo.exists.side_effect = lambda ref: ref != _TPL_AGG
     with pytest.raises(UnknownTemplateError) as exc_info:
         await use_case.execute(_valid_command())

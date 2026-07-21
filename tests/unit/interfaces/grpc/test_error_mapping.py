@@ -286,6 +286,29 @@ async def test_translate_known_redacts_sensitive_keys_in_log_record(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L2-OBS-012")
+async def test_error_severity_boundary_log_carries_error_code() -> None:
+    """L2-OBS-012: an ERROR-severity boundary log record SHALL carry `error_code`.
+
+    The previous 'coverage' asserted the trailing metadata, not the log record.
+    ``ConfigurationError`` logs at ERROR (the base ``MessageServiceError``
+    log_level) with ``error_code=ERROR_CODE_INTERNAL``.
+    """
+    from structlog.testing import capture_logs
+
+    ctx = _FakeServicerContext()
+    exc = ConfigurationError("boom", details={"k": "v"})
+    with capture_logs() as logs, pytest.raises(_AbortRaisedError):
+        await _translate_known(ctx, exc)
+
+    rejected = [r for r in logs if r.get("event") == "request_rejected"]
+    assert rejected, "expected a request_rejected boundary log record"
+    record = rejected[0]
+    assert record["log_level"] == "error"
+    assert record["error_code"] == "ERROR_CODE_INTERNAL"
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-016")
 async def test_translate_known_does_not_mutate_original_details() -> None:
     """L3-ERR-016: redaction SHALL be on a copy; the original details dict is preserved."""

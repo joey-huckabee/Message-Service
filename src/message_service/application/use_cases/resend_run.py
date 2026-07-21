@@ -133,7 +133,7 @@ class ResendRunUseCase:
         -----
         On an expected failure — a re-render error
         (``TemplateRenderError`` / ``RenderedSizeExceededError`` /
-        ``ContextSizeExceededError``, e.g. a template removed or a
+        ``ContextSizeExceededError`` / ``ContextSchemaViolationError``, e.g. a template removed or a
         context grown past a limit since the original send) or a
         transient mailer failure (``EmailDeliveryError``) — the use case
         records a ``FAILURE`` audit and returns silently; the route layer

@@ -13,6 +13,7 @@ Requirement references
 ----------------------
 L1-TMPL-001 (manifest-based discovery)
 L1-TMPL-002 (sandboxed execution)
+L1-TMPL-004 (JSON Schema validation)
 L2-TMPL-004, L2-TMPL-005, L2-TMPL-006 (sandboxing, context size, rendered size)
 L3-TMPL-028 (enforce max_rendered_bytes)
 """
@@ -37,6 +38,9 @@ class TemplateRenderer(ABC):
       ``templates.max_context_bytes`` with
       :class:`~message_service.domain.errors.ContextSizeExceededError`
       *before* invoking the template engine (L2-TMPL-005).
+    * Reject contexts that fail a template's declared JSON Schema with
+      :class:`~message_service.domain.errors.ContextSchemaViolationError`
+      before invoking the template engine (L1-TMPL-004).
     * Reject rendered output exceeding
       ``templates.max_rendered_bytes`` with
       :class:`~message_service.domain.errors.RenderedSizeExceededError`
@@ -77,6 +81,7 @@ class TemplateRenderer(ABC):
         Raises:
             UnknownTemplateError: ``ref`` is not in the manifest.
             ContextSizeExceededError: Context too large.
+            ContextSchemaViolationError: Context failed JSON Schema validation.
             RenderedSizeExceededError: Rendered output too large.
             TemplateRenderError: Any other rendering failure.
         """

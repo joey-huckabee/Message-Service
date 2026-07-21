@@ -169,9 +169,10 @@ Disabling a user's account (`PATCH /admin/users/{id}` with `disabled=true`) remo
 1. Look up the run in the dashboard: `GET /runs/{run_id}`. Check the `state` field.
 2. If `INITIATED`/`AGGREGATING`/`READY`/`SENDING` past the `sweeper.run_timeout_seconds` window: the sweeper either hasn't ticked yet or is failing (see above).
 3. If `ORPHANED`: check the audit log for the `SWEEP_ORPHAN` row — `details.pending_stage_ids` shows which stages never submitted. Check the audit log for the disposition handler events (`NOTIFY_ADMINS` / `DISCARD_SILENTLY` per `disposition_actions` config).
-4. If `FAILED`: check the audit log's `SEND_REPORT` row for `failure_reason`. The vocabulary is closed: `TEMPLATE_RENDER`, `RENDERED_SIZE_EXCEEDED`, `CONTEXT_SIZE_EXCEEDED`, `EMAIL_DELIVERY`, `EMAIL_SIZE_EXCEEDED` (per `L3-RUN-029`). Each maps to a different remediation:
+4. If `FAILED`: check the audit log's `SEND_REPORT` row for `failure_reason`. The vocabulary is closed: `TEMPLATE_RENDER`, `RENDERED_SIZE_EXCEEDED`, `CONTEXT_SIZE_EXCEEDED`, `CONTEXT_SCHEMA_VIOLATION`, `EMAIL_DELIVERY`, `EMAIL_SIZE_EXCEEDED` (per `L3-RUN-029`). Each maps to a different remediation:
    - `TEMPLATE_RENDER`: a template bug or missing context field. Check the structured log at the failure timestamp for the underlying Jinja2 exception.
    - `RENDERED_SIZE_EXCEEDED` / `CONTEXT_SIZE_EXCEEDED`: increase the relevant `templates.max_*_bytes` knob OR slim the report.
+   - `CONTEXT_SCHEMA_VIOLATION`: a submitted stage context no longer satisfies its template JSON Schema. Use the audit `json_pointer`, `validator`, and `message` fields to fix the stage payload or schema.
    - `EMAIL_DELIVERY`: SMTP issue (see above).
    - `EMAIL_SIZE_EXCEEDED`: report exceeded `mail.max_email_size_bytes`. The oversized rendered body is persisted to the report store (per `L3-MAIL-017`); admins receive a notification via the `mail.admin_recipients` channel.
 5. Manual resend if appropriate: `POST /runs/{run_id}/resend` (only valid for `SENT` or `FAILED` states per `L3-DASH-028`).

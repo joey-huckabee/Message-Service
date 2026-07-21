@@ -136,7 +136,7 @@ class UnknownStageError(ValidationError):
 class ContextSchemaViolationError(ValidationError):
     """Stage context failed JSON Schema validation. See L2-TMPL-011.
 
-    The ``details`` dict SHOULD include a ``schema_path`` (JSON Pointer) key
+    The ``details`` dict SHOULD include a ``json_pointer`` (RFC 6901) key
     identifying the failing element.
     """
 
@@ -344,13 +344,20 @@ class PersistenceError(InfrastructureError):
 class TemplateRenderError(InfrastructureError):
     """Jinja2 rendering failed for a reason other than schema or size violation.
 
-    Contrast with :class:`ContextSchemaViolationError` and :class:`RenderedSizeExceededError`
+    Contrast with :class:`ContextSchemaViolationError`,
+    :class:`ContextSizeExceededError`, and :class:`RenderedSizeExceededError`,
     which are validation errors surfaced to the client.
     """
 
 
 class EmailDeliveryError(InfrastructureError):
-    """SMTP delivery failed. Detail ``retriable`` (bool) is set by the retry logic."""
+    """SMTP delivery failed.
+
+    The mailer classifies the failure in ``details["failure_reason"]``:
+    ``PERMANENT_SMTP_FAILURE`` (fail-fast, not retried) or ``RETRIES_EXHAUSTED``
+    (a transient failure retried to exhaustion). Callers distinguishing
+    transient-vs-permanent (e.g. the delivery-outcome metric) key on that.
+    """
 
 
 class EmailSizeExceededError(EmailDeliveryError):

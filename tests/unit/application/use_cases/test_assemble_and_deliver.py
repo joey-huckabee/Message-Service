@@ -1004,7 +1004,7 @@ async def test_context_schema_violation_transitions_to_failed(
     stayed in SENDING with no FAILED transition or audit until the sweeper
     reclaimed it.
     """
-    _, _, run_repo, stage_repo, _, audit_log = uow_factory
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
     run_repo.set_initial(_run(state=RunState.READY))
     stage_repo.list_by_run.return_value = [_stage("extract")]
     renderer.render.side_effect = ContextSchemaViolationError(
@@ -1018,13 +1018,17 @@ async def test_context_schema_violation_transitions_to_failed(
     transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
     assert RunState.FAILED in transitions
     mailer.send.assert_not_called()
+    subscription_repo.list_recipients_for_run.assert_not_called()
     failure_events = [
         c.args[0]
         for c in audit_log.record.call_args_list
         if c.args[0].outcome == AuditOutcome.FAILURE
     ]
     assert len(failure_events) == 1
-    assert failure_events[0].details["failure_reason"] == "CONTEXT_SCHEMA_VIOLATION"
+    details = failure_events[0].details
+    assert details["failure_reason"] == "CONTEXT_SCHEMA_VIOLATION"
+    assert details["json_pointer"] == "/count"
+    assert details["validator"] == "type"
 
 
 @pytest.mark.asyncio
@@ -1160,6 +1164,55 @@ async def test_email_delivery_failure_reason_stays_in_vocabulary(
     assert details["failure_reason"] == "EMAIL_DELIVERY"
     # The SMTP-level classification is preserved, relocated, not lost.
     assert details["smtp_failure_classification"] == "PERMANENT_SMTP_FAILURE"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L1-OBS-002")
+@pytest.mark.requirement("L1-MAIL-002")
+@pytest.mark.parametrize(
+    ("mailer_reason", "expected_outcome"),
+    [
+        ("RETRIES_EXHAUSTED", "transient_failure"),
+        ("PERMANENT_SMTP_FAILURE", "permanent_failure"),
+    ],
+)
+async def test_email_delivery_outcome_metric_classifies_transient_vs_permanent(
+    clock: MagicMock,
+    renderer: MagicMock,
+    mailer: AsyncMock,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, Any],
+    mailer_reason: str,
+    expected_outcome: str,
+) -> None:
+    """The delivery-outcome metric SHALL distinguish transient (retried) vs permanent.
+
+    Regression: the classification keyed on a nonexistent ``retriable`` detail
+    (the mailer sets ``failure_reason``), so every failure recorded as
+    ``permanent_failure`` — the ``transient_failure`` label was unreachable.
+    """
+    from message_service.application.ports.metrics_recorder import MetricsRecorder
+
+    factory, _, run_repo, stage_repo, subscription_repo, _ = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"a@x"})
+    mailer.send.side_effect = EmailDeliveryError(
+        "smtp fail", details={"failure_reason": mailer_reason}
+    )
+    metrics = MagicMock(spec=MetricsRecorder)
+    use_case = AssembleAndDeliverUseCase(
+        uow_factory=factory,
+        clock=clock,
+        template_renderer=renderer,
+        mailer=mailer,
+        from_address=_FROM,
+        email_body_template_ref=_TPL_BODY,
+        metrics_recorder=metrics,
+    )
+
+    await use_case.execute(_RID)
+
+    metrics.record_email_delivery_outcome.assert_any_call(expected_outcome)
 
 
 # -----------------------------------------------------------------------------

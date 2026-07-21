@@ -38,6 +38,7 @@ from message_service.domain.aggregates.subscription import SubscriptionGranulari
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.aggregates.user import User
 from message_service.domain.errors import (
+    ContextSchemaViolationError,
     EmailDeliveryError,
     InvalidRunStateError,
     TemplateRenderError,
@@ -404,7 +405,6 @@ async def test_resend_schema_violation_records_failure_audit_and_does_not_raise(
     Regression: this render error was not in the caught set, so a resend of a
     schema-violating run escaped to the route as an unhandled 500.
     """
-    from message_service.domain.errors import ContextSchemaViolationError
 
     run = _make_run(run_id="00000000-0000-4000-8000-000000000cc2", state=RunState.SENT)
     await _seed_run(uow_factory, run)
@@ -429,6 +429,8 @@ async def test_resend_schema_violation_records_failure_audit_and_does_not_raise(
     assert len(events) == 1
     assert events[0].outcome is AuditOutcome.FAILURE
     assert events[0].details["failure_reason"] == "ContextSchemaViolationError"
+    assert events[0].details["recipient_count"] == 0
+    assert events[0].details["attachment_count"] == 0
 
 
 # -----------------------------------------------------------------------------

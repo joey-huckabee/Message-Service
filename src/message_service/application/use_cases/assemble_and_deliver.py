@@ -56,7 +56,7 @@ Error handling
 
 Expected domain errors (:class:`TemplateRenderError`,
 :class:`RenderedSizeExceededError`, :class:`ContextSizeExceededError`,
-:class:`EmailDeliveryError`) are caught, translated into
+:class:`ContextSchemaViolationError`, :class:`EmailDeliveryError`) are caught, translated into
 ``SENDING -> FAILED`` with a structured ``reason`` in the audit
 details, and swallowed (the scheduler would log them anyway).
 
@@ -475,6 +475,7 @@ class AssembleAndDeliverUseCase:
                 (:class:`TemplateRenderError`,
                 :class:`RenderedSizeExceededError`,
                 :class:`ContextSizeExceededError`,
+                :class:`ContextSchemaViolationError`,
                 :class:`EmailDeliveryError`) are caught and translated
                 into ``FAILED`` transitions with structured audit.
         """
@@ -627,10 +628,15 @@ class AssembleAndDeliverUseCase:
                 ),
             )
             # L1-OBS-002 / L3-OBS-009: outcome label distinguishes
-            # transient (retried) vs permanent (no retry) per L1-MAIL-002.
+            # transient (retried, then exhausted) vs permanent (no retry) per
+            # L1-MAIL-002. The mailer classifies via ``details["failure_reason"]``
+            # (RETRIES_EXHAUSTED = a transient failure that was retried to
+            # exhaustion; PERMANENT_SMTP_FAILURE = fail-fast). It does NOT set a
+            # ``retriable`` key, so keying on that always yielded
+            # "permanent_failure" — even for genuinely transient outages.
             outcome = (
                 "transient_failure"
-                if exc.details and exc.details.get("retriable")
+                if exc.details and exc.details.get("failure_reason") == "RETRIES_EXHAUSTED"
                 else "permanent_failure"
             )
             self._metrics.record_email_delivery_outcome(outcome)
@@ -670,6 +676,7 @@ class AssembleAndDeliverUseCase:
             TemplateRenderError: A stage's template failed to render.
             RenderedSizeExceededError: Rendered output too large.
             ContextSizeExceededError: Per-stage context too large.
+            ContextSchemaViolationError: Context failed JSON Schema validation.
         """
         async with self._uow_factory() as uow:
             run = await uow.run_repo.get(run_id)
@@ -699,6 +706,7 @@ class AssembleAndDeliverUseCase:
             TemplateRenderError: Propagated from renderer.
             RenderedSizeExceededError: Propagated from renderer.
             ContextSizeExceededError: Propagated from renderer.
+            ContextSchemaViolationError: Propagated from renderer.
         """
         async with self._uow_factory() as uow:
             stages: Sequence[Stage] = await uow.stage_repo.list_by_run(run_id)
@@ -770,6 +778,7 @@ class AssembleAndDeliverUseCase:
         Raises:
             TemplateRenderError: Aggregation template render failure.
             RenderedSizeExceededError: Aggregation exceeds max size.
+            ContextSchemaViolationError: Aggregation context fails schema validation.
         """
         if run.attachment_mode is AttachmentMode.SINGLE_AGGREGATED:
             # Aggregation template context per L3-AGGR-006.
@@ -859,6 +868,7 @@ class AssembleAndDeliverUseCase:
         Raises:
             TemplateRenderError: Body template render failure.
             RenderedSizeExceededError: Body exceeds max size.
+            ContextSchemaViolationError: Body context fails schema validation.
         """
 
         def _bucket(position: EmailBodyPosition) -> list[dict[str, Any]]:

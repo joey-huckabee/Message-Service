@@ -193,6 +193,17 @@ features; correctness, security, and requirements-document fixes.
   the already-redacted `template_context`) to the sensitive-key set (new
   `L3-OBS-044`).
 
+- **The delivery `failure_reason` audit field no longer escapes its closed
+  vocabulary.** In `_finalize_failed`, `**reason.details` spread the mailer's own
+  `details["failure_reason"]` (`PERMANENT_SMTP_FAILURE` / `RETRIES_EXHAUSTED` — the
+  SMTP-level classification) *over* the authoritative run `failure_reason`, so a
+  production `EmailDeliveryError` wrote `failure_reason="PERMANENT_SMTP_FAILURE"` —
+  a value `L3-RUN-029` explicitly drops from the closed set. (Tests missed it by
+  passing a mailer error without that detail key.) The run `failure_reason` now
+  stays `EMAIL_DELIVERY`; the SMTP classification is relocated to a separate
+  `smtp_failure_classification` detail. Same fix applied to the concurrent-sweep
+  reconciliation path. `L3-MAIL-008`/`L3-RUN-029` amended.
+
 ### Documentation
 
 - **Resolved the `recipient_addresses` contradiction in the requirements.** The

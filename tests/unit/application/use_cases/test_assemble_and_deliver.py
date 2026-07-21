@@ -1039,6 +1039,47 @@ async def test_email_delivery_error_transitions_to_failed(
     assert failure_events[0].details["recipient_count"] == 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-029")
+@pytest.mark.requirement("L3-MAIL-008")
+async def test_email_delivery_failure_reason_stays_in_vocabulary(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+) -> None:
+    """The mailer's own failure_reason detail SHALL NOT clobber the run failure_reason.
+
+    Regression: the mailer raises EmailDeliveryError with
+    details['failure_reason']='PERMANENT_SMTP_FAILURE' (its SMTP-level
+    classification). Spreading that verbatim overwrote the authoritative
+    run failure_reason ('EMAIL_DELIVERY', L3-RUN-029 closed vocab). The SMTP
+    classification is now relocated to smtp_failure_classification.
+    """
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+    # Realistic mailer error: carries its own failure_reason (the collision source).
+    mailer.send.side_effect = EmailDeliveryError(
+        "permanent SMTP failure: 550",
+        details={"failure_reason": "PERMANENT_SMTP_FAILURE", "smtp_code": 550},
+    )
+
+    await use_case.execute(_RID)
+
+    failure_events = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].outcome == AuditOutcome.FAILURE
+    ]
+    assert len(failure_events) == 1
+    details = failure_events[0].details
+    # Authoritative run failure_reason stays in the closed L3-RUN-029 vocabulary.
+    assert details["failure_reason"] == "EMAIL_DELIVERY"
+    # The SMTP-level classification is preserved, relocated, not lost.
+    assert details["smtp_failure_classification"] == "PERMANENT_SMTP_FAILURE"
+
+
 # -----------------------------------------------------------------------------
 # Concurrent-sweep reconciliation (L3-RUN-034)
 #

@@ -266,6 +266,27 @@ class _FailureReason:
     details: dict[str, Any]
 
 
+def _merge_failure_details(reason: _FailureReason) -> dict[str, Any]:
+    """Merge a classified reason into audit details, keeping ``code`` authoritative.
+
+    The run's ``failure_reason`` is drawn from the closed `L3-RUN-029` vocabulary
+    (``code``). Some error-specific detail payloads carry their OWN
+    ``failure_reason`` key that is a different concept — the mailer's
+    ``EmailDeliveryError.details["failure_reason"]`` is the SMTP-level
+    classification (``PERMANENT_SMTP_FAILURE`` / ``RETRIES_EXHAUSTED``), not a
+    run failure_reason. Spreading ``reason.details`` verbatim used to clobber the
+    authoritative ``code`` with that out-of-vocabulary value. Here the SMTP
+    classification is relocated to ``smtp_failure_classification`` so the
+    top-level ``failure_reason`` always stays within the closed vocabulary.
+    """
+    extra = dict(reason.details)
+    smtp_classification = extra.pop("failure_reason", None)
+    merged: dict[str, Any] = {"failure_reason": reason.code, **extra}
+    if smtp_classification is not None:
+        merged["smtp_failure_classification"] = smtp_classification
+    return merged
+
+
 @dataclass(frozen=True, slots=True)
 class PreparedEmail:
     """Rendered email components for a run, ready for delivery.
@@ -1060,7 +1081,7 @@ class AssembleAndDeliverUseCase:
                     now=now,
                     terminal_state=run.state,
                     outcome=AuditOutcome.FAILURE,
-                    details_extra={"failure_reason": reason.code, **reason.details},
+                    details_extra=_merge_failure_details(reason),
                 )
                 _log.warning(
                     "delivery_failed_after_terminal_transition",
@@ -1078,11 +1099,10 @@ class AssembleAndDeliverUseCase:
                 outcome=AuditOutcome.FAILURE,
                 details={
                     "run_id": run_id,
-                    "failure_reason": reason.code,
                     "prior_state": run.state.value,
                     "new_state": RunState.FAILED.value,
                     "timestamp": iso_z(now),
-                    **reason.details,
+                    **_merge_failure_details(reason),
                 },
             )
 

@@ -44,3 +44,19 @@ repos:
           - jinja2
           - prometheus-client
           - argon2-cffi
+
+  # Local project gate: keep the traceability matrix coherent BEFORE push, not
+  # only in CI. Without this, a dev running just `pre-commit` could commit a
+  # requirement/marker change without regenerating docs/TRACE-MATRIX.md and only
+  # discover the drift when CI's `trace-matrix` job fails. Scoped via `files:` so
+  # it runs only when a requirement doc, a test (markers), the matrix, or the
+  # generator itself changes — not on every commit. Uses the local poetry env
+  # (language: system) so it sees the project's own dependencies.
+  - repo: local
+    hooks:
+      - id: trace-matrix-check
+        name: trace matrix coherence (build-trace-matrix.py --check)
+        entry: poetry run python scripts/build-trace-matrix.py --check
+        language: system
+        pass_filenames: false
+        files: ^(docs/L[123]-REQ\.md|docs/TRACE-MATRIX\.md|tests/.*\.py|scripts/build-trace-matrix\.py)$

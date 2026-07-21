@@ -80,7 +80,7 @@ Service startup SHALL call `server.add_insecure_port(f"{host}:{port}")` and SHAL
 `grpc.port` SHALL be validated as an integer in [1, 65535]; out-of-range values SHALL raise `ConfigurationError` at startup.
 
 **L3-API-011** · Parent: L2-API-008 · Verification: T
-The error mapping SHALL attach `x-message-service-error-code` trailing metadata with the exception's `error_code` attribute on every error response.
+The error mapping SHALL attach `x-message-service-error-code` trailing metadata with the exception's `error_code` attribute on every error response that originates from a `MessageServiceError` (i.e. every error carrying a proto `ErrorCode` enum value). The sole exception is the concurrency-limit rejection (`L3-API-020`): its saturation cause is not a proto `ErrorCode` enum value, so it intentionally emits the additive `grpc-status-details-bin` envelope with `ErrorInfo.reason = "RESOURCE_EXHAUSTED_CONCURRENCY"` and no `x-message-service-error-code` key. A client switching on the legacy key SHALL treat its absence on a `RESOURCE_EXHAUSTED` response as that saturation signal.
 
 **L3-API-012** · Parent: L2-API-008 · Verification: T
 For each concrete `ValidationError` subclass, a test SHALL trigger the error and assert the returned gRPC status is `INVALID_ARGUMENT` with the expected error_code metadata.

@@ -5,7 +5,8 @@
 # - L1-CICD-001: cross-platform pytest matrix (Ubuntu + Windows × Py 3.12 + 3.13)
 # - L1-CICD-002: pre-commit gate (ruff format/check, mypy strict, hygiene hooks)
 # - L1-CICD-003: coverage gate (--cov-fail-under enforced via pyproject.toml)
-# - L1-CICD-004: traceability gate (matrix regenerable + coherent — see TODO)
+# - L1-CICD-004: traceability gate (matrix regenerable + coherent — see the
+#   `trace-matrix` job below: build-trace-matrix.py --check + requirement-coverage)
 # - L1-CICD-005: test-temp isolation (.pytest_tmp/ rooted via --basetemp)
 # - L1-CICD-006: reproducibility (poetry check --lock)
 # - L1-CICD-007: build provenance (per-job log line + artifact uploads)

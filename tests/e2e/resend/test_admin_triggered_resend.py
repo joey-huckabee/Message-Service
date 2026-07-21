@@ -118,9 +118,15 @@ async def test_admin_resend_emits_second_email_and_audit(
     """End-to-end: original SEND_REPORT + admin resend → RESEND_REPORT + 2 emails."""
     await _seed_admin_and_subscriber(running_service)
 
-    # 1. First send: drive the happy path. Capture the original email.
+    # 1. First send: drive the happy path, then DETERMINISTICALLY drain the
+    # scheduled AssembleAndDeliver task. ``await_all`` returns only after the task
+    # has committed ``SENDING -> SENT`` — so the resend below cannot race a
+    # still-``SENDING`` run (which would 409). ``smtp_capture.wait_for(1)`` polled
+    # on the send, which fires *inside* the task before that commit; only the
+    # incidental ``/login`` round-trip masked the race. Same drain the happy-path
+    # e2e uses (docs/test-strategy.md: prefer sequencing over polling).
     run_id = await _drive_happy_path(running_service)
-    await running_service.smtp_capture.wait_for(1, timeout_seconds=10.0)
+    await running_service.service.scheduler.await_all(timeout=10.0)
     assert len(running_service.smtp_capture.messages) == 1
 
     # 2. Log in as the admin via the dashboard.

@@ -48,23 +48,23 @@ single source of truth for live status; the source docs in this file,
 
 | Code      | Title                                  | L1 Count |
 |-----------|----------------------------------------|----------|
-| `API`     | gRPC interface                         | 4        |
+| `API`     | gRPC interface                         | 5        |
 | `RUN`     | Run lifecycle                          | 5        |
 | `STAGE`   | Stage lifecycle and idempotency        | 4        |
 | `TMPL`    | Template governance and sandboxing     | 5        |
 | `AGGR`    | Aggregation and composition            | 4        |
 | `SWEEP`   | Orphan detection and disposition       | 3        |
 | `SUB`     | Subscriptions and tags                 | 4        |
-| `AUTH`    | Authentication                         | 3        |
+| `AUTH`    | Authentication                         | 4        |
 | `MAIL`    | Email delivery                         | 5        |
-| `DASH`    | Dashboard                              | 5        |
+| `DASH`    | Dashboard                              | 9        |
 | `PERS`    | Persistence                            | 4        |
 | `OBS`     | Observability                          | 4        |
 | `ERR`     | Error handling and exception taxonomy  | 4        |
 | `CFG`     | Configuration                          | 3        |
 | `DEP`     | Deployment                             | 3        |
 | `CICD`    | Continuous integration and delivery    | 7        |
-| **Total** |                                        | **67**   |
+| **Total** |                                        | **73**   |
 
 ---
 
@@ -312,9 +312,9 @@ single source of truth for live status; the source docs in this file,
 
 ### L1-SUB-002
 
-**Statement**: New user accounts SHALL have no active subscriptions by default; all subscriptions SHALL require explicit opt-in through the dashboard interface.
+**Statement**: New user accounts SHALL have no active subscriptions by default; a subscription SHALL be created only by an explicit action through the dashboard — either the account holder opting in, or an administrator managing that account's subscriptions on its behalf (`L1-DASH-009`). No subscription SHALL be created implicitly at account creation.
 
-**Rationale**: Opt-in default prevents unwanted email delivery to new users and places the subscription decision in each user's hands.
+**Rationale**: A no-active-subscriptions default prevents unwanted email delivery to new accounts; requiring an explicit action to create one keeps subscriptions intentional. In this administrator-managed deployment, that explicit action may be taken by the account holder or by an administrator acting on the account's behalf — the guarantee is that a subscription never appears without a deliberate action, not that only the account holder may take it.
 
 **Verification Method**: Test (T)
 
@@ -478,7 +478,7 @@ single source of truth for live status; the source docs in this file,
 
 **Statement**: The dashboard SHALL provide an administrator console — a browser page restricted to administrators — for managing notification recipients: listing local accounts with their email address, role, and status; creating accounts; updating them (`display_name`, `is_admin`, `disabled`); and resetting passwords. The console SHALL be a presentation layer over the administrator account APIs (L1-AUTH-003) and SHALL enforce the same administrator authorization.
 
-**Rationale**: Notification recipients are local accounts — a subscription's delivery address is the owning account's email. An administrator needs a browser view to manage that roster without issuing raw SQL: onboarding recipients, correcting details, disabling departed ones, and helping with lost passwords. Building the console as a thin page over the existing admin account APIs keeps authorization and validation in a single place rather than duplicating them in the presentation layer. (Assigning which notifications each recipient receives — subscription management — is a subsequent capability recorded on the ROADMAP.)
+**Rationale**: Notification recipients are local accounts — a subscription's delivery address is the owning account's email. An administrator needs a browser view to manage that roster without issuing raw SQL: onboarding recipients, correcting details, disabling departed ones, and helping with lost passwords. Building the console as a thin page over the existing admin account APIs keeps authorization and validation in a single place rather than duplicating them in the presentation layer. (Assigning which notifications each recipient receives — administrator-managed subscription management — is covered by `L1-DASH-009`.)
 
 **Verification Method**: Test (T), Demonstration (D)
 

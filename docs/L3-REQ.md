@@ -25,23 +25,23 @@ of truth for live status; this file holds only the spec content above.
 
 | Code      | L2 Count | L3 Count |
 |-----------|----------|----------|
-| `API`     | 11       | 18       |
-| `RUN`     | 16       | 30       |
-| `STAGE`   | 9        | 18       |
-| `TMPL`    | 14       | 28       |
+| `API`     | 12       | 20       |
+| `RUN`     | 16       | 34       |
+| `STAGE`   | 9        | 19       |
+| `TMPL`    | 15       | 35       |
 | `AGGR`    | 10       | 20       |
-| `SWEEP`   | 10       | 21       |
+| `SWEEP`   | 11       | 24       |
 | `SUB`     | 10       | 20       |
-| `AUTH`    | 9        | 13       |
-| `MAIL`    | 14       | 28       |
-| `DASH`    | 16       | 30       |
-| `PERS`    | 13       | 35       |
-| `OBS`     | 18       | 40       |
-| `ERR`     | 10       | 22       |
+| `AUTH`    | 11       | 22       |
+| `MAIL`    | 14       | 34       |
+| `DASH`    | 23       | 46       |
+| `PERS`    | 13       | 37       |
+| `OBS`     | 19       | 44       |
+| `ERR`     | 10       | 24       |
 | `CFG`     | 8        | 16       |
-| `DEP`     | 9        | 18       |
-| `CICD`    | 15       | 17       |
-| **Total** | **192**  | **386**  |
+| `DEP`     | 9        | 19       |
+| `CICD`    | 16       | 19       |
+| **Total** | **206**  | **433**  |
 
 The `L2 Count` column matches `L2-REQ.md`'s own category table; some L2 statements (verified by Inspection / Analysis or pinned at the architectural level) intentionally have no L3 children. The trace matrix `docs/TRACE-MATRIX.md` shows which L2s have direct test coverage versus only inherited-via-children coverage.
 
@@ -268,7 +268,7 @@ Declared-stage lookup SHALL use the run's `declared_stages_json` column (parsed 
 Run existence check SHALL precede stage membership check in code order; a test SHALL exercise "unknown run + unknown stage" and assert `RunNotFound` is raised, not `UnknownStage`.
 
 **L3-STAGE-017** · Parent: L2-STAGE-001 · Verification: T
-The sweeper SHALL drive orphan classification from the run's last-transition timestamp (the `runs.updated_at` column, per `L3-RUN-024`), not from any per-stage timestamp. The `stages` table accordingly does NOT carry a `last_transition_at` column; only `submitted_at` is stored, recording when the stage left `PENDING`. Earlier drafts of this requirement mandated a per-stage `last_transition_at`; v1 dropped that column because the run-level timestamp is sufficient for orphan disposition and avoids duplicating per-stage state-machine timestamps that no consumer needed.
+The sweeper SHALL drive orphan classification from the run's last-transition timestamp (the `runs.updated_at` column — a persisted timestamp per `L3-RUN-025`, written on every state transition), not from any per-stage timestamp. The `stages` table accordingly does NOT carry a `last_transition_at` column; only `submitted_at` is stored, recording when the stage left `PENDING`. Earlier drafts of this requirement mandated a per-stage `last_transition_at`; v1 dropped that column because the run-level timestamp is sufficient for orphan disposition and avoids duplicating per-stage state-machine timestamps that no consumer needed.
 
 **L3-STAGE-018** · Parent: L2-STAGE-002 · Verification: A
 A static check SHALL confirm no production code path references `StageState.IN_PROGRESS` as a transition target; grep results limited to test fixtures and a reserved-for-future-use comment.
@@ -748,7 +748,7 @@ The persisted oversized-report path SHALL be identical to a successful report's 
 Delivery audit rows record the sorted `recipient_addresses` (per `L3-MAIL-018`), which are PII. That PII lives only in the audit trail — never in the structured-log stream (`L3-SUB-015`) — and is governed by the audit retention pruning (`L1-OBS-003`) and optional archival (`L2-OBS-019`) controls plus the dashboard's admin-only audit access. Operators who require a stricter posture can shorten the audit retention window; the addresses age out with the rest of the row.
 
 **L3-MAIL-026** · Parent: L2-MAIL-013 · Verification: I
-v1's `AssembleAndDeliverUseCase` performs the SMTP send INSIDE the same `UnitOfWork` that records the audit row and transitions the run to `SENT`. If the audit insert raises after a successful SMTP send, the UoW exception path attempts a rollback — but the email has already been delivered to the SMTP server, so the rollback only undoes the database state, not the email. The run remains in `SENDING` (the pre-transaction state) and the sweeper will reclaim it as orphaned per `L1-RUN-006`. The audit failure surfaces in the structured log via the UoW's exception path. This is acknowledged operational risk — captured in the deferred-features entry `R-DELIVER-001 — Outbox-backed background tasks`, where the proper fix (transactional outbox pattern) is documented as v2 work. Earlier drafts of this requirement specified bespoke CRITICAL-log handling; v1's "rely on the sweeper for at-least-once recovery" approach is the current contract.
+v1's `AssembleAndDeliverUseCase` performs the SMTP send INSIDE the same `UnitOfWork` that records the audit row and transitions the run to `SENT`. If the audit insert raises after a successful SMTP send, the UoW exception path attempts a rollback — but the email has already been delivered to the SMTP server, so the rollback only undoes the database state, not the email. The run remains in `SENDING` (the pre-transaction state) and the sweeper will reclaim it as orphaned per `L1-SWEEP-002`. The audit failure surfaces in the structured log via the UoW's exception path. This is acknowledged operational risk — captured in the deferred-features entry `R-DELIVER-001 — Outbox-backed background tasks`, where the proper fix (transactional outbox pattern) is documented as v2 work. Earlier drafts of this requirement specified bespoke CRITICAL-log handling; v1's "rely on the sweeper for at-least-once recovery" approach is the current contract.
 
 **L3-MAIL-027** · Parent: L2-MAIL-014 · Verification: T
 A test SHALL render the subject for a known run with a benign `pipeline_type` (matching `[a-zA-Z0-9._-]+`) and assert the produced `Subject:` value equals exactly `[{pipeline_type}] run {run_id}` — no extra whitespace, no rearrangement of components.
@@ -791,7 +791,7 @@ The factory SHALL register startup and shutdown handlers via `@app.on_event(...)
 Startup SHALL raise `ConfigurationError` if `dashboard.port == grpc.port`.
 
 **L3-DASH-005** · Parent: L2-DASH-003 · Verification: I
-v1 ships no HTML frontend — the dashboard surfaces as REST/JSON endpoints (per `L1-DASH-002`/`L1-DASH-003`/`L1-DASH-005`) returning JSON projections. The `src/message_service/interfaces/rest/html/` package contains only `__init__.py`; no `static/` subdirectory exists because no CSS/JS/font assets are shipped. When the HTML dashboard frontend lands (alongside R-DASH-004's embedded Chart.js work, or a separate frontend deferral), assets SHALL be packaged at this path and mounted via FastAPI `StaticFiles` at `/static`. The L2-DASH-003 air-gap constraint is vacuously satisfied today.
+The dashboard ships hand-authored HTML pages (login, admin console, metrics dashboard, run-status board, subscriptions console) backed by packaged static CSS/JS assets under `src/message_service/interfaces/rest/static/`, mounted via FastAPI `StaticFiles` at `/static`. Every asset SHALL be authored in-repo with NO third-party UI library, charting library, CDN reference, or other network-fetched resource — the metrics dashboard in particular renders its charts as hand-authored inline SVG, not via any external charting library. The L2-DASH-003 air-gap constraint is therefore actively satisfied: a conformance test (`L3-DASH-017`/`L3-DASH-039`) AST-/text-scans the shipped assets and asserts no external origin is referenced.
 
 **L3-DASH-006** · Parent: L2-DASH-003 · Verification: A
 v1 ships no Jinja2 HTML templates for dashboard rendering (only the email-body / per-stage-fragment / admin-notification templates which are operator-controlled and not user-facing); no `https://` or `http://` external-CDN references can exist because no HTML templates exist to scan. The L3-DASH-006 grep check is vacuously passing. When HTML dashboard templates are added, the check SHALL be wired in via a `tests/conformance/` test (the same pattern Cluster 26's CICD requirements use for inspection).
@@ -806,7 +806,7 @@ Subscription routes: `GET /subscriptions`, `POST /subscriptions`, `DELETE /subsc
 The subscription POST body Pydantic model SHALL define only `granularity` and `target_value`; extras are rejected via `model_config = ConfigDict(extra='forbid')`.
 
 **L3-DASH-010** · Parent: L2-DASH-006 · Verification: I
-*(Deferred to v2 — pairs with `R-DASH-004` and the HTML-frontend deferral.)* v1 ships no HTML subscription-creation UI; subscription creation is REST-only via `POST /subscriptions` (per `L3-DASH-008`). Tag validation at the application layer (`L3-SUB-014` rejects unknown tags with HTTP 422) provides the same correctness guarantee the UI-level `<select>` constraint would provide; the only thing the deferred UI would add is a usability improvement (operator can see the available tag set without trial-and-error). Future work, alongside the HTML frontend deferral, will populate the `<select>` from the same `TagVocabulary` port that backs `L3-SUB-014`'s server-side check.
+The administrator subscriptions console (`L3-DASH-046` / `L1-DASH-009`) ships an HTML subscription-management UI whose `PIPELINE`/`TAG` target is chosen from a `<select>` populated from the registered pipelines and the `TagVocabulary` — the same vocabulary that backs the server-side check — so an administrator sees the valid tag set without trial-and-error. Tag validation at the application layer (`L3-SUB-014` rejects unknown tags with HTTP 422) remains the authoritative correctness guarantee regardless of the UI-level `<select>` constraint; the dropdown is a usability layer over it. Direct REST subscription creation (`POST /subscriptions`, `L3-DASH-008`) remains available and is validated identically.
 
 **L3-DASH-011** · Parent: L2-DASH-007 · Verification: T
 The `require_admin` FastAPI dependency SHALL verify `is_admin` on every request; non-admin encountering admin route returns HTTP 403.
@@ -836,7 +836,7 @@ CSRF protection SHALL apply to POST/PATCH/DELETE via double-submit cookie or equ
 Subscription IDs SHALL be positive integers (minted by the SQLite `INTEGER PRIMARY KEY AUTOINCREMENT` column on the `subscriptions` table); route validators SHALL reject non-integer or non-positive values with HTTP 422. Promotion to UUID4 is a deferred-from-v1 item; see ROADMAP Part 2 ("Subscription identifier promotion to UUID4").
 
 **L3-DASH-020** · Parent: L2-DASH-003 · Verification: I
-v1 ships no fonts because no HTML frontend exists (per `L3-DASH-005`'s reword). When the frontend lands, fonts SHALL be system fonts (via `font-family` stack only) or WOFF2 files shipped in `static/`. The L2-DASH-003 air-gap constraint is vacuously satisfied today.
+The dashboard's shipped CSS uses system-font `font-family` stacks only; NO font files (WOFF2/TTF/OTF) and NO `@font-face` remote references are shipped or fetched. The L2-DASH-003 air-gap constraint is therefore actively satisfied for fonts — the offline guarantee holds without any bundled or network-fetched typeface. Should a bundled typeface ever be needed, it SHALL be a WOFF2 file shipped under `static/` and referenced by a same-origin `@font-face`, never a CDN URL.
 
 **L3-DASH-021** · Parent: L2-DASH-007 · Verification: T
 The admin gate SHALL re-check `is_admin` on every request (not cache in the session) so role changes take effect immediately.
@@ -1178,7 +1178,7 @@ The CLI entry point SHALL accept `--config PATH` as a required argument unless `
 CLI argument parsing uses `argparse` (the Python stdlib parser), not Typer. The resolved path SHALL be logged at INFO during startup. Earlier drafts of this requirement specified Typer; v1 chose argparse to keep the CLI's runtime dependency surface minimal — Typer would add a transitive dependency on `click` for a single `--config` flag, which `argparse` handles natively.
 
 **L3-CFG-003** · Parent: L2-CFG-002 · Verification: T
-When both `--config` and `MSG_SERVICE_CONFIG` are provided, the CLI flag SHALL win; a test asserts this precedence with both set to different paths.
+When both `--config` and `MESSAGE_SERVICE_CONFIG` are provided, the CLI flag SHALL win; a test asserts this precedence with both set to different paths.
 
 **L3-CFG-004** · Parent: L2-CFG-003 · Verification: I, T
 TOML parsing SHALL use the `tomllib` standard library module via a direct `import tomllib` statement in `config/loader.py`. The minimum Python version (L2-DEP-007) guarantees `tomllib` availability; no third-party TOML shim is required.
@@ -1324,7 +1324,7 @@ Each inbound interface SHALL implement its translation layer as a single functio
 Background task translation SHALL distinguish transient failures (retry-after-backoff) from permanent failures (terminate task, log CRITICAL, notify admins via the orphan notification channel).
 
 **L3-ERR-014** · Parent: L2-ERR-007 · Verification: T
-The gRPC exception translator SHALL map exceptions to gRPC status by inspecting the exception's intermediate-class membership (`isinstance` checks against `ValidationError`, `NotFoundError`, `ForbiddenError`, `PreconditionError`, `InfrastructureError`). Each leaf exception's `error_code` `ClassVar` SHALL flow through to the response as trailing metadata under the `x-message-service-error-code` key, so clients programming against specific codes can switch on it. *(The static-dict shape proposed in earlier drafts of this requirement is deferred — see ROADMAP `R-ERR-001` — pending the wire-format upgrade described in `L3-ERR-015`; the current `isinstance`-based dispatch produces equivalent behavior.)*
+The gRPC exception translator SHALL map exceptions to gRPC status by inspecting the exception's intermediate-class membership (`isinstance` checks against `ValidationError`, `NotFoundError`, `ForbiddenError`, `PreconditionError`, `InfrastructureError`). Each leaf exception's `error_code` `ClassVar` SHALL flow through to the response as trailing metadata under the `x-message-service-error-code` key, so clients programming against specific codes can switch on it. This legacy key is retained for backward compatibility alongside the structured `google.rpc.Status` + `ErrorInfo` envelope shipped additively in `grpc-status-details-bin` (`L3-ERR-023`).
 
 **L3-ERR-015** · Parent: L2-ERR-007 · Verification: T
 The client-facing error response SHALL carry, at minimum: a gRPC status code (per `L3-ERR-014`), the exception's public message (`exc.message`, not `str(exc)`), the `error_code` ClassVar as trailing metadata under `x-message-service-error-code`, and — for unexpected exceptions — a correlation id under `x-message-service-correlation-id` (per `L3-ERR-017`). The response SHALL NOT include a stack trace or the internal exception class name. *(The richer `google.rpc.Status` + `ErrorInfo` envelope now ships **additively** alongside this trailing-metadata shape — see `L3-ERR-023` — so already-deployed pipeline clients pinned to `x-message-service-error-code` keep working unchanged while newer clients can read the structured status.)*

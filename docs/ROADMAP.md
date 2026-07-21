@@ -157,7 +157,7 @@ trigger emerges.
   drains the outbox and retries on failure. The `BackgroundTaskScheduler` port can
   be retained; its adapter reads from the outbox instead of accepting coroutines.
   Defer until multi-node deployment is in scope. Single-node ISOLAN deployments
-  survive the current risk because the orphan sweeper (L1-RUN-006) eventually
+  survive the current risk because the orphan sweeper (L1-SWEEP-001) eventually
   reclaims stuck runs, bounded by `sweeper.run_timeout_seconds`.
 - **R-OBS-001 — Distributed tracing** — v1 has structured logging via structlog
   with `run_id` correlation; no trace spans. Future option: OpenTelemetry-based

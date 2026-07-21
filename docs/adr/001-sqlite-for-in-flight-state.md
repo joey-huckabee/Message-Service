@@ -65,7 +65,7 @@ The original requirement set described a connection-pooled SQLite — `connectio
 ### Forces
 
 - **Operational simplicity > horizontal scale within v1 scope.** This is the dominant force. Choosing the simpler engine costs us nothing v1 needs and saves us a deployment dependency.
-- **Recovery semantics > delivery throughput.** The orphan sweeper's design (L1-RUN-006, L1-SWEEP-*) was authored before this ADR; its existence relies on persistent state surviving restarts. SQLite with WAL provides that.
+- **Recovery semantics > delivery throughput.** The orphan sweeper's design (L1-SWEEP-001..003) was authored before this ADR; its existence relies on persistent state surviving restarts. SQLite with WAL provides that.
 - **Testability > engine power.** Tests run against real SQLite under `.pytest_tmp/`. No fakes, no mocks of the persistence layer, no engine-specific test infrastructure. A future RDBMS swap would lose this.
 
 ## Re-evaluation triggers

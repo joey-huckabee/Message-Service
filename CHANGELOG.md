@@ -146,6 +146,16 @@ features; correctness, security, and requirements-document fixes.
   bookkeeping insert in one explicit `BEGIN … COMMIT` inside the executed script, so
   a failure rolls the whole migration back and leaves it safely retryable (new
   `L3-PERS-036`).
+- **A failed startup no longer leaks the SQLite connection.** `build_service`
+  closed the connection only when *migrations* failed; a failure in any later
+  construction step (tag-vocabulary/template-manifest load, report-directory probe,
+  mailer parameter validation, disposition-handler validation, admin provisioning,
+  …) left the connection open — leaking an fd plus aiosqlite's background thread,
+  which under repeated construction (the test suite, `filterwarnings=error`)
+  surfaces as a `ResourceWarning`. The post-connection assembly is now delegated to
+  `_assemble_service` under a single guard that closes the connection on any
+  exception; on success its lifecycle transfers to the UoW factory as before (new
+  `L3-PERS-037`).
 
 ## [0.16.0] — 2026-07-19
 

@@ -172,6 +172,51 @@ async def test_build_service_returns_service(service: Service) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-037")
+async def test_build_service_closes_connection_on_post_migration_failure(
+    tmp_path: Path,
+) -> None:
+    """A failure after the connection opens SHALL close it (no leaked connection).
+
+    Regression: only a migration failure closed the connection; a failure in
+    any later step left it open, leaking an fd + aiosqlite's background thread.
+    """
+    from message_service.bootstrap import service as bootstrap_service
+    from message_service.infrastructure.persistence.connection import open_connection
+
+    config = load_config(_write_config(tmp_path))
+
+    close_calls: list[bool] = []
+    real_open = open_connection
+
+    async def _spy_open(path: object) -> object:
+        conn = await real_open(path)  # type: ignore[arg-type]
+        orig_close = conn.close
+
+        async def _tracked_close() -> None:
+            close_calls.append(True)
+            await orig_close()
+
+        conn.close = _tracked_close  # type: ignore[method-assign]
+        return conn
+
+    # Force a failure at a post-migration step (tag-vocabulary load).
+    with (
+        patch.object(bootstrap_service, "open_connection", _spy_open),
+        patch.object(
+            bootstrap_service,
+            "load_tag_vocabulary",
+            side_effect=ConfigurationError("boom", details={}),
+        ),
+        pytest.raises(ConfigurationError, match="boom"),
+    ):
+        await build_service(config)
+
+    # The connection opened for this build was closed exactly once.
+    assert close_calls == [True]
+
+
+@pytest.mark.asyncio
 async def test_clock_is_system_clock(service: Service) -> None:
     assert isinstance(service.clock, SystemClock)
     await shutdown_service(service, timeout=1.0)

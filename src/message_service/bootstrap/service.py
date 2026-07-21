@@ -427,19 +427,46 @@ async def build_service(config: Config) -> Service:
             orphan_codes=orphan_proto_codes,
         )
 
-    # 2. Open the SQLite connection and apply migrations.
+    # 2. Open the SQLite connection, then assemble everything else under a
+    # guard that closes the connection on ANY startup failure. Previously only
+    # a migration failure closed it; a failure in any later step (tag vocab,
+    # template manifest, report-dir probe, mailer params, disposition-handler
+    # validation, admin provisioning, …) left the connection open — leaking an
+    # fd plus aiosqlite's background thread, which under repeated construction
+    # (tests) surfaces as a ResourceWarning. On success the connection's
+    # lifecycle transfers to the UoW factory (closed by shutdown_service via
+    # uow_factory.close()). The assembly is delegated to _assemble_service so
+    # the guard can wrap the whole construction without deeply nesting it.
     conn: aiosqlite.Connection = await open_connection(config.persistence.sqlite_path)
     try:
-        applied = await apply_migrations(conn)
-        _log.info(
-            "migrations_applied_at_startup",
-            count=len(applied),
-            versions=[m.version for m in applied],
-        )
-    except Exception:
-        # Close the connection on failure to avoid a leaked fd.
+        return await _assemble_service(config, conn)
+    except BaseException:
         await conn.close()
         raise
+
+
+async def _assemble_service(config: Config, conn: aiosqlite.Connection) -> Service:
+    """Apply migrations and construct the fully-wired :class:`Service`.
+
+    Extracted from :func:`build_service` so the caller can guard the entire
+    post-connection assembly with a single ``try/except`` that closes ``conn``
+    on any failure (connection-leak safety). Called exactly once per build.
+
+    Args:
+        config: Pre-validated configuration.
+        conn: The open SQLite connection whose ownership this assembly takes
+            (on success it is handed to the returned service's UoW factory).
+
+    Returns:
+        The assembled :class:`Service`.
+    """
+    # 2a. Apply migrations against the open connection.
+    applied = await apply_migrations(conn)
+    _log.info(
+        "migrations_applied_at_startup",
+        count=len(applied),
+        versions=[m.version for m in applied],
+    )
 
     # 3. Clock. Used by several adapters below and by all use cases.
     clock = SystemClock()

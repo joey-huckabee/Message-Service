@@ -186,7 +186,7 @@ The assembly task is responsible for its own state-transition handling: if it ra
 The `Clock` port SHALL expose `now() -> datetime` returning a timezone-aware UTC `datetime`; implementations are `SystemClock` and `FakeClock`.
 
 **L3-RUN-025** · Parent: L2-RUN-014 · Verification: T
-All persisted timestamps SHALL be ISO-8601 strings with literal `"Z"` suffix (not `"+00:00"`); a regex test SHALL enforce this on every written row.
+All persisted timestamps SHALL be ISO-8601 strings with a literal `"Z"` suffix (not `"+00:00"`) and a fixed-width six-digit microseconds field that is always present (form `YYYY-MM-DDTHH:MM:SS.ffffffZ`, e.g. `2026-04-19T12:00:00.000000Z`). Fixed width is required because timestamps are stored and compared as TEXT: under SQLite's BINARY collation a variable-width value would sort out of chronological order (a whole-second `...:00Z` would collate after a same-second fractional `...:00.300000Z`), breaking CHECK constraints, range predicates, and `ORDER BY`. A regex test SHALL enforce the form on every written row.
 
 **L3-RUN-026** · Parent: L2-RUN-015 · Verification: T
 Audit-first ordering SHALL be enforced by performing audit `INSERT` and state `UPDATE` in one transaction, with audit insert preceding state update in statement order.

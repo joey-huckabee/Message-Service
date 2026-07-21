@@ -228,7 +228,7 @@ async def test_mark_completed_stamps_completed_at(
     claimed_at, comp_at, attempts, last_error = await _row(conn, claimed[0].action_id)
     assert claimed_at is not None
     assert comp_at is not None
-    assert comp_at == "2026-04-21T12:00:05Z"
+    assert comp_at == "2026-04-21T12:00:05.000000Z"
     assert attempts == 0
     assert last_error is None
 
@@ -251,7 +251,7 @@ async def test_mark_failed_bumps_attempts_and_records_error(
     await conn.commit()
 
     _, comp_at, attempts, last_error = await _row(conn, claimed[0].action_id)
-    assert comp_at == "2026-04-21T12:00:05Z"
+    assert comp_at == "2026-04-21T12:00:05.000000Z"
     assert attempts == 1
     assert last_error == "smtp timed out"
 
@@ -325,7 +325,7 @@ async def test_reclaim_stuck_picks_up_old_in_flight_rows(
     ) as cur:
         row = await cur.fetchone()
     assert row is not None
-    assert row[0] == "2026-04-21T12:11:00Z"  # claimed_at = now
+    assert row[0] == "2026-04-21T12:11:00.000000Z"  # claimed_at = now
     assert row[1] == 1
 
 
@@ -462,7 +462,7 @@ async def test_mark_abandoned_stamps_completed_without_bumping_attempts(
     ) as cur:
         row = await cur.fetchone()
     assert row is not None
-    assert row[0] == "2026-04-21T13:00:10Z"
+    assert row[0] == "2026-04-21T13:00:10.000000Z"
     assert row[1] == 3  # NOT bumped
     assert row[2] == "exhausted"
 

@@ -149,4 +149,4 @@ def test_fake_clock_output_flows_through_iso_z(fake_clock: FakeClock) -> None:
     """Composability smoke test: FakeClock -> iso_z produces a valid timestamp string."""
     fake_clock.set(datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC))
     formatted = iso_z(fake_clock.now())
-    assert formatted == "2026-04-19T12:00:00Z"
+    assert formatted == "2026-04-19T12:00:00.000000Z"

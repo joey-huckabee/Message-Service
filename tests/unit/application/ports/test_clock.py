@@ -53,10 +53,21 @@ def test_iso_z_preserves_microseconds() -> None:
 
 
 @pytest.mark.requirement("L3-RUN-025")
-def test_iso_z_omits_microseconds_when_zero() -> None:
-    """Whole-second times SHALL NOT carry a trailing ``.000000``."""
+def test_iso_z_uses_fixed_width_microseconds_when_zero() -> None:
+    """Whole-second times SHALL carry a fixed-width ``.000000`` so persisted
+    timestamps sort lexicographically in chronological order.
+    """
     value = datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)
-    assert iso_z(value) == "2026-04-19T12:00:00Z"
+    assert iso_z(value) == "2026-04-19T12:00:00.000000Z"
+
+
+@pytest.mark.requirement("L3-RUN-025")
+def test_iso_z_output_is_fixed_width_and_lexicographically_ordered() -> None:
+    """A whole-second value SHALL sort before a later same-second fractional one."""
+    whole = iso_z(datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC))
+    frac = iso_z(datetime(2026, 4, 19, 12, 0, 0, 300000, tzinfo=UTC))
+    assert len(whole) == len(frac)
+    assert whole < frac  # lexicographic == chronological
 
 
 @pytest.mark.requirement("L3-RUN-025")
@@ -64,7 +75,7 @@ def test_iso_z_converts_non_utc_to_utc() -> None:
     """A tz-aware non-UTC datetime SHALL be converted to UTC before formatting."""
     est = timezone(timedelta(hours=-5))
     value = datetime(2026, 4, 19, 7, 0, 0, tzinfo=est)  # 12:00 UTC
-    assert iso_z(value) == "2026-04-19T12:00:00Z"
+    assert iso_z(value) == "2026-04-19T12:00:00.000000Z"
 
 
 @pytest.mark.requirement("L3-RUN-025")

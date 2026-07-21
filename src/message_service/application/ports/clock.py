@@ -59,18 +59,30 @@ def iso_z(value: datetime) -> str:
             ``ValueError``.
 
     Returns:
-        An ISO-8601 string in the form ``YYYY-MM-DDTHH:MM:SS[.ffffff]Z``.
+        An ISO-8601 string in the fixed-width form
+        ``YYYY-MM-DDTHH:MM:SS.ffffffZ`` — the microseconds field is ALWAYS
+        present (six digits), even when it is zero.
 
     Raises:
         ValueError: If ``value`` has no ``tzinfo`` attribute.
+
+    Notes:
+        The microseconds field is emitted unconditionally so persisted
+        timestamps are fixed-width. ``datetime.isoformat()`` omits the
+        fractional field entirely when ``microsecond == 0``, which would make
+        the format variable-width; because timestamps are stored and compared as
+        TEXT under SQLite's BINARY collation, a whole-second value
+        (``...:00Z``) would then sort AFTER a same-second fractional value
+        (``...:00.300000Z``) — ``'Z'`` (0x5A) collates after ``'.'`` (0x2E) —
+        inverting chronological order and breaking CHECK constraints, range
+        predicates, and ``ORDER BY`` on any column of persisted timestamps.
     """
     if value.tzinfo is None:
         raise ValueError(f"iso_z requires a timezone-aware datetime; got naive value {value!r}")
-    # Convert to UTC regardless of the incoming tz, then format.
+    # Convert to UTC regardless of the incoming tz, then format with a
+    # fixed-width microseconds field (see Notes).
     as_utc = value.astimezone(UTC)
-    # isoformat() yields e.g. "2026-04-19T18:30:15.123456+00:00"; strip
-    # the "+00:00" and append "Z" to match L3-RUN-025 exactly.
-    return as_utc.isoformat().removesuffix("+00:00") + "Z"
+    return as_utc.isoformat(timespec="microseconds").removesuffix("+00:00") + "Z"
 
 
 def is_iso_z(candidate: str) -> bool:

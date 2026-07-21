@@ -352,6 +352,35 @@ async def test_multiple_migrations_applied_in_order(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-PERS-036")
+async def test_migration_with_failing_statement_is_fully_rolled_back(tmp_path: Path) -> None:
+    """A mid-migration failure SHALL leave no earlier statement's effect nor a _migrations row.
+
+    Regression: the body ran via a bare ``executescript`` that autocommits
+    each statement, so the first (successful) statement survived a later
+    failure — bricking the next startup on re-run.
+    """
+    mig = tmp_path / "migrations"
+    mig.mkdir()
+    # Statement 1 succeeds (creates a table); statement 2 fails (no such
+    # table). With atomic framing, statement 1 must be rolled back.
+    (mig / "001_atomic.sql").write_text(
+        "CREATE TABLE atomic_probe (id INTEGER);\nINSERT INTO nonexistent_table (x) VALUES (1);\n"
+    )
+    conn = await open_connection(Path(":memory:"))
+    try:
+        with pytest.raises(PersistenceError, match="failed to apply migration"):
+            await apply_migrations(conn, migrations_dir=mig)
+
+        # The first statement's effect did not survive.
+        assert not await _table_exists(conn, "atomic_probe")
+        # No bookkeeping row was recorded, so the migration is retryable.
+        assert await _applied_versions(conn) == []
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
 async def test_partial_reapply_only_runs_pending(tmp_path: Path) -> None:
     """If 001 is already applied, 002 is the only one to run on reapply."""
     mig = tmp_path / "migrations"

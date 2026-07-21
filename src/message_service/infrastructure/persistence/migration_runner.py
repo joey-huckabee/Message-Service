@@ -207,27 +207,40 @@ async def _fetch_applied_versions(conn: aiosqlite.Connection) -> set[int]:
 
 
 async def _apply_one(conn: aiosqlite.Connection, m: _MigrationFile) -> None:
-    """Apply one migration inside its own transaction.
+    """Apply one migration and its bookkeeping row atomically (L3-PERS-036).
 
-    aiosqlite begins transactions implicitly on the first write, but
-    ``executescript`` commits internally — so we use ``execute`` with
-    manual BEGIN/COMMIT. Each migration file may contain multiple
-    statements separated by semicolons; we feed the whole body via
-    :meth:`executescript` which handles that, but we wrap it in our
-    own savepoint-like framing by committing ourselves afterward.
+    ``executescript`` performs NO implicit transaction wrapping — its only
+    implicit action is committing an already-pending transaction *before*
+    running the script (Python ``sqlite3`` semantics). A bare
+    ``executescript(m.source)`` therefore autocommits each DDL statement as
+    it runs, so a failure on, say, the third statement of a three-statement
+    migration leaves the first two committed; the ``rollback`` below cannot
+    undo them, and the next startup re-runs the migration from the top and
+    bricks on e.g. ``duplicate column``.
+
+    To make the migration atomic we frame the body AND the ``_migrations``
+    bookkeeping insert in one explicit ``BEGIN … COMMIT`` inside the script.
+    If any statement fails, the transaction is left open and uncommitted and
+    the ``rollback`` discards every earlier statement — so the migration is
+    all-or-nothing and safely retryable on the next startup.
+
+    The bookkeeping row is inlined because ``executescript`` accepts no bind
+    parameters; ``version`` is an ``int`` and ``name`` matches
+    ``^[A-Za-z0-9_]+$`` (the discovery regex), so neither can carry SQL
+    metacharacters. Migration bodies must not contain their own transaction
+    control (``BEGIN``/``COMMIT``); ours provides it.
     """
+    now = datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
+    insert = (
+        "INSERT INTO _migrations (version, name, applied_at) "
+        f"VALUES ({m.version}, '{m.name}', '{now}');"
+    )
+    script = f"BEGIN;\n{m.source}\n{insert}\nCOMMIT;"
     try:
-        # SQLite implicitly starts a transaction on the next write
-        # (journal mode=WAL default). We commit explicitly below; on
-        # error, the connection rolls back.
-        await conn.executescript(m.source)
-        now = datetime.now(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
-        await conn.execute(
-            "INSERT INTO _migrations (version, name, applied_at) VALUES (?, ?, ?)",
-            (m.version, m.name, now),
-        )
-        await conn.commit()
+        await conn.executescript(script)
     except Exception as exc:
+        # The BEGIN opened a transaction that executescript never reached
+        # COMMIT on; roll it back so no partial migration persists.
         await conn.rollback()
         raise PersistenceError(
             f"failed to apply migration {m.name}: {exc}",

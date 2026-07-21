@@ -1025,6 +1025,9 @@ Per-file failures (file missing on disk; permission denied; OS-level I/O error) 
 **L3-PERS-035** · Parent: L2-PERS-013 · Verification: A, I
 The report pruner SHALL be the only code path that calls `Path.unlink()`, `Path.rmdir()`, `shutil.rmtree()`, or `os.remove()` against persisted report files under `persistence.filesystem.report_directory`. The bootstrap writable-test probe (`bootstrap/service.py::_ensure_report_directory`) is a permitted exception: it creates an empty `.write_probe` file and immediately deletes it as part of L3-PERS-011's writable-test, never touching any report file produced by the `ReportStore` adapter. A conformance test SHALL AST-scan `src/` and assert that no module other than `application/use_cases/report_pruner.py` and `bootstrap/service.py` calls these filesystem-deletion functions, ensuring every report eviction goes through the audit-emitting path.
 
+**L3-PERS-036** · Parent: L2-PERS-003 · Verification: T
+Each migration SHALL be applied atomically: the migration body and its `_migrations` bookkeeping insert SHALL commit together or not at all, so a failure part-way through a multi-statement migration leaves the schema unchanged and the migration safely retryable on the next startup. Because `sqlite3.executescript` performs no implicit transaction wrapping (it only commits an already-pending transaction before running, then autocommits each statement), the runner SHALL frame the body and the bookkeeping insert in one explicit `BEGIN … COMMIT` within the executed script; on any failure it SHALL `rollback()` the open transaction. A bare `executescript(body)` — which autocommits each DDL statement — is non-conformant: a mid-migration failure would persist the earlier statements and brick the next startup (e.g. `duplicate column`). A test SHALL apply a migration whose later statement fails and assert that none of its earlier statements' effects nor its `_migrations` row survive.
+
 ---
 
 ## L3-OBS: Observability

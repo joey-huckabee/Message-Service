@@ -136,6 +136,16 @@ features; correctness, security, and requirements-document fixes.
   decoy for an unknown email, against the account's real hash for a disabled one —
   so every attempt pays the same cost. Response content was already generic
   (`L3-AUTH-013`); this equalizes response timing (new `L3-AUTH-022`).
+- **Migrations are now genuinely atomic — a partial migration can no longer brick
+  startup.** Each migration ran via a bare `executescript`, which performs no
+  transaction wrapping (it commits any pending transaction, then autocommits each
+  statement), so a multi-statement migration that failed part-way left its earlier
+  statements committed — and the handler's `rollback()` couldn't undo them. The next
+  startup re-ran the migration from the top and failed permanently (e.g. `duplicate
+  column`). The runner now frames the migration body **and** its `_migrations`
+  bookkeeping insert in one explicit `BEGIN … COMMIT` inside the executed script, so
+  a failure rolls the whole migration back and leaves it safely retryable (new
+  `L3-PERS-036`).
 
 ## [0.16.0] — 2026-07-19
 

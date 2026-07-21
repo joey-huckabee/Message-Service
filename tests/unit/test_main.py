@@ -21,6 +21,7 @@ verification (see the smoke test in the increment log).
 from __future__ import annotations
 
 import asyncio
+import gc
 import os
 import socket
 from pathlib import Path
@@ -258,6 +259,18 @@ async def test_run_shuts_down_when_rest_task_dies_unexpectedly(tmp_path: Path) -
 
 @pytest.mark.asyncio
 @pytest.mark.allow_io
+# This is the only test that starts BOTH listeners via the real ``_run``
+# (the gRPC-only servicer tests never exercise uvicorn). Under uvicorn's
+# programmatic ``should_exit`` shutdown the dashboard listener socket is
+# closed best-effort but not synchronously — on Linux/epoll its finalizer
+# can run at session-end GC, tripping ``filterwarnings=["error"]`` as a
+# PytestUnraisableExceptionWarning ("unclosed <socket.socket ...>"). We
+# force that finalization inside the test below (so the fd is actually
+# closed here, not leaked to session teardown); ignore the finalizer's own
+# ResourceWarning, which is a test-harness GC-timing artifact, not a
+# product leak (in production the process exits and the OS reclaims it).
+@pytest.mark.filterwarnings("ignore::ResourceWarning")
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     """While ``_run`` is active the server SHALL answer a real BeginRun RPC."""
     grpc_port = _find_free_port()
@@ -295,17 +308,14 @@ async def test_run_server_accepts_rpc_while_listening(tmp_path: Path) -> None:
     finally:
         if not exercise_task.done():
             exercise_task.cancel()
-        # Let the event loop release socket-level resources before the test
-        # loop closes, preventing a PytestUnraisableExceptionWarning at
-        # session cleanup. The gRPC client channel's socket is closed on a
-        # C-core poller thread; a single loop turn drains it on Windows'
-        # ProactorEventLoop, but under Linux/epoll the fd can outlive one
-        # turn (the client-close in ``exercise`` and the server-stop in
-        # ``_run`` interleave across tasks). Give the poller several real
-        # turns of real wall-clock time to close the fd, so that by
-        # session-end GC the socket is already closed and no warning fires.
-        for _ in range(5):
+        # Give the async listeners a few real turns to release their sockets,
+        # then force GC of any residual finalizer *here* — inside this test's
+        # (warning-filtered) scope — so uvicorn's dashboard listener socket is
+        # closed now rather than surfacing at session-end GC. See the
+        # class-level note on the filterwarnings markers above.
+        for _ in range(3):
             await asyncio.sleep(0.02)
+        gc.collect()
 
     assert accepted is True
 

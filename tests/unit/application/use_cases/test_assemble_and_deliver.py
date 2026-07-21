@@ -47,6 +47,7 @@ from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
+    ContextSchemaViolationError,
     ContextSizeExceededError,
     EmailDeliveryError,
     EmailSizeExceededError,
@@ -986,6 +987,44 @@ async def test_template_render_error_transitions_to_failed(
     ]
     assert len(failure_events) == 1
     assert failure_events[0].details["failure_reason"] == "TEMPLATE_RENDER"
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-029")
+async def test_context_schema_violation_transitions_to_failed(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+    renderer: MagicMock,
+) -> None:
+    """A stage context that fails its template schema SHALL fail fast, not strand.
+
+    Regression: ContextSchemaViolationError (raised only in the renderer at
+    assembly time) was not in the caught set, so it escaped uncaught — the run
+    stayed in SENDING with no FAILED transition or audit until the sweeper
+    reclaimed it.
+    """
+    _, _, run_repo, stage_repo, _, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    renderer.render.side_effect = ContextSchemaViolationError(
+        "context failed schema for 'extract_rpt'@'1.0': 'x' is not of type 'integer'",
+        details={"json_pointer": "/count", "validator": "type", "instance_value": "x"},
+    )
+
+    # Must NOT raise out of the background task.
+    await use_case.execute(_RID)
+
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.FAILED in transitions
+    mailer.send.assert_not_called()
+    failure_events = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].outcome == AuditOutcome.FAILURE
+    ]
+    assert len(failure_events) == 1
+    assert failure_events[0].details["failure_reason"] == "CONTEXT_SCHEMA_VIOLATION"
 
 
 @pytest.mark.asyncio

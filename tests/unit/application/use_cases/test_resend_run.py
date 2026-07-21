@@ -394,6 +394,43 @@ async def test_resend_render_failure_records_failure_audit_and_does_not_raise(
     assert audit.details["attachment_count"] == 0
 
 
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-013")
+async def test_resend_schema_violation_records_failure_audit_and_does_not_raise(
+    uow_factory: SqliteUnitOfWorkFactory, clock: _FixedClock
+) -> None:
+    """A ContextSchemaViolationError on resend SHALL be caught + audited, not 500.
+
+    Regression: this render error was not in the caught set, so a resend of a
+    schema-violating run escaped to the route as an unhandled 500.
+    """
+    from message_service.domain.errors import ContextSchemaViolationError
+
+    run = _make_run(run_id="00000000-0000-4000-8000-000000000cc2", state=RunState.SENT)
+    await _seed_run(uow_factory, run)
+    await _seed_user_and_subscription(uow_factory)
+
+    assemble = _StubAssemble(
+        raise_on_prepare=ContextSchemaViolationError(
+            "context failed schema", details={"json_pointer": "/count", "instance_value": "x"}
+        )
+    )
+    assemble.configure_run(run)
+    mailer = _RecordingMailer()
+    use_case = _build_use_case(
+        uow_factory=uow_factory, clock=clock, mailer=mailer, assemble=assemble
+    )
+
+    await use_case.execute(run_id=run.run_id, admin_user_id=7)  # must not raise
+
+    assert mailer.sent == []
+    async with uow_factory() as uow:
+        events = list(await uow.audit_log.query(action=AuditAction.RESEND_REPORT))
+    assert len(events) == 1
+    assert events[0].outcome is AuditOutcome.FAILURE
+    assert events[0].details["failure_reason"] == "ContextSchemaViolationError"
+
+
 # -----------------------------------------------------------------------------
 # Recipient resolution at resend time (L3-DASH-012)
 # -----------------------------------------------------------------------------

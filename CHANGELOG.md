@@ -17,6 +17,14 @@ features; correctness, security, and requirements-document fixes.
 
 ### Fixed
 
+- **A stage context that fails its template's JSON-Schema no longer strands the run
+  in `SENDING`.** `ContextSchemaViolationError` is raised only in the renderer (schema
+  validation runs at assembly time, not at submit), and the assembly + resend paths
+  caught the three peer render errors but not this one — so a schema violation escaped
+  uncaught: the run sat in `SENDING` with no `FAILED` transition or audit until the
+  orphan sweeper reclaimed it, and a resend of such a run 500'd. It is now caught in
+  both paths and fails fast with `failure_reason=CONTEXT_SCHEMA_VIOLATION` (added to
+  the `L3-RUN-029` closed vocabulary; maps one-to-one to `ContextSchemaViolationError`).
 - **`iso_z` timestamp format is now fixed-width.** `datetime.isoformat()` omits
   the fractional-seconds field when microseconds are zero, which made `iso_z`
   variable-width; because timestamps are stored/compared as TEXT under SQLite's

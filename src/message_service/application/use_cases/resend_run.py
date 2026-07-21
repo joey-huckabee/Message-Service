@@ -51,6 +51,7 @@ from message_service.domain.aggregates.audit_event import (
     AuditOutcome,
 )
 from message_service.domain.errors import (
+    ContextSchemaViolationError,
     ContextSizeExceededError,
     EmailDeliveryError,
     InvalidRunStateError,
@@ -168,6 +169,7 @@ class ResendRunUseCase:
             TemplateRenderError,
             RenderedSizeExceededError,
             ContextSizeExceededError,
+            ContextSchemaViolationError,
         ) as exc:
             await self._record_render_failure(run_id=run_id, admin_user_id=admin_user_id, exc=exc)
             return
@@ -248,7 +250,10 @@ class ResendRunUseCase:
         *,
         run_id: RunId,
         admin_user_id: int,
-        exc: TemplateRenderError | RenderedSizeExceededError | ContextSizeExceededError,
+        exc: TemplateRenderError
+        | RenderedSizeExceededError
+        | ContextSizeExceededError
+        | ContextSchemaViolationError,
     ) -> None:
         """Record a RESEND_REPORT FAILURE audit for a re-render failure (L3-DASH-013).
 

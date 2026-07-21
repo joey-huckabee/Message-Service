@@ -119,6 +119,7 @@ from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.stage import Stage
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.errors import (
+    ContextSchemaViolationError,
     ContextSizeExceededError,
     EmailDeliveryError,
     EmailSizeExceededError,
@@ -310,6 +311,7 @@ class PreparedEmail:
 _REASON_TEMPLATE_RENDER = "TEMPLATE_RENDER"
 _REASON_RENDERED_SIZE_EXCEEDED = "RENDERED_SIZE_EXCEEDED"
 _REASON_CONTEXT_SIZE_EXCEEDED = "CONTEXT_SIZE_EXCEEDED"
+_REASON_CONTEXT_SCHEMA_VIOLATION = "CONTEXT_SCHEMA_VIOLATION"
 _REASON_EMAIL_DELIVERY = "EMAIL_DELIVERY"
 _REASON_EMAIL_SIZE_EXCEEDED = "EMAIL_SIZE_EXCEEDED"
 
@@ -519,6 +521,20 @@ class AssembleAndDeliverUseCase:
                 run_id=run_id,
                 reason=_FailureReason(
                     code=_REASON_CONTEXT_SIZE_EXCEEDED,
+                    details={"message": str(exc), **(exc.details or {})},
+                ),
+            )
+            return
+        except ContextSchemaViolationError as exc:
+            # A stage context that fails its template's JSON-Schema surfaces here
+            # (schema validation runs only in the renderer, only in this task).
+            # Without this branch it escaped uncaught, stranding the run in
+            # SENDING with no FAILED transition or audit until the sweeper
+            # reclaimed it. Fail fast like the peer render errors (L3-RUN-029).
+            await self._finalize_failed(
+                run_id=run_id,
+                reason=_FailureReason(
+                    code=_REASON_CONTEXT_SCHEMA_VIOLATION,
                     details={"message": str(exc), **(exc.details or {})},
                 ),
             )

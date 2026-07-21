@@ -50,7 +50,13 @@ from message_service.domain.aggregates.audit_event import (
     AuditEvent,
     AuditOutcome,
 )
-from message_service.domain.errors import EmailDeliveryError, InvalidRunStateError
+from message_service.domain.errors import (
+    ContextSizeExceededError,
+    EmailDeliveryError,
+    InvalidRunStateError,
+    RenderedSizeExceededError,
+    TemplateRenderError,
+)
 from message_service.domain.state_machines.run_states import RunState
 
 if TYPE_CHECKING:
@@ -124,13 +130,16 @@ class ResendRunUseCase:
 
         Notes:
         -----
-        On a transient mailer failure (``EmailDeliveryError``) the
-        use case records a ``FAILURE`` audit and returns silently;
-        the route layer surfaces the failure as a generic 200 with a
-        flagged ``outcome`` field once the route reads the audit.
-        We do NOT raise on delivery failure -- the caller already
-        committed to a resend by clicking the button, and the audit
-        log carries the truth.
+        On an expected failure — a re-render error
+        (``TemplateRenderError`` / ``RenderedSizeExceededError`` /
+        ``ContextSizeExceededError``, e.g. a template removed or a
+        context grown past a limit since the original send) or a
+        transient mailer failure (``EmailDeliveryError``) — the use case
+        records a ``FAILURE`` audit and returns silently; the route layer
+        surfaces the failure via the audit's ``outcome`` field. We do NOT
+        raise on these: the caller already committed to a resend by
+        clicking the button, and the audit log carries the truth. Only
+        precondition failures (unknown run, non-resendable state) raise.
         """
         # 1. Load + check state precondition.
         async with self._uow_factory() as uow:
@@ -148,8 +157,20 @@ class ResendRunUseCase:
         # 2. Re-render via the shared assemble-and-deliver render
         # path (L3-DASH-027). prepare_email re-reads stages and
         # contexts each call so a resend is byte-identical to a
-        # fresh render against the same persisted state.
-        prepared = await self._assemble.prepare_email(run_id)
+        # fresh render against the same persisted state. A re-render
+        # failure is an expected outcome (the templates/contexts may have
+        # changed since the original send): record a FAILURE audit and
+        # return, mirroring the delivery-failure convention below — never
+        # leak a render exception out to the route as an unhandled 500.
+        try:
+            prepared = await self._assemble.prepare_email(run_id)
+        except (
+            TemplateRenderError,
+            RenderedSizeExceededError,
+            ContextSizeExceededError,
+        ) as exc:
+            await self._record_render_failure(run_id=run_id, admin_user_id=admin_user_id, exc=exc)
+            return
 
         # 3. Re-resolve current recipients (L2-DASH-008 / L3-DASH-012).
         async with self._uow_factory() as uow:
@@ -221,6 +242,45 @@ class ResendRunUseCase:
             outcome=outcome.value,
             admin_user_id=admin_user_id,
         )
+
+    async def _record_render_failure(
+        self,
+        *,
+        run_id: RunId,
+        admin_user_id: int,
+        exc: TemplateRenderError | RenderedSizeExceededError | ContextSizeExceededError,
+    ) -> None:
+        """Record a RESEND_REPORT FAILURE audit for a re-render failure (L3-DASH-013).
+
+        The resend never reached recipient resolution or delivery, so
+        ``recipient_count`` and ``attachment_count`` are ``0``; the
+        ``failure_reason`` classifies the render error by exception type.
+        """
+        now = self._clock.now()
+        failure_reason = type(exc).__name__
+        _log.warning(
+            "resend_render_failed",
+            run_id=run_id,
+            failure_reason=failure_reason,
+            error=str(exc),
+        )
+        async with self._uow_factory() as uow:
+            await uow.audit_log.record(
+                AuditEvent(
+                    timestamp=now,
+                    action=AuditAction.RESEND_REPORT,
+                    actor=f"user:{admin_user_id}",
+                    resource=f"run:{run_id}",
+                    outcome=AuditOutcome.FAILURE,
+                    details={
+                        "run_id": run_id,
+                        "recipient_count": 0,
+                        "attachment_count": 0,
+                        "failure_reason": failure_reason,
+                        "error": str(exc),
+                    },
+                ),
+            )
 
 
 __all__ = ["ResendRunUseCase"]

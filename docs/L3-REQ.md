@@ -812,7 +812,7 @@ The `require_admin` FastAPI dependency SHALL verify `is_admin` on every request;
 Resend SHALL call the same `RecipientResolver` used originally; a test verifies a new subscription added between send and resend receives the resent email.
 
 **L3-DASH-013** · Parent: L2-DASH-008 · Verification: T
-A successful manual resend SHALL emit a new audit record (not overwriting the original) with `action=AuditAction.RESEND_REPORT`, `actor=user:<admin_id>`, `resource=run:<run_id>`, `outcome=SUCCESS` (or `FAILURE` on delivery failure), and `details` containing at minimum `run_id`, `recipient_count`, and `recipient_addresses`.
+A successful manual resend SHALL emit a new audit record (not overwriting the original) with `action=AuditAction.RESEND_REPORT`, `actor=user:<admin_id>`, `resource=run:<run_id>`, `outcome=SUCCESS` (or `FAILURE` on delivery failure), and `details` containing at minimum `run_id`, `recipient_count`, and `recipient_addresses`. A re-render failure (`TemplateRenderError`, `RenderedSizeExceededError`, or `ContextSizeExceededError` — a template or context that no longer renders since the original send) is likewise an expected outcome: it SHALL be caught, recorded as a `FAILURE` `RESEND_REPORT` audit row (`recipient_count=0`, `attachment_count=0`, `failure_reason=<exception class name>`), and SHALL NOT propagate out of the use case as an unhandled exception (which the resend route would surface as a 500). Only precondition failures — unknown run (`RunNotFoundError`) and non-resendable state (`InvalidRunStateError`) — raise.
 
 **L3-DASH-014** · Parent: L2-DASH-009 · Verification: T
 Template inspection routes accept only GET; POST/PATCH/DELETE against `/templates/*` return HTTP 405.

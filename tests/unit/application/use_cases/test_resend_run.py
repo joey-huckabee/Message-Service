@@ -37,7 +37,11 @@ from message_service.domain.aggregates.run import AttachmentMode, Run
 from message_service.domain.aggregates.subscription import SubscriptionGranularity
 from message_service.domain.aggregates.template_ref import TemplateRef
 from message_service.domain.aggregates.user import User
-from message_service.domain.errors import EmailDeliveryError, InvalidRunStateError
+from message_service.domain.errors import (
+    EmailDeliveryError,
+    InvalidRunStateError,
+    TemplateRenderError,
+)
 from message_service.domain.ids import RunId, StageId, UserId
 from message_service.domain.state_machines.run_states import RunState
 from message_service.infrastructure.persistence.audit_log import SqliteAuditLog
@@ -100,12 +104,17 @@ class _StubAssemble:
     """
 
     def __init__(
-        self, *, body_html: str = "<p>x</p>", subject_templates: dict[str, str] | None = None
+        self,
+        *,
+        body_html: str = "<p>x</p>",
+        subject_templates: dict[str, str] | None = None,
+        raise_on_prepare: BaseException | None = None,
     ) -> None:
         self._body_html = body_html
         self.prepare_calls: list[RunId] = []
         self._subject_templates = dict(subject_templates or {})
         self.build_subject_calls: list[Run] = []
+        self._raise_on_prepare = raise_on_prepare
 
     def build_subject(self, run: Run) -> str:
         self.build_subject_calls.append(run)
@@ -115,6 +124,8 @@ class _StubAssemble:
 
     async def prepare_email(self, run_id: RunId) -> PreparedEmail:
         self.prepare_calls.append(run_id)
+        if self._raise_on_prepare is not None:
+            raise self._raise_on_prepare
         # Need a Run to populate PreparedEmail; load via the test's
         # uow_factory via a closure -- but the tests construct a
         # PreparedEmail with an explicit run. Simpler: the test fixture
@@ -340,6 +351,47 @@ async def test_resend_emits_audit_with_required_fields(
     assert audit.details["run_id"] == run.run_id
     assert audit.details["recipient_count"] == 1
     assert audit.details["recipient_addresses"] == ["alice@example.com"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-013")
+async def test_resend_render_failure_records_failure_audit_and_does_not_raise(
+    uow_factory: SqliteUnitOfWorkFactory, clock: _FixedClock
+) -> None:
+    """A re-render failure SHALL be caught, audited FAILURE, and not propagate.
+
+    Regression: prepare_email's render errors escaped uncaught — no
+    RESEND_REPORT row, and the resend route (which handles only
+    RunNotFoundError/InvalidRunStateError) surfaced a 500.
+    """
+    run = _make_run(run_id="00000000-0000-4000-8000-000000000cc1", state=RunState.SENT)
+    await _seed_run(uow_factory, run)
+    await _seed_user_and_subscription(uow_factory)
+
+    assemble = _StubAssemble(
+        raise_on_prepare=TemplateRenderError("template gone", details={"template": "agg"})
+    )
+    assemble.configure_run(run)
+    mailer = _RecordingMailer()
+    use_case = _build_use_case(
+        uow_factory=uow_factory, clock=clock, mailer=mailer, assemble=assemble
+    )
+
+    # Must not raise.
+    await use_case.execute(run_id=run.run_id, admin_user_id=7)
+
+    # Nothing was delivered.
+    assert mailer.sent == []
+
+    async with uow_factory() as uow:
+        events = list(await uow.audit_log.query(action=AuditAction.RESEND_REPORT))
+    assert len(events) == 1
+    audit = events[0]
+    assert audit.outcome is AuditOutcome.FAILURE
+    assert audit.actor == "user:7"
+    assert audit.details["failure_reason"] == "TemplateRenderError"
+    assert audit.details["recipient_count"] == 0
+    assert audit.details["attachment_count"] == 0
 
 
 # -----------------------------------------------------------------------------

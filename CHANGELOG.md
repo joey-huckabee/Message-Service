@@ -117,6 +117,16 @@ features; correctness, security, and requirements-document fixes.
   values, non-finite values (`inf`/`nan`), and `bool` untouched. (Values above
   `2**53` already lost integer precision at the `Struct` boundary — unrecoverable
   here.) `L3-AGGR-002` amended.
+- **A manual resend whose re-render fails now records a `FAILURE` audit instead of
+  a 500.** `ResendRun` called `prepare_email` without catching its render errors
+  (`TemplateRenderError` / `RenderedSizeExceededError` / `ContextSizeExceededError`,
+  which can arise if a template was removed or a context grew past a limit since the
+  original send). The exception escaped uncaught — no `RESEND_REPORT` audit row, and
+  the resend route (which handles only `RunNotFoundError` / `InvalidRunStateError`)
+  surfaced it as an unhandled 500. Render failures are now caught and recorded as a
+  `FAILURE` `RESEND_REPORT` audit (`recipient_count=0`, `attachment_count=0`,
+  `failure_reason=<exception class>`), matching the existing delivery-failure
+  convention; only precondition failures still raise. `L3-DASH-013` amended.
 
 ## [0.16.0] — 2026-07-19
 

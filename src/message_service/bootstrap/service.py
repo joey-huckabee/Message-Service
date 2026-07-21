@@ -437,12 +437,19 @@ async def build_service(config: Config) -> Service:
     # lifecycle transfers to the UoW factory (closed by shutdown_service via
     # uow_factory.close()). The assembly is delegated to _assemble_service so
     # the guard can wrap the whole construction without deeply nesting it.
+    # A ``try/finally`` with a success flag closes the connection on ANY failure
+    # (including BaseException — a cancelled or interrupted startup) without an
+    # ``except BaseException`` clause, which the L3-ERR-021 chokepoint discipline
+    # reserves for the gRPC translator.
     conn: aiosqlite.Connection = await open_connection(config.persistence.sqlite_path)
+    assembled = False
     try:
-        return await _assemble_service(config, conn)
-    except BaseException:
-        await conn.close()
-        raise
+        service = await _assemble_service(config, conn)
+        assembled = True
+        return service
+    finally:
+        if not assembled:
+            await conn.close()
 
 
 async def _assemble_service(config: Config, conn: aiosqlite.Connection) -> Service:

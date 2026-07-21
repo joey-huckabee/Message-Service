@@ -1274,6 +1274,9 @@ Cross-platform line-ending tests SHALL verify that templates and configs load id
 **L3-DEP-018** · Parent: L2-DEP-003 · Verification: A
 A static check SHALL assert that no `domain/` or `application/` module imports from `multiprocessing`, `subprocess`, `os.fork`, or POSIX-only signal modules.
 
+**L3-DEP-019** · Parent: L2-DEP-006 · Verification: T
+The REST (uvicorn) serve task SHALL carry a done-callback so an unexpected termination cannot go unnoticed. `_run` blocks on the shutdown `asyncio.Event`; without a callback, a serve task that dies before shutdown is requested would leave its exception unretrieved and `_run` blocked forever — the dashboard dead while the process appears healthy. The callback SHALL ignore cancellation and the normal shutdown-time completion (when the shutdown event is already set), but on any other exit (exception or unexpected return) SHALL log at ERROR and set the shutdown event so the whole service tears down (a supervisor can then restart it) rather than running half-dead. The shutdown-time `gather` of the two listeners SHALL use `return_exceptions=True` so an already-dead listener cannot abort teardown before the scheduler is drained and the database closed. A test SHALL make the serve task die before shutdown and assert `_run` returns (does not hang) with the shutdown event set.
+
 ---
 
 ## L3-ERR: Error handling and exception taxonomy

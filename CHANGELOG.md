@@ -164,6 +164,15 @@ features; correctness, security, and requirements-document fixes.
   timestamp into the value, so a timestamped sample made `float()` raise and 500'd
   `/admin/metrics` — the timestamp is now parsed as a separate, ignored token.
   Under `L3-DASH-036`.
+- **A dead dashboard no longer goes unnoticed.** The uvicorn serve task had no
+  done-callback, so if it died before shutdown was requested its exception went
+  unretrieved and `_run` blocked on the shutdown event forever — the dashboard down
+  while the process looked healthy. The task now carries a callback that (ignoring
+  cancellation and the normal shutdown-time completion) logs at ERROR and sets the
+  shutdown event on any unexpected exit, tearing the whole service down for a
+  supervisor to restart. The shutdown-time `gather` also switched to
+  `return_exceptions=True` so an already-dead listener can't abort teardown before
+  the scheduler drains and the DB closes (new `L3-DEP-019`).
 
 ## [0.16.0] — 2026-07-19
 

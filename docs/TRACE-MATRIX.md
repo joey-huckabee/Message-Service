@@ -450,7 +450,7 @@ the single source of truth.
 | L2-DEP-003 | L3-DEP-005, L3-DEP-018 | `tests/conformance/test_architecture_boundaries.py::test_domain_and_application_do_not_import_platform_modules` | Implemented |
 | L2-DEP-004 | L3-DEP-006, L3-DEP-007 | `tests/conformance/test_deploy_artifacts.py::test_systemd_unit_environmentfile_passthrough`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_includes_runtime_directive`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_includes_sandboxing_directive`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_readwritepaths_not_empty` | Implemented |
 | L2-DEP-005 | L3-DEP-008, L3-DEP-009 | `tests/conformance/test_deploy_artifacts.py::test_nssm_readme_documents_required_command`<br>`tests/conformance/test_deploy_artifacts.py::test_windows_install_demo_has_required_sections` | Implemented |
-| L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012 | `tests/integration/grpc/test_servicer.py::test_long_running_sweeper_loop_observes_shutdown_via_stop_event`<br>`tests/integration/grpc/test_servicer.py::test_new_rpcs_after_server_stop_initiated_are_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_falls_back_when_add_signal_handler_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_registers_sigterm_and_sigint`<br>`tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg`<br>`tests/unit/test_main.py::test_run_propagates_shutdown_grace_period_to_grpc_stop`<br>`tests/unit/test_main.py::test_run_starts_server_and_shuts_down_on_event` | Implemented |
+| L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012, L3-DEP-019 | `tests/integration/grpc/test_servicer.py::test_long_running_sweeper_loop_observes_shutdown_via_stop_event`<br>`tests/integration/grpc/test_servicer.py::test_new_rpcs_after_server_stop_initiated_are_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_falls_back_when_add_signal_handler_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_registers_sigterm_and_sigint`<br>`tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg`<br>`tests/unit/test_main.py::test_run_propagates_shutdown_grace_period_to_grpc_stop`<br>`tests/unit/test_main.py::test_run_shuts_down_when_rest_task_dies_unexpectedly`<br>`tests/unit/test_main.py::test_run_starts_server_and_shuts_down_on_event` | Implemented |
 | L2-DEP-007 | L3-DEP-013 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_python_version_constraint` | Implemented |
 | L2-DEP-008 | L3-DEP-014 | `tests/conformance/test_deploy_artifacts.py::test_poetry_lock_is_committed` | Implemented |
 | L2-DEP-009 | L3-DEP-015, L3-DEP-016 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_console_script_entry`<br>`tests/integration/test_cli_smoke.py::test_message_service_cli_help_exits_zero_with_config_in_output` | Implemented |
@@ -510,11 +510,11 @@ the single source of truth.
 | OBS | 4 | 19 | 43 | 3 | 43 |
 | ERR | 4 | 10 | 23 | 0 | 23 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
-| DEP | 3 | 9 | 18 | 1 | 18 |
+| DEP | 3 | 9 | 19 | 1 | 19 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **430** | **66** | **430** |
+| **Total** | **73** | **206** | **431** | **66** | **431** |
 
-**Requirements verified by at least one test**: 496 of 636 (78.0%).
+**Requirements verified by at least one test**: 497 of 637 (78.0%).
 
 ### Orphan check
 

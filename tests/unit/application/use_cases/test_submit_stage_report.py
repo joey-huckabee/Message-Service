@@ -410,12 +410,13 @@ async def test_unknown_stage_raises_after_run_lookup(
 
 
 # -----------------------------------------------------------------------------
-# Run terminal state rejection
+# Run non-collecting state rejection (L3-STAGE-019)
 # -----------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-RUN-006")
+@pytest.mark.requirement("L3-STAGE-019")
 @pytest.mark.parametrize(
     "terminal_state",
     [RunState.SENT, RunState.FAILED, RunState.ORPHANED],
@@ -433,6 +434,33 @@ async def test_submission_to_terminal_run_raises(
 
     assert exc_info.value.details["run_state"] == terminal_state.value
     # Stage is never queried, nothing persisted.
+    stage_repo.get.assert_not_called()
+    stage_repo.save.assert_not_called()
+    audit_log.record.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-STAGE-019")
+@pytest.mark.parametrize("finalizing_state", [RunState.READY, RunState.SENDING])
+async def test_submission_to_post_finalization_run_raises(
+    use_case: SubmitStageReportUseCase,
+    uow_bundle: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock],
+    finalizing_state: RunState,
+) -> None:
+    """READY/SENDING are non-terminal but reject: finalization has begun.
+
+    Regression: the guard once tested "not terminal", so a submission
+    landing after FinalizeRun (READY) or during delivery (SENDING) was
+    accepted — silently lost or injecting content post-finalize.
+    """
+    _, _, run_repo, stage_repo, audit_log = uow_bundle
+    run_repo.get.return_value = _sample_run(state=finalizing_state)
+
+    with pytest.raises(InvalidRunStateError) as exc_info:
+        await use_case.execute(_valid_cmd())
+
+    assert exc_info.value.details["run_state"] == finalizing_state.value
+    assert exc_info.value.details["accepting_states"] == ["INITIATED", "AGGREGATING"]
     stage_repo.get.assert_not_called()
     stage_repo.save.assert_not_called()
     audit_log.record.assert_not_called()

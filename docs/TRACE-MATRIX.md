@@ -104,7 +104,7 @@ the single source of truth.
 | L2-STAGE-006 | L3-STAGE-010, L3-STAGE-011 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_both_contexts_omitted_stored_as_null`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_empty_report_context_stored_as_empty_json_object`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_first_submission_transitions_pending_to_submitted` | Implemented |
 | L2-STAGE-007 | L3-STAGE-012, L3-STAGE-013 | `tests/unit/application/use_cases/test_sweeper.py::test_audit_records_pending_stage_ids_when_present` | Implemented |
 | L2-STAGE-008 | L3-STAGE-014, L3-STAGE-015 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_unknown_stage_raises_after_run_lookup` | Implemented |
-| L2-STAGE-009 | L3-STAGE-016 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_run_not_found_raises_before_stage_check` | Implemented |
+| L2-STAGE-009 | L3-STAGE-016, L3-STAGE-019 | `tests/unit/application/use_cases/test_submit_stage_report.py::test_run_not_found_raises_before_stage_check`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_submission_to_post_finalization_run_raises`<br>`tests/unit/application/use_cases/test_submit_stage_report.py::test_submission_to_terminal_run_raises` | Implemented |
 
 ### L1-TMPL: Template governance and sandboxing
 
@@ -498,7 +498,7 @@ the single source of truth.
 |----------|----|----|-----|----------------|----------------|
 | API | 5 | 12 | 20 | 3 | 20 |
 | RUN | 5 | 16 | 34 | 9 | 34 |
-| STAGE | 4 | 9 | 18 | 8 | 18 |
+| STAGE | 4 | 9 | 19 | 8 | 19 |
 | TMPL | 5 | 15 | 35 | 8 | 35 |
 | AGGR | 4 | 10 | 20 | 5 | 20 |
 | SWEEP | 3 | 11 | 24 | 6 | 24 |
@@ -512,9 +512,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **426** | **66** | **426** |
+| **Total** | **73** | **206** | **427** | **66** | **427** |
 
-**Requirements verified by at least one test**: 492 of 632 (77.8%).
+**Requirements verified by at least one test**: 493 of 633 (77.9%).
 
 ### Orphan check
 

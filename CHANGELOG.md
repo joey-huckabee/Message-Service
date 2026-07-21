@@ -92,6 +92,15 @@ features; correctness, security, and requirements-document fixes.
   making the very next existence check raise `UnknownTemplateError` for a template
   that exists. Version comparison still uses the parsed `Version`; only the
   returned key changed. `L3-TMPL-009` amended to mandate the original key.
+- **`SubmitStageReport` now rejects submissions to already-finalized runs.** The
+  run-state guard only rejected *terminal* runs (`SENT`/`FAILED`/`ORPHANED`), so a
+  submission arriving after `FinalizeRun` moved the run to `READY` — or while it
+  was `SENDING` — was accepted: the stage was persisted but never included in the
+  already-assembled report (acknowledged-but-lost), or worse, mutated stage state
+  after finalization. The guard is now an accept-set test: only `INITIATED` and
+  `AGGREGATING` accept submissions; every other state raises `InvalidRunStateError`
+  (`FAILED_PRECONDITION`) with `run_state` + `accepting_states` details and persists
+  nothing (new `L3-STAGE-019`).
 
 ## [0.16.0] — 2026-07-19
 

@@ -3,7 +3,8 @@
 A pipeline stage calls ``SubmitStageReport`` to submit (or retry) its
 contribution to a run's report. The use case:
 
-1. Loads the run and rejects if missing or terminal.
+1. Loads the run and rejects if missing, or past the collecting phase
+   (only INITIATED/AGGREGATING accept submissions — L3-STAGE-019).
 2. Validates the stage_id is declared for this run (L2-STAGE-008).
 3. Loads the current stage record to classify first-submission vs retry.
 4. Rejects submissions to stages already in a terminal state (ACCEPTED,
@@ -64,9 +65,6 @@ from message_service.domain.errors import (
 )
 from message_service.domain.ids import RunId, StageId, validate_run_id_str
 from message_service.domain.state_machines.run_states import (
-    TERMINAL_STATES as RUN_TERMINAL_STATES,
-)
-from message_service.domain.state_machines.run_states import (
     RunState,
 )
 from message_service.domain.state_machines.run_states import (
@@ -87,6 +85,14 @@ from message_service.domain.state_machines.stage_states import (
 _STAGE_SUBMISSION_SOURCES: frozenset[StageState] = frozenset(
     {StageState.PENDING, StageState.SUBMITTED, StageState.RETRIED}
 )
+
+# Run states that still accept stage submissions (L3-STAGE-019). Only the
+# pre-finalization "collecting" states: once FinalizeRun moves the run to
+# READY (and assembly to SENDING), the report snapshot is already being
+# assembled/delivered, so a late submission would be silently lost or would
+# inject content after finalize. READY/SENDING are non-terminal but must
+# still reject — hence an explicit accept-set rather than "not terminal".
+_RUN_SUBMISSION_SOURCES: frozenset[RunState] = frozenset({RunState.INITIATED, RunState.AGGREGATING})
 
 
 def _serialize_context(ctx: dict[str, Any] | None) -> str | None:
@@ -156,8 +162,9 @@ class SubmitStageReportUseCase:
             UnknownStageError: The ``stage_id`` is not declared in the
                 run's ``declared_stages``, or no matching stage record
                 exists (defense-in-depth).
-            InvalidRunStateError: The run is in a terminal state
-                (SENT, FAILED, ORPHANED) and cannot accept submissions.
+            InvalidRunStateError: The run has left the collecting phase —
+                either post-finalization (READY, SENDING) or terminal
+                (SENT, FAILED, ORPHANED) — and cannot accept submissions.
             InvalidStageStateError: The stage is in a terminal state
                 (ACCEPTED, TIMEOUT, FAILED) and cannot accept further
                 submissions.
@@ -179,15 +186,22 @@ class SubmitStageReportUseCase:
             run: Run = await uow.run_repo.get(run_id)
 
             # ---------------------------------------------------------
-            # 2. Reject submissions to terminal runs.
+            # 2. Reject submissions once the run has left the collecting
+            #    phase (L3-STAGE-019). Terminal runs (SENT/FAILED/
+            #    ORPHANED) and post-finalization runs (READY/SENDING)
+            #    both reject: only INITIATED/AGGREGATING accept.
             # ---------------------------------------------------------
-            if run.state in RUN_TERMINAL_STATES:
+            if run.state not in _RUN_SUBMISSION_SOURCES:
                 raise InvalidRunStateError(
-                    f"run {run_id} is in terminal state {run.state.value}; "
-                    f"submissions are no longer accepted",
+                    f"run {run_id} is in state {run.state.value}; stage submissions "
+                    f"are only accepted while the run is INITIATED or AGGREGATING",
                     details={
                         "run_id": run_id,
                         "run_state": run.state.value,
+                        "accepting_states": [
+                            RunState.INITIATED.value,
+                            RunState.AGGREGATING.value,
+                        ],
                     },
                 )
 

@@ -273,6 +273,9 @@ The sweeper SHALL drive orphan classification from the run's last-transition tim
 **L3-STAGE-018** · Parent: L2-STAGE-002 · Verification: A
 A static check SHALL confirm no production code path references `StageState.IN_PROGRESS` as a transition target; grep results limited to test fixtures and a reserved-for-future-use comment.
 
+**L3-STAGE-019** · Parent: L2-STAGE-009 · Verification: T
+`SubmitStageReport` SHALL accept a submission only while the run is in a collecting state — `INITIATED` or `AGGREGATING`. A submission against a run in any other state SHALL be rejected with `InvalidRunStateError` (gRPC `FAILED_PRECONDITION`) whose `details` carry `run_state` (the current state) and `accepting_states` (`["INITIATED", "AGGREGATING"]`), with nothing persisted. This covers both the terminal states (`SENT`, `FAILED`, `ORPHANED`) and — critically — the post-finalization states `READY` and `SENDING`: once `FinalizeRun` has moved the run out of `AGGREGATING`, the report snapshot is already being assembled and delivered, so a late submission would either be silently lost (acknowledged but never included) or inject content after finalization. The rejection is therefore an accept-set test (`state ∈ {INITIATED, AGGREGATING}`), not a "not terminal" test.
+
 ---
 
 ## L3-TMPL: Template governance and sandboxing

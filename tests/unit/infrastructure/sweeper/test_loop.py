@@ -300,7 +300,10 @@ async def test_orphans_detected_tick_increments_correct_label(
     loop.stop()
 
     after = _counter_value("orphans_detected")
-    assert after > before
+    # L3-SWEEP-005: the counter increments EXACTLY ONCE per tick even though this
+    # tick found 3 orphans — a once-per-orphan regression (after == before + 3)
+    # would pass a bare `after > before`.
+    assert after == before + 1
 
 
 @pytest.mark.asyncio

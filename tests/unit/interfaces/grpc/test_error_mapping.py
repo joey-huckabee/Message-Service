@@ -279,10 +279,19 @@ async def test_translate_known_does_not_leak_internal_class_name() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-016")
-async def test_translate_known_redacts_sensitive_keys_in_log_record(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """L3-ERR-016: sensitive keys in details SHALL be redacted before logging."""
+async def test_translate_known_redacts_sensitive_keys_in_log_record() -> None:
+    """L3-ERR-016: sensitive keys in details SHALL be redacted before logging.
+
+    Patch the module logger directly (structlog's cached logger makes
+    ``caplog``/``capture_logs`` unreliable here) and assert the ``details`` dict
+    actually passed to the boundary log has sensitive values replaced — the prior
+    version explicitly refused to assert redaction happened, so it passed even if
+    nothing was redacted (or logged at all).
+    """
+    from unittest.mock import patch
+
+    import message_service.interfaces.grpc.error_mapping as error_mapping
+
     ctx = _FakeServicerContext()
     exc = ConfigurationError(
         "bad",
@@ -293,27 +302,19 @@ async def test_translate_known_redacts_sensitive_keys_in_log_record(
             "session_token": "abc123",
         },
     )
-    caplog.set_level(logging.NOTSET)
-    with pytest.raises(_AbortRaisedError):
+    with patch.object(error_mapping, "logger") as mock_logger, pytest.raises(_AbortRaisedError):
         await _translate_known(ctx, exc)
-    # The structured log record's ``details`` dict SHALL have
-    # sensitive keys replaced with ``<redacted>``. Inspect the
-    # captured records' attributes; structlog records carry the
-    # event_dict via the LogRecord.
-    redacted_seen = False
-    for record in caplog.records:
-        # The LogRecord carries the structured event as
-        # `record.msg` (a dict-ish) when structlog routes to stdlib.
-        # We inspect the rendered string for the markers.
-        rendered = str(record.msg) + str(getattr(record, "args", ""))
-        if "should-not-leak" in rendered or "abc123" in rendered:
-            pytest.fail(f"sensitive value leaked through translator log: {rendered!r}")
-        if "<redacted>" in rendered:
-            redacted_seen = True
-    # We don't assert redacted_seen because structlog may swallow the
-    # log to stdout JSON before pytest captures; the critical
-    # invariant is that no sensitive value leaks.
-    del redacted_seen  # silence unused-warning
+
+    mock_logger.log.assert_called_once()
+    logged_details = mock_logger.log.call_args.kwargs["details"]
+    # Sensitive keys (case-insensitive) are replaced; the non-sensitive one survives.
+    assert logged_details["password"] == "<redacted>"
+    assert logged_details["PASSWORD"] == "<redacted>"
+    assert logged_details["session_token"] == "<redacted>"
+    assert logged_details["tag"] == "production"
+    # And no sensitive value survives anywhere in the logged payload.
+    assert "should-not-leak" not in str(logged_details)
+    assert "abc123" not in str(logged_details)
 
 
 @pytest.mark.asyncio

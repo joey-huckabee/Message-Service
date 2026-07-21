@@ -117,18 +117,30 @@ def test_every_non_terminal_state_can_transition_to_orphaned(src: RunState) -> N
 
 @pytest.mark.requirement("L3-RUN-007")
 def test_all_state_pairs_respect_transition_table() -> None:
-    """Enumerate every (src, dst) pair and assert can_transition matches the table.
+    """Enumerate every (src, dst) pair against an INDEPENDENT expected map.
 
-    This is the non-hypothesis version of L3-RUN-007; a hypothesis-based
-    version can replace this later if generation coverage is desired.
+    The oracle is hand-written from L2-RUN-004 (not derived from ``TRANSITIONS``),
+    so a corrupted table — e.g. an illegal ``INITIATED -> SENT`` edge or a missing
+    ``READY -> SENDING`` — is actually detected. (Comparing ``can_transition`` to
+    ``dst in TRANSITIONS[src]`` would be tautological: ``can_transition`` IS that.)
     """
+    expected: dict[RunState, set[RunState]] = {
+        RunState.INITIATED: {RunState.AGGREGATING, RunState.FAILED, RunState.ORPHANED},
+        RunState.AGGREGATING: {RunState.READY, RunState.FAILED, RunState.ORPHANED},
+        RunState.READY: {RunState.SENDING, RunState.FAILED, RunState.ORPHANED},
+        RunState.SENDING: {RunState.SENT, RunState.FAILED, RunState.ORPHANED},
+        RunState.SENT: set(),
+        RunState.FAILED: set(),
+        RunState.ORPHANED: set(),
+    }
+    # Guard: the oracle must cover every state, so a newly-added state can't slip
+    # through unverified.
+    assert set(expected) == set(RunState)
     for src in RunState:
-        permitted = TRANSITIONS.get(src, frozenset())
         for dst in RunState:
-            if dst in permitted:
-                assert can_transition(src, dst), f"{src} -> {dst} should be permitted"
-            else:
-                assert not can_transition(src, dst), f"{src} -> {dst} should be forbidden"
+            want = dst in expected[src]
+            got = can_transition(src, dst)
+            assert got is want, f"{src} -> {dst}: expected permitted={want}, got {got}"
 
 
 # -----------------------------------------------------------------------------

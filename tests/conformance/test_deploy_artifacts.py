@@ -276,6 +276,84 @@ def test_windows_install_demo_has_required_sections(
 
 
 # -----------------------------------------------------------------------------
+# Linux install demonstration artifact (L3-DEP-020)
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def linux_install_demo_text() -> str:
+    """Contents of the Linux install demonstration procedure document."""
+    path = _REPO_ROOT / "docs" / "procedures" / "linux-install-demonstration.md"
+    assert path.is_file(), f"L3-DEP-020 demonstration artifact missing at {path}"
+    return path.read_text(encoding="utf-8")
+
+
+@pytest.mark.requirement("L3-DEP-020")
+@pytest.mark.parametrize(
+    "section_marker",
+    [
+        "### Step 1 — Unpack distribution",
+        "### Step 2 — Install dependencies",
+        "### Step 3 — Provision configuration",
+        "### Step 4 — Create service account",
+        "### Step 5 — Register the service",
+        "### Step 6 — Start the service",
+        "### Step 7 — Verify graceful shutdown",
+        "### Step 8 — Verify restart cleans up",
+        "## Operator attestation",
+    ],
+)
+def test_linux_install_demo_has_required_sections(
+    linux_install_demo_text: str, section_marker: str
+) -> None:
+    """L3-DEP-020: the demonstration SHALL walk through unpack → running → shutdown."""
+    assert section_marker in linux_install_demo_text, (
+        f"L3-DEP-020 demonstration artifact missing required section: {section_marker!r}"
+    )
+
+
+# -----------------------------------------------------------------------------
+# Dashboard visual demonstration artifact (L3-DASH-047)
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def dashboard_demo_text() -> str:
+    """Contents of the dashboard demonstration procedure document."""
+    path = _REPO_ROOT / "docs" / "procedures" / "dashboard-demonstration.md"
+    assert path.is_file(), f"L3-DASH-047 demonstration artifact missing at {path}"
+    return path.read_text(encoding="utf-8")
+
+
+@pytest.mark.requirement("L3-DASH-047")
+@pytest.mark.parametrize(
+    "section_marker",
+    [
+        "### Step 1 — Start the service",
+        "### Step 2 — Login page",
+        "### Step 3 — Administrator console",
+        "### Step 4 — Subscriptions console",
+        "### Step 5 — Past-runs view + report viewer + resend",
+        "### Step 6 — Run-status board",
+        "### Step 7 — Metrics dashboard",
+        "## Operator attestation",
+    ],
+)
+def test_dashboard_demo_has_required_sections(
+    dashboard_demo_text: str, section_marker: str
+) -> None:
+    """L3-DASH-047: the demonstration SHALL walk each rendered dashboard page.
+
+    Asserts each per-page checkpoint heading + the attestation block is present
+    so an operator following the document produces a signed visual-verification
+    artifact.
+    """
+    assert section_marker in dashboard_demo_text, (
+        f"L3-DASH-047 demonstration artifact missing required section: {section_marker!r}"
+    )
+
+
+# -----------------------------------------------------------------------------
 # CI workflow matrix (L3-DEP-001)
 # -----------------------------------------------------------------------------
 

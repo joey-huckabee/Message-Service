@@ -299,7 +299,7 @@ the single source of truth.
 | L2-DASH-003 | L3-DASH-005, L3-DASH-006, L3-DASH-020 | `tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_no_fonts_shipped_in_v1`<br>`tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_no_html_templates_with_external_http_refs_in_v1`<br>`tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_no_static_assets_directory_in_v1` | Implemented |
 | L2-DASH-004 | L3-DASH-007, L3-DASH-008 | `tests/integration/rest/test_subscriptions.py::test_delete_on_other_users_subscription_returns_403`<br>`tests/integration/rest/test_subscriptions.py::test_delete_removes_owned_subscription_and_audits`<br>`tests/integration/rest/test_subscriptions.py::test_list_subscriptions_returns_only_session_user_rows`<br>`tests/integration/rest/test_subscriptions.py::test_post_creates_subscription_and_audits` | Implemented |
 | L2-DASH-005 | L3-DASH-009 | `tests/integration/rest/test_subscriptions.py::test_post_rejects_extra_user_id_field`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_global_with_null_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_accepts_pipeline_with_target`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_unknown_granularity`<br>`tests/unit/interfaces/rest/test_subscriptions_unit.py::test_create_request_rejects_user_id_in_body` | Implemented |
-| L2-DASH-006 | L3-DASH-010 | `tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_subscription_creation_is_rest_only_no_html_form_in_v1` | Implemented |
+| L2-DASH-006 | L3-DASH-010, L3-DASH-047 | `tests/conformance/test_deploy_artifacts.py::test_dashboard_demo_has_required_sections`<br>`tests/unit/interfaces/rest/test_html_frontend_absent_in_v1.py::test_subscription_creation_is_rest_only_no_html_form_in_v1` | Implemented |
 | L2-DASH-007 | L3-DASH-011, L3-DASH-021 | `tests/integration/rest/test_templates.py::test_admin_gate_rechecks_is_admin_per_request`<br>`tests/integration/rest/test_templates.py::test_get_templates_non_admin_returns_403` | Implemented |
 | L2-DASH-008 | L3-DASH-012, L3-DASH-013, L3-DASH-027, L3-DASH-028 | `tests/e2e/resend/test_admin_triggered_resend.py::test_admin_resend_emits_second_email_and_audit`<br>`tests/integration/rest/test_runs.py::test_resend_returns_409_for_non_resendable_state`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_emits_audit_with_required_fields`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_permitted_for_sent_or_failed`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_rejects_non_resendable_states`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_render_failure_records_failure_audit_and_does_not_raise`<br>`tests/unit/application/use_cases/test_resend_run.py::test_resend_uses_current_subscriber_set_not_original` | Implemented |
 | L2-DASH-009 | L3-DASH-014, L3-DASH-015, L3-DASH-031, L3-DASH-032 | `tests/integration/rest/test_templates.py::test_delete_template_detail_returns_405`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_returns_single_object`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_unknown_returns_404`<br>`tests/integration/rest/test_templates.py::test_get_template_detail_unknown_version_returns_404`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_includes_parsed_schema_when_present`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_ordered_by_name_version_ascending`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_returns_all_with_full_projection`<br>`tests/integration/rest/test_templates.py::test_get_templates_list_returns_null_schema_when_absent`<br>`tests/integration/rest/test_templates.py::test_patch_template_detail_returns_405`<br>`tests/integration/rest/test_templates.py::test_post_templates_returns_405` | Implemented |
@@ -449,7 +449,7 @@ the single source of truth.
 | L2-DEP-002 | L3-DEP-003, L3-DEP-004 | `tests/conformance/test_pathlib_enforcement.py::test_no_literal_path_separators_in_str_constants`<br>`tests/conformance/test_pathlib_enforcement.py::test_ruff_pth_not_globally_ignored`<br>`tests/conformance/test_pathlib_enforcement.py::test_ruff_pth_ruleset_enabled` | Implemented |
 | L2-DEP-003 | L3-DEP-005, L3-DEP-018 | `tests/conformance/test_architecture_boundaries.py::test_domain_and_application_do_not_import_platform_modules` | Implemented |
 | L2-DEP-004 | L3-DEP-006, L3-DEP-007 | `tests/conformance/test_deploy_artifacts.py::test_systemd_unit_environmentfile_passthrough`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_includes_runtime_directive`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_includes_sandboxing_directive`<br>`tests/conformance/test_deploy_artifacts.py::test_systemd_unit_readwritepaths_not_empty` | Implemented |
-| L2-DEP-005 | L3-DEP-008, L3-DEP-009 | `tests/conformance/test_deploy_artifacts.py::test_nssm_readme_documents_required_command`<br>`tests/conformance/test_deploy_artifacts.py::test_windows_install_demo_has_required_sections` | Implemented |
+| L2-DEP-005 | L3-DEP-008, L3-DEP-009, L3-DEP-020 | `tests/conformance/test_deploy_artifacts.py::test_linux_install_demo_has_required_sections`<br>`tests/conformance/test_deploy_artifacts.py::test_nssm_readme_documents_required_command`<br>`tests/conformance/test_deploy_artifacts.py::test_windows_install_demo_has_required_sections` | Implemented |
 | L2-DEP-006 | L3-DEP-010, L3-DEP-011, L3-DEP-012, L3-DEP-019 | `tests/integration/grpc/test_servicer.py::test_long_running_sweeper_loop_observes_shutdown_via_stop_event`<br>`tests/integration/grpc/test_servicer.py::test_new_rpcs_after_server_stop_initiated_are_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_falls_back_when_add_signal_handler_unavailable`<br>`tests/unit/test_main.py::test_install_signal_handlers_registers_sigterm_and_sigint`<br>`tests/unit/test_main.py::test_resolve_config_path_uses_cli_arg`<br>`tests/unit/test_main.py::test_run_propagates_shutdown_grace_period_to_grpc_stop`<br>`tests/unit/test_main.py::test_run_shuts_down_when_rest_task_dies_unexpectedly`<br>`tests/unit/test_main.py::test_run_starts_server_and_shuts_down_on_event` | Implemented |
 | L2-DEP-007 | L3-DEP-013 | `tests/conformance/test_deploy_artifacts.py::test_pyproject_python_version_constraint` | Implemented |
 | L2-DEP-008 | L3-DEP-014 | `tests/conformance/test_deploy_artifacts.py::test_poetry_lock_is_committed` | Implemented |
@@ -505,16 +505,16 @@ the single source of truth.
 | SUB | 4 | 10 | 20 | 2 | 20 |
 | AUTH | 4 | 11 | 22 | 5 | 22 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
-| DASH | 9 | 23 | 46 | 1 | 46 |
+| DASH | 9 | 23 | 47 | 1 | 47 |
 | PERS | 4 | 13 | 37 | 4 | 37 |
 | OBS | 4 | 19 | 44 | 3 | 44 |
 | ERR | 4 | 10 | 24 | 0 | 24 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
-| DEP | 3 | 9 | 19 | 1 | 19 |
+| DEP | 3 | 9 | 20 | 1 | 20 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **433** | **66** | **433** |
+| **Total** | **73** | **206** | **435** | **66** | **435** |
 
-**Requirements verified by at least one test**: 499 of 639 (78.1%).
+**Requirements verified by at least one test**: 501 of 641 (78.2%).
 
 ### Orphan check
 

@@ -240,8 +240,24 @@ features; correctness, security, and requirements-document fixes.
   carries its `audit_id` so a consumer can deduplicate the append-only journal
   (`L3-OBS-043`).
 
+- **The systemd unit set the wrong config env-var name.**
+  `deploy/linux/message-service.service` set `Environment="MSG_SERVICE_CONFIG=…"`,
+  but the CLI reads `MESSAGE_SERVICE_CONFIG`. Because `ExecStart` passes `--config`
+  explicitly it was dead rather than fatal, but an operator relying on the env-var
+  fallback would have been misled. Corrected to `MESSAGE_SERVICE_CONFIG`.
+
 ### Documentation
 
+- **Backed the previously-unbacked Demonstration verification methods with
+  procedure artifacts.** The browser dashboard's *visual* correctness (the
+  `L1-DASH-*` cluster) and a Linux systemd install had no demonstration procedure
+  document (only the Windows install did). Added
+  `docs/procedures/dashboard-demonstration.md` (new `L3-DASH-047`, with per-page
+  checkpoints + operator attestation, covering login/admin-console/subscriptions/
+  past-runs/report-viewer/run-board/metrics) and
+  `docs/procedures/linux-install-demonstration.md` (new `L3-DEP-020`, mirroring the
+  Windows install demonstration), each enforced by a conformance test asserting the
+  artifact and its sections exist.
 - **Resolved the `recipient_addresses` contradiction in the requirements.** The
   docs disagreed with themselves and with the code: some statements said delivery
   audit rows store `recipient_addresses`, others said they must not. Settled on the

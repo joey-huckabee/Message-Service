@@ -22,7 +22,7 @@ WorkingDirectory=/opt/message-service
 #   typically place SMTP credentials, OAuth tokens, and any
 #   secret-bearing values in the env-file rather than in the TOML
 #   config, which is committed to the deployment image.
-Environment="MSG_SERVICE_CONFIG=/etc/message-service/config.toml"
+Environment="MESSAGE_SERVICE_CONFIG=/etc/message-service/config.toml"
 EnvironmentFile=-/etc/message-service/message-service.env
 
 ExecStart=/opt/message-service/.venv/bin/message-service --config /etc/message-service/config.toml

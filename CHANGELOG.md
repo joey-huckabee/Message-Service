@@ -204,6 +204,24 @@ features; correctness, security, and requirements-document fixes.
   `smtp_failure_classification` detail. Same fix applied to the concurrent-sweep
   reconciliation path. `L3-MAIL-008`/`L3-RUN-029` amended.
 
+- **`SqliteSessionRepository.save` now honors its `PersistenceError` contract.**
+  A duplicate `token_hash` (or a `last_activity_at >= created_at` CHECK violation)
+  let a raw `aiosqlite.IntegrityError` leak past the adapter boundary; it is now
+  wrapped in `PersistenceError` like the other repositories.
+- **`runs.created_at` is now indexed.** The past-runs listing pages with
+  `ORDER BY created_at DESC, run_id DESC` but `created_at` had no index, forcing a
+  full scan + filesort per page. Migration `005` adds `idx_runs_created_at`.
+- **The login password length is now bounded (`max_length=512`).** An
+  unauthenticated caller could POST an arbitrarily large password and force a
+  correspondingly expensive Argon2 verification — a CPU/memory DoS lever. The cap
+  matches the admin create/reset paths; over-length input is rejected at validation
+  (422) before any hashing.
+- **Nine production `assert` statements replaced with explicit guards.** Bare
+  `assert` is stripped under `python -O`, so these invariant checks would vanish in
+  an optimized run and a violated invariant would surface as a confusing downstream
+  error. Each is now an explicit `if not <invariant>: raise` that survives `-O` and
+  still narrows for mypy.
+
 ### Documentation
 
 - **Resolved the `recipient_addresses` contradiction in the requirements.** The

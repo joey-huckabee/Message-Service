@@ -90,7 +90,11 @@ class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     email: str = Field(min_length=1, max_length=254)
-    password: str = Field(min_length=1)
+    # Cap the password length so an unauthenticated caller cannot force an
+    # arbitrarily large Argon2 verification (a CPU/memory DoS lever). 512
+    # matches the admin create/reset caps; the decoy verify on the miss path
+    # (L3-AUTH-022) pays the same bounded cost.
+    password: str = Field(min_length=1, max_length=512)
 
 
 # -----------------------------------------------------------------------------

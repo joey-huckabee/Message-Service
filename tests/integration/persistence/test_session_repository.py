@@ -16,6 +16,7 @@ import pytest
 
 from message_service.domain.aggregates.session import Session
 from message_service.domain.aggregates.user import User
+from message_service.domain.errors import PersistenceError
 from message_service.infrastructure.persistence.connection import open_connection
 from message_service.infrastructure.persistence.migration_runner import apply_migrations
 from message_service.infrastructure.persistence.session_repository import (
@@ -88,6 +89,20 @@ async def test_get_by_token_hash_returns_none_when_absent(
     session_repo: SqliteSessionRepository,
 ) -> None:
     assert await session_repo.get_by_token_hash(_HASH_A) is None
+
+
+@pytest.mark.asyncio
+async def test_save_duplicate_token_hash_raises_persistence_error(
+    session_repo: SqliteSessionRepository, user_id: int
+) -> None:
+    """A duplicate token_hash SHALL surface as PersistenceError, not IntegrityError.
+
+    The port declares PersistenceError; a raw aiosqlite.IntegrityError must not
+    leak past the adapter boundary.
+    """
+    await session_repo.save(_session(_HASH_A, user_id))
+    with pytest.raises(PersistenceError):
+        await session_repo.save(_session(_HASH_A, user_id))
 
 
 @pytest.mark.asyncio

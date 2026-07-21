@@ -42,7 +42,7 @@ async def test_packaged_migrations_create_expected_tables(tmp_path: Path) -> Non
     conn = await open_connection(db)
     try:
         applied = await apply_migrations(conn)
-        assert [m.version for m in applied] == [1, 2, 3, 4]
+        assert [m.version for m in applied] == [1, 2, 3, 4, 5]
         # Domain tables from 001, sweeper outbox from 002, sessions from 003,
         # stages.email_body_position from 004.
         for table in (
@@ -129,7 +129,7 @@ async def test_reapply_is_noop(tmp_path: Path) -> None:
         second = await apply_migrations(conn)
         assert second == []  # no-op
         # Bookkeeping table records each applied migration exactly once.
-        assert await _applied_versions(conn) == [1, 2, 3, 4]
+        assert await _applied_versions(conn) == [1, 2, 3, 4, 5]
     finally:
         await conn.close()
 
@@ -243,6 +243,22 @@ async def test_sweeper_actions_pending_index_is_partial(tmp_path: Path) -> None:
         sql = row[0]
         assert "WHERE claimed_at IS NULL" in sql
         assert "enqueued_at" in sql
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-024")
+async def test_runs_created_at_index_exists(tmp_path: Path) -> None:
+    """005 SHALL add an index on runs.created_at for the past-runs ORDER BY."""
+    db = tmp_path / "test.db"
+    conn = await open_connection(db)
+    try:
+        await apply_migrations(conn)
+        async with conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_runs_created_at'"
+        ) as cur:
+            assert await cur.fetchone() is not None
     finally:
         await conn.close()
 

@@ -51,6 +51,18 @@ features; correctness, security, and requirements-document fixes.
   Both now delete the target's sessions (new `SessionRepository.delete_by_user_id`)
   in the same transaction as the account change, and `require_admin` additionally
   rejects a disabled user (new `L3-AUTH-020` / `L3-AUTH-021`).
+- **The report viewer and manual resend are now administrator-only.**
+  `GET /runs/{id}/report`, the per-stage `/fragment` viewer, and
+  `POST /runs/{id}/resend` were gated by `require_session`, so any authenticated
+  non-admin recipient could read any run's rendered report and trigger a resend
+  (a mass-mail). They now require `require_admin`, matching `L1-DASH-003`.
+- **Path-traversal via `stage_id` on the fragment route is closed.** `stage_id`
+  went unvalidated into a filesystem path (`<root>/<run_id>/fragments/<stage_id>.html`),
+  letting a crafted value escape the report tree — on Windows the fragment
+  *read* route (`\` passes the URL path converter) and the fragment *write* path
+  (a pipeline-declared stage id). The route now constrains `stage_id` to a safe
+  charset, and the filesystem report store rejects any resolved path that escapes
+  the configured report root (protecting read and write regardless of caller).
 
 ## [0.16.0] — 2026-07-19
 

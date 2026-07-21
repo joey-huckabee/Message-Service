@@ -204,3 +204,21 @@ def test_save_wraps_oserror_in_persistence_error(
         store.save_email_body(_RID, "<html>body</html>")
     assert "report file" in str(excinfo.value)
     assert excinfo.value.details.get("os_error") == "disk full"
+
+
+@pytest.mark.requirement("L3-DASH-030")
+def test_save_fragment_rejects_path_traversing_stage_id(store: FilesystemReportStore) -> None:
+    """A stage_id that escapes the report root raises PersistenceError.
+
+    Enough ``../`` segments to climb above the root (which is nested deep under
+    the pytest tmp dir); the resolved path is then outside the report tree.
+    """
+    with pytest.raises(PersistenceError, match="escapes the report root"):
+        store.save_fragment(_RID, StageId("../" * 12 + "evil"), "<p>x</p>")
+
+
+@pytest.mark.requirement("L3-DASH-030")
+def test_read_fragment_rejects_path_traversing_stage_id(store: FilesystemReportStore) -> None:
+    """The read path is protected too, regardless of the caller."""
+    with pytest.raises(PersistenceError, match="escapes the report root"):
+        store.read_fragment(_RID, StageId("../../../etc/passwd"))

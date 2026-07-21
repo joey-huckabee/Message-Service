@@ -101,6 +101,14 @@ features; correctness, security, and requirements-document fixes.
   `AGGREGATING` accept submissions; every other state raises `InvalidRunStateError`
   (`FAILED_PRECONDITION`) with `run_state` + `accepting_states` details and persists
   nothing (new `L3-STAGE-019`).
+- **An all-recipients-refused SMTP send now fails fast as permanent.**
+  `aiosmtplib.SMTPRecipientsRefused` (raised when every recipient is rejected) is a
+  bare `SMTPException` with no `.code`, so it fell through the classifier's branches
+  to the generic transient default — an all-`550` refusal was retried through the
+  full backoff schedule (minutes) and surfaced as `RETRIES_EXHAUSTED` instead of
+  `PERMANENT_SMTP_FAILURE`. It is now classified by its per-recipient refusal codes:
+  permanent iff every code is permanent, transient if any recipient carries a 4xx
+  (which a retry might yet deliver). `L3-MAIL-007` amended.
 
 ## [0.16.0] — 2026-07-19
 

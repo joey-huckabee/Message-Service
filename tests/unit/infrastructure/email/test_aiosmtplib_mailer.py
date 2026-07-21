@@ -336,6 +336,33 @@ def test_classify_authentication_error_is_permanent() -> None:
     assert _classify_smtp_error(exc) == "permanent"
 
 
+def _recipients_refused(*codes: int) -> aiosmtplib.SMTPRecipientsRefused:
+    """Build an SMTPRecipientsRefused from per-recipient response codes."""
+    refusals = [
+        aiosmtplib.SMTPRecipientRefused(code, "refused", f"user{i}@example.com")
+        for i, code in enumerate(codes)
+    ]
+    return aiosmtplib.SMTPRecipientsRefused(refusals)
+
+
+@pytest.mark.requirement("L3-MAIL-007")
+def test_classify_all_recipients_refused_permanent_when_all_5xx() -> None:
+    """All-5xx recipient refusal SHALL be permanent (no retry to exhaustion)."""
+    assert _classify_smtp_error(_recipients_refused(550, 553)) == "permanent"
+
+
+@pytest.mark.requirement("L3-MAIL-005")
+def test_classify_recipients_refused_transient_when_any_4xx() -> None:
+    """A transient code on any refused recipient SHALL keep the send retryable."""
+    assert _classify_smtp_error(_recipients_refused(550, 450)) == "transient"
+
+
+@pytest.mark.requirement("L3-MAIL-006")
+def test_classify_recipients_refused_permanent_when_421_present_with_5xx() -> None:
+    """421 classifies permanent (L3-MAIL-006); all-permanent stays permanent."""
+    assert _classify_smtp_error(_recipients_refused(421, 550)) == "permanent"
+
+
 # -----------------------------------------------------------------------------
 # Retry loop (L2-MAIL-006, L3-MAIL-009)
 # -----------------------------------------------------------------------------

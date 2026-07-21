@@ -688,7 +688,7 @@ Transient classification catches `SMTPServerDisconnected`, `SMTPConnectTimeoutEr
 Response code `421` SHALL be excluded from transient classification and treated as permanent for the current run (RFC 5321: service not available).
 
 **L3-MAIL-007** · Parent: L2-MAIL-005 · Verification: T
-Permanent failures: `SMTPResponseException` with `code in range(500, 600)` or `SMTPAuthenticationError`.
+Permanent failures: `SMTPResponseException` with `code in range(500, 600)` or `SMTPAuthenticationError`. `SMTPRecipientsRefused` — raised when *every* recipient is rejected — SHALL be classified by its per-recipient refusal codes (it is a bare `SMTPException` carrying a list of `SMTPRecipientRefused`, each with a `.code`, and is NOT itself an `SMTPResponseException`): permanent iff every refusal code classifies permanent (per L3-MAIL-005/006), otherwise transient (a transient code on any recipient may be accepted on retry, turning the all-refused error into a partial success). It SHALL NOT fall through to the generic transient default, which would retry an all-`550` refusal to exhaustion.
 
 **L3-MAIL-008** · Parent: L2-MAIL-005 · Verification: T
 Permanent failure SHALL transition the run to `FAILED` with `failure_reason="PERMANENT_SMTP_FAILURE"` and log at ERROR with SMTP code and message.

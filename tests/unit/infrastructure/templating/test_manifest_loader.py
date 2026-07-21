@@ -101,10 +101,15 @@ def test_resolve_latest_picks_highest_semver_among_multiple() -> None:
     assert ref.version == "2.0.0"
 
 
+@pytest.mark.requirement("L2-TMPL-004")
 @pytest.mark.requirement("L3-TMPL-007")
 @pytest.mark.requirement("L3-TMPL-010")
 def test_resolve_latest_orders_pre_release_below_final() -> None:
     """Pre-release versions SHALL order below their corresponding final (PEP 440).
+
+    L2-TMPL-004: version strings are parsed and compared via
+    ``packaging.version.Version`` — a lexical compare would order ``1.0.0rc1``
+    *after* ``1.0.0``; PEP 440 semantics put the pre-release below the final.
 
     Both ``1.0.0rc1`` and ``1.0.0`` are valid manifest entries; the
     final version SHALL win regardless of insertion order.

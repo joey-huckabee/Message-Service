@@ -102,7 +102,7 @@ Wire into Grafana / Prometheus per the deployment's standard. Alerts most operat
 
 ### Admin operations
 
-The dashboard exposes JSON endpoints (no HTML frontend in v1 — see `L3-DASH-005`). Operators authenticate via `POST /login` with email + password, receiving an `msp_session` cookie + a CSRF cookie. Subsequent state-changing requests must carry the CSRF token in `X-CSRF-Token` (`L3-DASH-018`).
+The dashboard exposes self-contained HTML pages for operator workflows plus JSON endpoints for automation. Operators authenticate via the login page or `POST /login` with email + password, receiving an `msp_session` cookie + a CSRF cookie. Subsequent state-changing requests must carry the CSRF token in `X-CSRF-Token` (`L3-DASH-018`).
 
 Common admin commands (assuming `$BASE = http://localhost:8080` and successful login):
 

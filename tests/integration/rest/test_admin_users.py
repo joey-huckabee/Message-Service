@@ -316,8 +316,6 @@ async def test_create_user_non_admin_returns_403(
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-AUTH-014")
 @pytest.mark.requirement("L3-AUTH-015")
-@pytest.mark.requirement("L3-SUB-007")
-@pytest.mark.requirement("L3-SUB-008")
 async def test_create_user_happy_path_returns_201(
     http_client: httpx.AsyncClient,
     uow_factory: SqliteUnitOfWorkFactory,
@@ -353,6 +351,8 @@ async def test_create_user_happy_path_returns_201(
 @pytest.mark.asyncio
 @pytest.mark.requirement("L2-SUB-004")
 @pytest.mark.requirement("L2-SUB-005")
+@pytest.mark.requirement("L3-SUB-007")
+@pytest.mark.requirement("L3-SUB-008")
 async def test_create_user_inserts_no_subscriptions_even_for_admin(
     http_client: httpx.AsyncClient,
     uow_factory: SqliteUnitOfWorkFactory,

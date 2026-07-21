@@ -14,6 +14,7 @@ gRPC server.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -483,35 +484,22 @@ async def test_translate_to_grpc_status_dispatches_unknown_to_translate_unexpect
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-022")
-async def test_keyboard_interrupt_is_not_caught_by_translator() -> None:
-    """L3-ERR-022: KeyboardInterrupt SHALL propagate through the translator.
+@pytest.mark.parametrize("control_exc", [KeyboardInterrupt(), SystemExit(), asyncio.CancelledError()])
+async def test_control_flow_baseexceptions_propagate_through_translator(
+    control_exc: BaseException,
+) -> None:
+    """L3-ERR-022: a non-``Exception`` ``BaseException`` SHALL propagate uncaught.
 
-    The translator catches ``BaseException`` only when explicitly
-    asked to translate it; it SHALL NOT silently swallow
-    ``KeyboardInterrupt`` (or other ``BaseException`` children) at
-    its OWN frame. We verify this by passing a ``KeyboardInterrupt``
-    to ``_translate_unexpected`` and asserting it is reported as the
-    exception cause.
-
-    This is more of a structural guarantee than a behavioral one:
-    the translator's job IS to translate exceptions to gRPC status,
-    and it does that uniformly for `BaseException`. The L3-ERR-022
-    obligation is really that NO production code path catches
-    `BaseException` outside the explicit translation boundary, which
-    is enforced by ruff's BLE001 rule (per L3-ERR-019). This test
-    documents that the boundary translator itself does not
-    accidentally suppress the cancellation.
+    The public boundary translator ``translate_to_grpc_status`` re-raises any
+    ``BaseException`` that is not an ``Exception`` (``KeyboardInterrupt``,
+    ``SystemExit``, ``asyncio.CancelledError``) rather than turning it into a
+    gRPC status — so cooperative cancellation and interpreter shutdown are not
+    swallowed. Verify it propagates and NO abort is issued.
     """
     ctx = _FakeServicerContext()
-    kbi = KeyboardInterrupt()
-    # Translator translates KeyboardInterrupt as an unexpected error
-    # (per its `BaseException` type annotation), aborting with
-    # INTERNAL + correlation id. This is the documented behavior;
-    # the test pins it so a future "swallow KeyboardInterrupt
-    # silently" bug would fail loudly.
-    with pytest.raises(_AbortRaisedError):
-        await _translate_unexpected(ctx, kbi)
-    assert ctx.aborts[0].code is grpc.StatusCode.INTERNAL
+    with pytest.raises(type(control_exc)):
+        await translate_to_grpc_status(ctx, control_exc)
+    assert ctx.aborts == []  # never translated to a gRPC status
 
 
 # -----------------------------------------------------------------------------

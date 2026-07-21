@@ -143,7 +143,6 @@ def test_unit_of_work_exposes_expected_methods() -> None:
     assert expected == UnitOfWork.__abstractmethods__
 
 
-@pytest.mark.requirement("L2-TMPL-004")
 def test_template_renderer_exposes_expected_methods() -> None:
     expected = {"render"}
     assert expected == TemplateRenderer.__abstractmethods__

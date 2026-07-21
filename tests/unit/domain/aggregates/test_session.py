@@ -40,7 +40,7 @@ def test_session_rejects_invalid_token_hash(bad_hash: str) -> None:
         )
 
 
-@pytest.mark.requirement("L3-CFG-005")
+@pytest.mark.requirement("L1-AUTH-002")
 def test_session_rejects_naive_created_at() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         Session(
@@ -51,7 +51,7 @@ def test_session_rejects_naive_created_at() -> None:
         )
 
 
-@pytest.mark.requirement("L3-CFG-005")
+@pytest.mark.requirement("L1-AUTH-002")
 def test_session_rejects_naive_last_activity_at() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         Session(

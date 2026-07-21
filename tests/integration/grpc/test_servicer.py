@@ -655,6 +655,10 @@ async def test_submit_to_unknown_run_translates_to_not_found(
     with pytest.raises(grpc.aio.AioRpcError) as exc_info:
         await grpc_client.SubmitStageReport(req)
     assert exc_info.value.code() == grpc.StatusCode.NOT_FOUND
+    # L3-API-013: the specific error code rides in the trailing metadata, not just
+    # the coarse gRPC status.
+    trailing = dict(exc_info.value.trailing_metadata())
+    assert trailing["x-message-service-error-code"] == "ERROR_CODE_RUN_NOT_FOUND"
 
 
 @pytest.mark.asyncio
@@ -726,6 +730,11 @@ async def test_nested_struct_round_trips_into_stage_context(
     assert '"metric":42' in stored
     assert '"nested":true' in stored
     assert '"tags":["alpha","beta"]' in stored
+    # L3-AGGR-003: this request carried no email_body_contribution, so the
+    # servicer's proto3 presence check SHALL detect the omission and persist
+    # the email-body columns as absent (not an empty contribution).
+    assert stages[0].email_body_context_json is None
+    assert stages[0].email_body_position is None
 
 
 # -----------------------------------------------------------------------------

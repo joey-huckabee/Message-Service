@@ -666,7 +666,7 @@ async def test_post_to_admin_audit_returns_405(
 
 
 @pytest.mark.asyncio
-@pytest.mark.requirement("L3-DASH-033")
+@pytest.mark.requirement("L3-DASH-034")
 async def test_default_no_filter_returns_recent_first(
     http_client: httpx.AsyncClient,
     uow_factory: SqliteUnitOfWorkFactory,

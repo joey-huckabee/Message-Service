@@ -13,7 +13,8 @@ Each port is verified for:
 Requirement references
 ----------------------
 L2-PERS-008 (ports live in application/ports as ABCs)
-L3-PERS-013, L3-PERS-014 (MagicMock spec-compat for use-case tests)
+L3-PERS-013 (every port method carries full type hints incl. return type)
+L3-PERS-014 (each port is MagicMock(spec=...)-compatible for use-case tests)
 """
 
 from __future__ import annotations
@@ -70,7 +71,7 @@ def test_port_is_abstract_and_specable(port_cls: type) -> None:
     assert_port_is_abstract_and_specable(port_cls)
 
 
-@pytest.mark.requirement("L3-PERS-014")
+@pytest.mark.requirement("L3-PERS-013")
 @pytest.mark.parametrize("port_cls", ALL_PORTS, ids=lambda p: p.__name__)
 def test_port_methods_are_fully_annotated(port_cls: type) -> None:
     """Every abstract method SHALL have full type annotations."""
@@ -284,7 +285,7 @@ def test_password_hasher_is_sync() -> None:
 # -----------------------------------------------------------------------------
 
 
-@pytest.mark.requirement("L3-PERS-013")
+@pytest.mark.requirement("L3-PERS-014")
 @pytest.mark.parametrize("port_cls", ALL_PORTS, ids=lambda p: p.__name__)
 def test_port_is_mockable_with_spec(port_cls: type) -> None:
     """Use-case tests SHALL be able to create MagicMock(spec=Port)."""

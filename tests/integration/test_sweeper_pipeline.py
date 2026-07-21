@@ -155,7 +155,7 @@ def _make_stale_run(*, run_id: str, staleness_seconds: int) -> Run:
 
 
 @pytest.mark.asyncio
-@pytest.mark.requirement("L1-SWEEP-001")
+@pytest.mark.requirement("L1-SWEEP-002")
 async def test_stale_run_is_swept_to_orphaned(service: Service) -> None:
     """A run whose last transition exceeds run_timeout SHALL be transitioned
     to ORPHANED when the sweeper ticks."""

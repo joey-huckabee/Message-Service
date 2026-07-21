@@ -50,24 +50,25 @@ def test_stage_is_frozen() -> None:
 
 
 # -----------------------------------------------------------------------------
-# submitted_at invariants (L3-STAGE-007)
+# submitted_at presence invariants (L2-STAGE-002 stage state model: which state
+# a stage is in dictates whether submitted_at must be present)
 # -----------------------------------------------------------------------------
 
 
-@pytest.mark.requirement("L3-STAGE-007")
+@pytest.mark.requirement("L2-STAGE-002")
 def test_pending_stage_must_not_have_submitted_at() -> None:
     with pytest.raises(ValueError, match="PENDING"):
         _stage(state=StageState.PENDING, submitted_at=_T0)
 
 
-@pytest.mark.requirement("L3-STAGE-007")
+@pytest.mark.requirement("L2-STAGE-002")
 @pytest.mark.parametrize("state", [StageState.SUBMITTED, StageState.ACCEPTED, StageState.RETRIED])
 def test_submission_state_requires_submitted_at(state: StageState) -> None:
     with pytest.raises(ValueError, match="submitted_at"):
         _stage(state=state, submitted_at=None)
 
 
-@pytest.mark.requirement("L3-STAGE-007")
+@pytest.mark.requirement("L2-STAGE-002")
 def test_submitted_state_accepts_valid_submitted_at() -> None:
     s = _stage(state=StageState.SUBMITTED, submitted_at=_T0)
     assert s.submitted_at == _T0

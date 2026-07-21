@@ -95,14 +95,24 @@ class InMemoryTemplateRepository(TemplateRepository):
     def resolve_latest(self, name: str) -> TemplateRef:  # noqa: D102
         # Per L3-TMPL-009/010: gather every manifest entry sharing
         # ``name``, parse versions via packaging.version.Version (so
-        # pre-release semantics are honored), pick the highest, return
-        # a TemplateRef with the canonical str(Version(...)) form.
-        candidates: list[Version] = []
+        # pre-release semantics are honored), pick the highest, and
+        # return a TemplateRef carrying the *original manifest version
+        # string* — NOT the canonical ``str(Version(...))`` form.
+        #
+        # The manifest is keyed by the exact stored version string, and
+        # ``packaging.Version`` canonicalizes on parse (``"v1.0.0"`` ->
+        # ``"1.0.0"``, ``"1.0.0-alpha"`` -> ``"1.0.0a0"``, ``"1.00"`` ->
+        # ``"1.0"``). Returning the canonical form would produce a ref
+        # whose ``(name, version)`` is not a manifest key, so the caller's
+        # subsequent ``exists()`` / ``get()`` lookup would raise
+        # ``UnknownTemplateError`` for a template that genuinely exists.
+        # We compare by parsed ``Version`` but return the original key.
+        candidates: list[tuple[Version, str]] = []
         for entry_name, entry_version in self._entries:
             if entry_name != name:
                 continue
             try:
-                candidates.append(Version(entry_version))
+                candidates.append((Version(entry_version), entry_version))
             except InvalidVersion:
                 # A manifest entry that fails packaging.version parsing
                 # would be a manifest-loader bug — entries are validated
@@ -115,8 +125,11 @@ class InMemoryTemplateRepository(TemplateRepository):
                 f"no manifest entry for template name {name!r}",
                 details={"template_name": name},
             )
-        highest = max(candidates)
-        return TemplateRef(name=name, version=str(highest))
+        # Break ties (versions that canonicalize equal) deterministically
+        # by keying only on the parsed Version; max() keeps the first
+        # maximal element, and dict iteration is insertion order.
+        _, highest_original = max(candidates, key=lambda pair: pair[0])
+        return TemplateRef(name=name, version=highest_original)
 
     def list_by_kind(self, kind: TemplateKind) -> Sequence[TemplateMetadata]:  # noqa: D102
         return self._by_kind.get(kind, ())

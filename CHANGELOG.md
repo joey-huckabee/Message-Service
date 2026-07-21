@@ -76,6 +76,22 @@ features; correctness, security, and requirements-document fixes.
   detail) and leaves the swept state intact instead of raising (new `L3-RUN-034`).
   The SMTP mailer additionally bounds every connection with an explicit timeout
   (default 30 s) so a hung relay cannot hold a run in `SENDING` indefinitely.
+- **`BeginRun` no longer rejects a valid `PER_STAGE` run over a stray
+  `aggregation_template_ref`.** `"latest"` resolution ran unconditionally, so a
+  `PER_STAGE` request that happened to carry an (unused) `aggregation_template_ref`
+  — which `L3-RUN-018` says to silently ignore — was resolved and validated
+  anyway; a `"latest"` sentinel whose name had no manifest entry raised
+  `UnknownTemplateError` and failed the whole run. Aggregation-template resolution
+  is now gated on `SINGLE_AGGREGATED` mode, so the stray ref is dropped without
+  being consulted.
+- **`resolve_latest` now returns the original manifest version string, not the
+  canonicalized form.** `packaging.Version` rewrites version strings on parse
+  (`"v1.0.0"` → `"1.0.0"`, `"1.0.0-alpha"` → `"1.0.0a0"`, `"1.00"` → `"1.0"`), and
+  the manifest is keyed by the *exact* stored string — so resolving `"latest"` to
+  the canonical form produced a `(name, version)` pair that was not a manifest key,
+  making the very next existence check raise `UnknownTemplateError` for a template
+  that exists. Version comparison still uses the parsed `Version`; only the
+  returned key changed. `L3-TMPL-009` amended to mandate the original key.
 
 ## [0.16.0] — 2026-07-19
 

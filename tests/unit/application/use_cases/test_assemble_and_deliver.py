@@ -1040,6 +1040,88 @@ async def test_email_delivery_error_transitions_to_failed(
 
 
 # -----------------------------------------------------------------------------
+# Concurrent-sweep reconciliation (L3-RUN-034)
+#
+# The orphan sweeper classifies by age alone (L1-SWEEP-002) and can reclaim a
+# slow SENDING delivery. When that happens the finalizing transition is illegal
+# (terminal -> SENT/FAILED); the use case must reconcile rather than raise.
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-034")
+async def test_sent_reconciles_when_swept_to_terminal_mid_delivery(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+) -> None:
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+
+    # Simulate the orphan sweeper committing ORPHANED while SMTP is in flight:
+    # the email goes out, but by the time _finalize_sent re-reads the run it is
+    # already terminal.
+    def _orphan_during_send(_email: OutboundEmail) -> None:
+        run_repo.set_initial(_run(state=RunState.ORPHANED))
+
+    mailer.send.side_effect = _orphan_during_send
+
+    # Must NOT raise InvalidStateTransitionError out of the background task.
+    await use_case.execute(_RID)
+
+    mailer.send.assert_awaited_once()
+    # No SENT transition is attempted once the run is terminal.
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.SENT not in transitions
+    # A reconciliation audit row is recorded, SUCCESS (the email was delivered).
+    recon = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].details.get("reconciled_terminal_state") == "ORPHANED"
+    ]
+    assert len(recon) == 1
+    assert recon[0].outcome == AuditOutcome.SUCCESS
+    assert recon[0].action is AuditAction.SEND_REPORT
+    assert recon[0].details["recipient_count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-034")
+async def test_failed_reconciles_when_swept_to_terminal_mid_delivery(
+    use_case: AssembleAndDeliverUseCase,
+    uow_factory: tuple[MagicMock, Any, AsyncMock, AsyncMock, AsyncMock, AsyncMock],
+    mailer: AsyncMock,
+) -> None:
+    _, _, run_repo, stage_repo, subscription_repo, audit_log = uow_factory
+    run_repo.set_initial(_run(state=RunState.READY))
+    stage_repo.list_by_run.return_value = [_stage("extract")]
+    subscription_repo.list_recipients_for_run.return_value = frozenset({"alice@example.com"})
+
+    # The delivery fails AND the run was swept to ORPHANED concurrently: the
+    # -> FAILED edge is now illegal, so reconcile with a FAILURE audit row.
+    def _orphan_then_fail(_email: OutboundEmail) -> None:
+        run_repo.set_initial(_run(state=RunState.ORPHANED))
+        raise EmailDeliveryError("SMTP 550", details={"smtp_code": 550})
+
+    mailer.send.side_effect = _orphan_then_fail
+
+    await use_case.execute(_RID)
+
+    transitions = [c.args[1] for c in run_repo.update_state.call_args_list]
+    assert RunState.FAILED not in transitions
+    recon = [
+        c.args[0]
+        for c in audit_log.record.call_args_list
+        if c.args[0].details.get("reconciled_terminal_state") == "ORPHANED"
+    ]
+    assert len(recon) == 1
+    assert recon[0].outcome == AuditOutcome.FAILURE
+    assert recon[0].details["failure_reason"] == "EMAIL_DELIVERY"
+
+
+# -----------------------------------------------------------------------------
 # Error handling: EmailSizeExceededError -> FAILED + admin notification
 # (L1-MAIL-004, L2-MAIL-009/010/011, L3-MAIL-014/015/016/017/030/031)
 # -----------------------------------------------------------------------------

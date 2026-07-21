@@ -63,6 +63,19 @@ features; correctness, security, and requirements-document fixes.
   (a pipeline-declared stage id). The route now constrains `stage_id` to a safe
   charset, and the filesystem report store rejects any resolved path that escapes
   the configured report root (protecting read and write regardless of caller).
+- **A delivery that finishes after the orphan sweeper reclaims its run no longer
+  crashes the background task.** The sweeper classifies runs by age alone
+  (`L1-SWEEP-002`) and can reclaim a slow `SENDING` delivery whose SMTP retries
+  outlast `run_timeout_seconds`; when the delivery task then tried its
+  `SENDING -> SENT` (or `-> FAILED`) transition, the run was already `ORPHANED`
+  and the illegal transition raised an uncaught `InvalidStateTransitionError` —
+  surfacing as a spurious internal error even though the email had been sent, with
+  no `SEND_REPORT` audit row. `AssembleAndDeliverUseCase` now re-reads the run
+  inside the finalizing transaction and, if it is already terminal, records a
+  reconciliation `SEND_REPORT` audit row (with a `reconciled_terminal_state`
+  detail) and leaves the swept state intact instead of raising (new `L3-RUN-034`).
+  The SMTP mailer additionally bounds every connection with an explicit timeout
+  (default 30 s) so a hung relay cannot hold a run in `SENDING` indefinitely.
 
 ## [0.16.0] — 2026-07-19
 

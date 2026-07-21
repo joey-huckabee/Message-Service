@@ -188,6 +188,7 @@ class AiosmtplibMailer(Mailer):
         max_retries: int = 5,
         initial_interval_seconds: float = 2.0,
         max_interval_seconds: float = 300.0,
+        timeout_seconds: float = 30.0,
     ) -> None:
         """Construct the adapter.
 
@@ -208,6 +209,13 @@ class AiosmtplibMailer(Mailer):
             initial_interval_seconds: First-attempt backoff delay
                 (applied before attempt 2).
             max_interval_seconds: Ceiling for the backoff delay.
+            timeout_seconds: Per-connection SMTP timeout (L3-RUN-034),
+                applied to connect and every subsequent command. Bounds
+                how long a single attempt can hang against an
+                unresponsive relay so a run cannot sit in ``SENDING``
+                indefinitely and race the orphan sweeper. A hung connect
+                surfaces as :class:`aiosmtplib.SMTPConnectTimeoutError`
+                (classified transient, so it retries).
 
         Raises:
             ValueError: Any numeric parameter out of range.
@@ -222,6 +230,8 @@ class AiosmtplibMailer(Mailer):
             raise ValueError("initial_interval_seconds must be positive")
         if max_interval_seconds < initial_interval_seconds:
             raise ValueError("max_interval_seconds must be >= initial_interval_seconds")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
 
         self._host = host
         self._port = port
@@ -232,6 +242,7 @@ class AiosmtplibMailer(Mailer):
         self._max_retries = max_retries
         self._initial_interval_seconds = initial_interval_seconds
         self._max_interval_seconds = max_interval_seconds
+        self._timeout_seconds = timeout_seconds
 
         # L3-MAIL-003: warn on plaintext auth at construction-time. The
         # adapter is built once at service start; this is the startup
@@ -369,6 +380,7 @@ class AiosmtplibMailer(Mailer):
             hostname=self._host,
             port=self._port,
             start_tls=False,  # we issue STARTTLS manually after connect
+            timeout=self._timeout_seconds,  # L3-RUN-034: bound each attempt
         )
         try:
             await client.connect()

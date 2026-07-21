@@ -111,6 +111,28 @@ def test_rejects_max_interval_less_than_initial() -> None:
         )
 
 
+@pytest.mark.parametrize("bad_timeout", [0.0, -1.0])
+def test_rejects_non_positive_timeout(bad_timeout: float) -> None:
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AiosmtplibMailer(host="x", port=587, max_email_size_bytes=1000, timeout_seconds=bad_timeout)
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-RUN-034")
+async def test_send_passes_timeout_to_smtp_client(patched_smtp: Any) -> None:
+    """Each SMTP connection SHALL be bounded by the configured timeout."""
+    smtp_class, _ = patched_smtp
+    mailer = AiosmtplibMailer(
+        host="relay",
+        port=587,
+        use_starttls=False,
+        max_email_size_bytes=1_000_000,
+        timeout_seconds=12.5,
+    )
+    await mailer.send(_email())
+    assert smtp_class.call_args.kwargs["timeout"] == 12.5
+
+
 # -----------------------------------------------------------------------------
 # MIME assembly
 # -----------------------------------------------------------------------------

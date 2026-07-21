@@ -30,8 +30,10 @@ import grpc
 import structlog
 from google.protobuf import any_pb2
 from google.rpc import error_details_pb2, status_pb2
+from pydantic import ValidationError as PydanticValidationError
 
 from message_service.domain.errors import (
+    MalformedRequestError,
     MessageServiceError,
     NotFoundError,
     PreconditionError,
@@ -115,11 +117,42 @@ async def translate_to_grpc_status(
     Args:
         context: The servicer context for the in-flight RPC.
         exc: The exception to translate.
+
+    Raises:
+        BaseException: Re-raises any ``BaseException`` that is not an
+            ``Exception`` (``asyncio.CancelledError``, ``KeyboardInterrupt``,
+            ``SystemExit``) rather than translating it, so cooperative
+            cancellation and interpreter shutdown propagate unchanged.
     """
+    # Control-flow exceptions (cancellation, shutdown) must never be turned into
+    # a gRPC status — re-raise so grpc.aio's cancellation machinery sees them.
+    if not isinstance(exc, Exception):
+        raise exc
     if isinstance(exc, MessageServiceError):
         await _translate_known(context, exc)
+    elif isinstance(exc, PydanticValidationError):
+        # A request-adaptation validation failure is caller-supplied bad input,
+        # not a server fault: translate it to INVALID_ARGUMENT (not INTERNAL).
+        await _translate_known(context, _malformed_from_pydantic(exc))
     else:
         await _translate_unexpected(context, exc)
+
+
+def _malformed_from_pydantic(exc: PydanticValidationError) -> MalformedRequestError:
+    """Build a :class:`MalformedRequestError` from a pydantic validation failure.
+
+    The per-error ``loc`` (field path) and ``type`` (rule name) are surfaced so
+    the client can locate the problem; the offending input value is deliberately
+    NOT included, so no caller-supplied data is echoed back in the error.
+    """
+    problems = [
+        {"field": ".".join(str(p) for p in err["loc"]), "error": err["type"]}
+        for err in exc.errors()
+    ]
+    return MalformedRequestError(
+        "request validation failed",
+        details={"validation_errors": problems},
+    )
 
 
 async def _translate_known(

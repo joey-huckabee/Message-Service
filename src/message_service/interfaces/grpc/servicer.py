@@ -70,6 +70,7 @@ from message_service.application.use_cases.submit_stage_report_command import (
 from message_service.domain.aggregates.email_body_position import EmailBodyPosition
 from message_service.domain.aggregates.run import AttachmentMode
 from message_service.domain.aggregates.template_ref import TemplateRef
+from message_service.domain.errors import MalformedRequestError
 from message_service.interfaces.grpc.error_mapping import translate_to_grpc_status
 
 if TYPE_CHECKING:
@@ -99,8 +100,13 @@ def _attachment_mode_to_domain(value: int) -> AttachmentMode:
         return AttachmentMode.SINGLE_AGGREGATED
     try:
         return _PROTO_TO_DOMAIN_ATTACHMENT_MODE[value]
-    except KeyError as exc:  # pragma: no cover — proto validation prevents this
-        raise ValueError(f"unknown AttachmentMode enum value: {value}") from exc
+    except KeyError as exc:
+        # proto3 enums are open, so a forward-compatible client can send an
+        # unknown value; surface it as INVALID_ARGUMENT, not INTERNAL.
+        raise MalformedRequestError(
+            f"unknown AttachmentMode enum value: {value}",
+            details={"field": "attachment_mode", "value": value},
+        ) from exc
 
 
 _PROTO_TO_DOMAIN_EMAIL_BODY_POSITION: dict[int, EmailBodyPosition] = {
@@ -136,8 +142,12 @@ def _email_body_position_to_domain(value: int, *, run_id: str, stage_id: str) ->
         return EmailBodyPosition.AFTER_STAGES_SUMMARY
     try:
         return _PROTO_TO_DOMAIN_EMAIL_BODY_POSITION[value]
-    except KeyError as exc:  # pragma: no cover — proto validation prevents this
-        raise ValueError(f"unknown EmailBodyPosition enum value: {value}") from exc
+    except KeyError as exc:
+        # proto3 enums are open; surface an unknown value as INVALID_ARGUMENT.
+        raise MalformedRequestError(
+            f"unknown EmailBodyPosition enum value: {value}",
+            details={"field": "email_body_position", "value": value},
+        ) from exc
 
 
 # -----------------------------------------------------------------------------
@@ -185,7 +195,15 @@ def _has_template_ref(tr: pb.TemplateRef) -> bool:
 
 
 def _template_ref_to_domain(tr: pb.TemplateRef) -> TemplateRef:
-    return TemplateRef(name=tr.name, version=tr.version)
+    try:
+        return TemplateRef(name=tr.name, version=tr.version)
+    except ValueError as exc:
+        # TemplateRef.__post_init__ rejects empty name/version — caller input,
+        # so surface as INVALID_ARGUMENT rather than INTERNAL.
+        raise MalformedRequestError(
+            f"invalid template reference: {exc}",
+            details={"name": tr.name, "version": tr.version},
+        ) from exc
 
 
 # -----------------------------------------------------------------------------

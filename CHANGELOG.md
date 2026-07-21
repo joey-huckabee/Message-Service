@@ -12,6 +12,32 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
+Post-v0.16.0 review-and-fix pass (rounds 1 & 2) toward a 1.0.0 cut. No new
+features; correctness, security, and requirements-document fixes.
+
+### Fixed
+
+- **`iso_z` timestamp format is now fixed-width.** `datetime.isoformat()` omits
+  the fractional-seconds field when microseconds are zero, which made `iso_z`
+  variable-width; because timestamps are stored/compared as TEXT under SQLite's
+  BINARY collation, a whole-second value sorted *after* a same-second fractional
+  one, inverting chronological order. This broke the `sessions` CHECK
+  (`last_activity_at >= created_at`) on an ordinary session touch, the
+  `sweeper_actions` CHECKs, `delete_expired` filtering, and every `ORDER BY` on
+  persisted timestamps. `iso_z` now always emits six-digit microseconds (form
+  `…T00:00:00.000000Z`); `L3-RUN-025` strengthened to mandate it.
+- **gRPC now returns `INVALID_ARGUMENT` for malformed client requests** instead
+  of `INTERNAL`. Request-adaptation failures (empty `pipeline_type`, empty/negative
+  declared-stage fields, empty `run_id`/`stage_id`, missing/empty template refs,
+  and unknown/future proto enum values) previously raised `pydantic.ValidationError`
+  / `ValueError`, which the translator mapped to `INTERNAL` with a spurious ERROR
+  stack-trace log. They now map to `INVALID_ARGUMENT` with
+  `ERROR_CODE_MALFORMED_REQUEST` (validation errors surfaced as field/rule pairs,
+  never echoing the offending input value).
+- **`asyncio.CancelledError` (and other non-`Exception` `BaseException`s) now
+  propagate** out of the gRPC translator instead of being turned into a bogus
+  `INTERNAL` status + ERROR log, restoring cooperative RPC cancellation.
+
 ## [0.16.0] — 2026-07-19
 
 The admin console's **Subscriptions** tab goes live: an administrator can now

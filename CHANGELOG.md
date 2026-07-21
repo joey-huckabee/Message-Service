@@ -156,6 +156,14 @@ features; correctness, security, and requirements-document fixes.
   `_assemble_service` under a single guard that closes the connection on any
   exception; on success its lifecycle transfers to the UoW factory as before (new
   `L3-PERS-037`).
+- **The metrics-dashboard Prometheus parser handles escaped label values and
+  timestamped samples correctly.** Two bugs: (1) label-value unescaping used
+  chained `str.replace` calls, so `\\n` (an escaped backslash followed by a literal
+  `n`) decoded to a newline instead of `\` + `n` — now a single left-to-right pass
+  consumes each escape once; (2) the sample-line regex folded an optional trailing
+  timestamp into the value, so a timestamped sample made `float()` raise and 500'd
+  `/admin/metrics` — the timestamp is now parsed as a separate, ignored token.
+  Under `L3-DASH-036`.
 
 ## [0.16.0] — 2026-07-19
 

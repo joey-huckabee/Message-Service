@@ -231,7 +231,7 @@ the single source of truth.
 
 | L2 ID | L3 Children | Test Artifacts | Status |
 |-------|-------------|----------------|--------|
-| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013 | `tests/integration/rest/test_app.py::test_login_with_bad_password_returns_401`<br>`tests/integration/rest/test_app.py::test_login_with_unknown_email_returns_401_with_realm`<br>`tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Implemented |
+| L2-AUTH-001 | L3-AUTH-001, L3-AUTH-013, L3-AUTH-022 | `tests/integration/rest/test_app.py::test_login_with_bad_password_returns_401`<br>`tests/integration/rest/test_app.py::test_login_with_unknown_email_returns_401_with_realm`<br>`tests/unit/application/use_cases/test_login.py::test_login_bad_password_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_disabled_account_still_runs_a_verify`<br>`tests/unit/application/use_cases/test_login.py::test_login_failure_does_not_persist_session`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_raises_and_audits_failure`<br>`tests/unit/application/use_cases/test_login.py::test_login_unknown_email_still_runs_a_verify`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_each_hash_includes_fresh_salt`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_hash_produces_argon2id_phc_string`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_empty_stored_hash_returns_false`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_verify_returns_false_on_mismatch` | Implemented |
 | L2-AUTH-002 | L3-AUTH-002, L3-AUTH-003 | `tests/unit/infrastructure/auth/test_argon2_hasher.py::test_cost_parameters_are_honoured`<br>`tests/unit/infrastructure/auth/test_argon2_hasher.py::test_default_argon2_parameters_match_spec` | Implemented |
 | L2-AUTH-003 | L3-AUTH-004, L3-AUTH-005 | `tests/unit/application/use_cases/test_logout.py::test_logout_audit_does_not_contain_plaintext_token`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_matches_for_same_value`<br>`tests/unit/domain/aggregates/test_password.py::test_constant_time_equals_rejects_different_values`<br>`tests/unit/domain/aggregates/test_password.py::test_repr_does_not_leak_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_reveal_returns_plaintext`<br>`tests/unit/domain/aggregates/test_password.py::test_str_does_not_leak_plaintext`<br>`tests/unit/observability/test_redaction_list.py::test_redact_does_not_mutate_input`<br>`tests/unit/observability/test_redaction_list.py::test_redact_handles_each_required_key`<br>`tests/unit/observability/test_redaction_list.py::test_redact_replaces_password_value_with_placeholder`<br>`tests/unit/observability/test_redaction_list.py::test_redaction_list_includes_required_keys` | Implemented |
 | L2-AUTH-004 | L3-AUTH-006, L3-AUTH-007 | `tests/unit/application/use_cases/test_login.py::test_login_success_persists_sha256_hash_not_plaintext`<br>`tests/unit/application/use_cases/test_login.py::test_login_success_token_is_high_entropy`<br>`tests/unit/application/use_cases/test_logout.py::test_logout_deletes_session_row`<br>`tests/unit/domain/aggregates/test_session.py::test_session_rejects_invalid_token_hash`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_login_use_case_uses_secrets_token_urlsafe_32`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_sessions_table_does_not_store_plaintext_token`<br>`tests/unit/infrastructure/persistence/test_sub_auth_table_shapes.py::test_sessions_table_has_required_columns`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_deterministic`<br>`tests/unit/interfaces/rest/test_app_unit.py::test_hash_token_is_sha256_hex` | Implemented |
@@ -503,7 +503,7 @@ the single source of truth.
 | AGGR | 4 | 10 | 20 | 5 | 20 |
 | SWEEP | 3 | 11 | 24 | 6 | 24 |
 | SUB | 4 | 10 | 20 | 2 | 20 |
-| AUTH | 4 | 11 | 21 | 5 | 21 |
+| AUTH | 4 | 11 | 22 | 5 | 22 |
 | MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 9 | 23 | 46 | 1 | 46 |
 | PERS | 4 | 13 | 35 | 4 | 35 |
@@ -512,9 +512,9 @@ the single source of truth.
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 18 | 1 | 18 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **427** | **66** | **427** |
+| **Total** | **73** | **206** | **428** | **66** | **428** |
 
-**Requirements verified by at least one test**: 493 of 633 (77.9%).
+**Requirements verified by at least one test**: 494 of 634 (77.9%).
 
 ### Orphan check
 

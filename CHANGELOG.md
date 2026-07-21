@@ -127,6 +127,15 @@ features; correctness, security, and requirements-document fixes.
   `FAILURE` `RESEND_REPORT` audit (`recipient_count=0`, `attachment_count=0`,
   `failure_reason=<exception class>`), matching the existing delivery-failure
   convention; only precondition failures still raise. `L3-DASH-013` amended.
+- **Login is no longer a timing oracle for account enumeration.** The unknown-email
+  and disabled-account branches raised before doing any Argon2 work, so a valid
+  email (which pays Argon2's deliberate cost) took measurably longer than an unknown
+  one — letting an attacker enumerate accounts by response time. `LoginUseCase` now
+  precomputes a decoy hash (with the injected hasher, so its cost parameters match
+  live accounts) and performs a throwaway `verify` on both miss paths — against the
+  decoy for an unknown email, against the account's real hash for a disabled one —
+  so every attempt pays the same cost. Response content was already generic
+  (`L3-AUTH-013`); this equalizes response timing (new `L3-AUTH-022`).
 
 ## [0.16.0] — 2026-07-19
 

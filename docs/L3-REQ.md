@@ -665,6 +665,9 @@ Disabling an account SHALL immediately revoke its authenticated sessions. When `
 **L3-AUTH-021** · Parent: L2-AUTH-008 · Verification: T
 Resetting an account's password SHALL immediately revoke its authenticated sessions. `ResetPasswordUseCase` SHALL delete every session belonging to the target user (`SessionRepository.delete_by_user_id`) within the same unit of work as the password update and audit row. A password reset is typically performed because the prior credential is compromised, so no session established with it may survive the change. Tests SHALL assert the target's existing sessions are gone after a reset.
 
+**L3-AUTH-022** · Parent: L2-AUTH-001 · Verification: T
+The login path SHALL perform an Argon2 verification on every attempt, including when the email is unknown or the account is disabled, so that response time does not reveal whether an account exists (defeating timing-based account enumeration). `LoginUseCase` SHALL precompute a decoy hash at construction using the injected `PasswordHasher` (so the decoy's cost parameters match live accounts'); the unknown-email branch SHALL run a throwaway `verify(password, decoy_hash)` and the disabled branch SHALL run a throwaway `verify(password, user.password_hash)` before auditing and raising the generic `AuthenticationError`. The decoy's plaintext is random and discarded so it never verifies. This complements the generic-failure surface of `L3-AUTH-013` (which equalizes the *response content*) by also equalizing the *response timing*.
+
 ---
 
 ## L3-MAIL: Email delivery

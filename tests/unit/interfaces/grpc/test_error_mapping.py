@@ -36,6 +36,7 @@ from message_service.domain.errors import (
     ValidationError,
 )
 from message_service.interfaces.grpc.error_mapping import (
+    _MAX_MESSAGE_BYTES,
     _MAX_METADATA_TOTAL_BYTES,
     _MAX_METADATA_VALUE_BYTES,
     _status_code_for,
@@ -178,6 +179,35 @@ async def test_status_details_metadata_is_size_bounded() -> None:
     # Total metadata payload respects the total cap.
     total = sum(len(v.encode("utf-8")) for k, v in meta.items() if k != "_truncated")
     assert total <= _MAX_METADATA_TOTAL_BYTES
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-ERR-024")
+async def test_oversized_status_message_is_bounded() -> None:
+    """A huge (client-influenced) exception message SHALL be truncated, not lost.
+
+    Regression: only ErrorInfo.metadata was bounded; the Status `message` and the
+    `context.abort(details=…)` string carried the full message (e.g. an
+    UnknownTagError interpolating 500 tags), which could push the serialized
+    status past gRPC's ~8 KiB trailing-metadata limit and drop the whole abort.
+    """
+    from google.rpc import status_pb2
+
+    ctx = _FakeServicerContext()
+    huge = "x" * 50_000
+    exc = UnknownTagError(f"unknown tag(s): {huge}", details={"count": 1})
+    with pytest.raises(_AbortRaisedError):
+        await _translate_known(ctx, exc)
+
+    abort = ctx.aborts[0]
+    # The abort's public details string is bounded.
+    assert len(abort.details.encode("utf-8")) <= _MAX_MESSAGE_BYTES + 32
+    # The serialized status (message + envelope) stays well under gRPC's ~8 KiB.
+    raw = dict(abort.trailing_metadata)["grpc-status-details-bin"]
+    assert len(raw) < 8192
+    status = status_pb2.Status()
+    status.ParseFromString(raw)
+    assert len(status.message.encode("utf-8")) <= _MAX_MESSAGE_BYTES + 32
 
 
 @pytest.mark.requirement("L3-ERR-014")

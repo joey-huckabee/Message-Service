@@ -130,6 +130,21 @@ async def test_touch_unknown_token_is_noop(
 
 
 @pytest.mark.asyncio
+async def test_touch_backward_clock_raises_persistence_error(
+    session_repo: SqliteSessionRepository, user_id: int
+) -> None:
+    """A backward clock (touch < created_at) SHALL surface as PersistenceError.
+
+    The ``last_activity_at >= created_at`` CHECK can fail on an NTP step-back; the
+    raw aiosqlite.IntegrityError must not leak past the adapter (port contract).
+    """
+    await session_repo.save(_session(_HASH_A, user_id))
+    earlier = _T0 - timedelta(minutes=5)
+    with pytest.raises(PersistenceError):
+        await session_repo.touch(_HASH_A, earlier)
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L1-AUTH-002")
 async def test_delete_by_token_hash_removes_row(
     session_repo: SqliteSessionRepository, user_id: int

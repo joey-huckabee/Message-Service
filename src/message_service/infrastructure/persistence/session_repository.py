@@ -84,7 +84,16 @@ class SqliteSessionRepository(SessionRepository):
         )
 
     async def touch(self, token_hash: str, now: datetime) -> None:  # noqa: D102
-        await self._conn.execute(_SQL_TOUCH, (iso_z(now), token_hash))
+        # Wrap IntegrityError (the ``last_activity_at >= created_at`` CHECK can
+        # fail if the wall clock steps backward, e.g. an NTP correction) so the
+        # port's PersistenceError contract holds, as in ``save``.
+        try:
+            await self._conn.execute(_SQL_TOUCH, (iso_z(now), token_hash))
+        except aiosqlite.IntegrityError as exc:
+            raise PersistenceError(
+                f"failed to touch session: {exc}",
+                details={"reason": str(exc)},
+            ) from exc
 
     async def delete_by_token_hash(self, token_hash: str) -> None:  # noqa: D102
         await self._conn.execute(_SQL_DELETE, (token_hash,))

@@ -29,6 +29,16 @@ features; correctness, security, and requirements-document fixes.
   failures.** It classified off a nonexistent `retriable` detail, so every failure
   recorded `permanent_failure`; it now keys on the mailer's `failure_reason`
   (`RETRIES_EXHAUSTED` → transient).
+- **The gRPC status `message` is now size-bounded too.** The earlier trailing-metadata
+  bounding capped only `ErrorInfo.metadata`, but the `google.rpc.Status` `message` and
+  the `context.abort(details=…)` string still carried the full, client-influenced
+  exception message (e.g. `UnknownTagError` interpolating hundreds of submitted tags),
+  which could push the serialized status past gRPC's ~8 KiB limit and drop the whole
+  aborted status. The message is now truncated (`L3-ERR-024`).
+- **`SqliteSessionRepository.touch` honors its `PersistenceError` contract.** A
+  backward wall-clock step (e.g. an NTP correction) could violate the
+  `last_activity_at >= created_at` CHECK and leak a raw `aiosqlite.IntegrityError`
+  (→ 500 on an ordinary authenticated request); it is now wrapped like `save`.
 - **A stage context that fails its template's JSON-Schema no longer strands the run
   in `SENDING`.** `ContextSchemaViolationError` is raised only in the renderer (schema
   validation runs at assembly time, not at submit), and the assembly + resend paths

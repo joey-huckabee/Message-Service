@@ -59,6 +59,22 @@ _MAX_METADATA_VALUE_BYTES = 1024
 _MAX_METADATA_TOTAL_BYTES = 4096
 _TRUNCATION_MARKER = "…[truncated]"
 
+# The gRPC status ``message`` (and the ``context.abort(details=…)`` string) is
+# also client-influenced — an exception message can embed caller input (e.g.
+# ``UnknownTagError`` interpolates the full submitted tag list). It rides in the
+# serialized ``google.rpc.Status`` and in ``grpc-message``, so it too must be
+# bounded or a large message would blow gRPC's ~8 KiB trailing-metadata limit and
+# lose the whole aborted status — the same failure the metadata bounding prevents.
+_MAX_MESSAGE_BYTES = 2048
+
+
+def _truncate_message(message: str) -> str:
+    """Bound a client-facing status message to ``_MAX_MESSAGE_BYTES`` (L3-ERR-024)."""
+    encoded = message.encode("utf-8")
+    if len(encoded) <= _MAX_MESSAGE_BYTES:
+        return message
+    return encoded[:_MAX_MESSAGE_BYTES].decode("utf-8", errors="ignore") + _TRUNCATION_MARKER
+
 
 def _stringify(details: Mapping[str, Any]) -> dict[str, str]:
     """Coerce a details dict to a size-bounded ``map<string, string>`` (L3-ERR-024).
@@ -115,7 +131,7 @@ def _status_details_bin(
     any_detail.Pack(info)
     status_proto = status_pb2.Status(
         code=grpc_code.value[0],
-        message=message,
+        message=_truncate_message(message),
         details=[any_detail],
     )
     return bytes(status_proto.SerializeToString())
@@ -238,7 +254,7 @@ async def _translate_known(
     )
     await context.abort(
         status,
-        details=exc.message,
+        details=_truncate_message(exc.message),
         trailing_metadata=trailing_metadata,
     )
 

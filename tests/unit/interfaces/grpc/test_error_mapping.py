@@ -484,7 +484,9 @@ async def test_translate_to_grpc_status_dispatches_unknown_to_translate_unexpect
 
 @pytest.mark.asyncio
 @pytest.mark.requirement("L3-ERR-022")
-@pytest.mark.parametrize("control_exc", [KeyboardInterrupt(), SystemExit(), asyncio.CancelledError()])
+@pytest.mark.parametrize(
+    "control_exc", [KeyboardInterrupt(), SystemExit(), asyncio.CancelledError()]
+)
 async def test_control_flow_baseexceptions_propagate_through_translator(
     control_exc: BaseException,
 ) -> None:

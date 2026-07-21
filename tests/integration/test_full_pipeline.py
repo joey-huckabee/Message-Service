@@ -565,7 +565,7 @@ async def test_mailer_failure_ends_run_in_failed(
 
 
 @pytest.mark.asyncio
-@pytest.mark.requirement("L2-OBS-002")
+@pytest.mark.requirement("L1-OBS-003")
 async def test_full_lifecycle_audit_trail_contains_all_events(
     sqlite_conn: aiosqlite.Connection,
     uow_factory: SqliteUnitOfWorkFactory,

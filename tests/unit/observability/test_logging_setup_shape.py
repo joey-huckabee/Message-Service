@@ -125,3 +125,48 @@ def test_no_log_level_hot_reload_path_exists() -> None:
         "logging_setup SHALL NOT expose a runtime-reconfigure path; "
         "log-level changes require restart per L3-OBS-022"
     )
+
+
+@pytest.mark.requirement("L2-OBS-002")
+def test_bind_request_context_propagates_identifiers_to_log_records() -> None:
+    """L2-OBS-002: run_id/stage_id/user_id bound via contextvars propagate to records.
+
+    The prior 'coverage' asserted audit-row persistence, not log propagation.
+    ``merge_contextvars`` is the configured pipeline processor that injects the
+    bound fields into every event dict for the current task.
+    """
+    from structlog.contextvars import merge_contextvars
+
+    from message_service.observability.logging_setup import (
+        bind_request_context,
+        clear_request_context,
+    )
+
+    clear_request_context()
+    try:
+        bind_request_context(run_id="r-1", stage_id="extract", user_id=7)
+        first = merge_contextvars(None, "info", {"event": "a"})
+        assert first["run_id"] == "r-1"
+        assert first["stage_id"] == "extract"
+        assert first["user_id"] == 7
+        # A second record in the same task still carries them (auto-propagation).
+        second = merge_contextvars(None, "info", {"event": "b"})
+        assert second["run_id"] == "r-1"
+    finally:
+        clear_request_context()
+
+
+@pytest.mark.requirement("L2-OBS-002")
+def test_clear_request_context_prevents_leak_across_requests() -> None:
+    """Cleared fields SHALL NOT leak into the next request on a reused task."""
+    from structlog.contextvars import merge_contextvars
+
+    from message_service.observability.logging_setup import (
+        bind_request_context,
+        clear_request_context,
+    )
+
+    bind_request_context(run_id="r-1")
+    clear_request_context()
+    after = merge_contextvars(None, "info", {"event": "x"})
+    assert "run_id" not in after

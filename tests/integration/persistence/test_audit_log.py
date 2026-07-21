@@ -66,7 +66,7 @@ def _event(
 
 
 @pytest.mark.asyncio
-@pytest.mark.requirement("L2-OBS-002")
+@pytest.mark.requirement("L1-OBS-003")
 async def test_record_persists_event(log: SqliteAuditLog, conn: aiosqlite.Connection) -> None:
     await log.record(_event())
     await conn.commit()

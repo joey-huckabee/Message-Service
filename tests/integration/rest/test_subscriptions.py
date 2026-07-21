@@ -321,6 +321,53 @@ async def test_post_creates_subscription_and_audits(
 
 
 @pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-009")
+async def test_post_duplicate_subscription_returns_409(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+) -> None:
+    """A duplicate subscription SHALL return 409, not a 500.
+
+    Regression: the route caught only Unknown{Pipeline,Tag}Error, so the unique-
+    index PersistenceError on a repeat subscribe surfaced as an unhandled 500.
+    """
+    _user, csrf = await _login_as(http_client, uow_factory, hasher, email="alice@example.com")
+    body = {"granularity": "TAG", "target_value": "production"}
+    first = await http_client.post("/subscriptions", json=body, headers={CSRF_HEADER_NAME: csrf})
+    assert first.status_code == 201
+    second = await http_client.post("/subscriptions", json=body, headers={CSRF_HEADER_NAME: csrf})
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.requirement("L3-DASH-009")
+@pytest.mark.parametrize(
+    ("granularity", "target_value"),
+    [("GLOBAL", "unexpected"), ("TAG", None), ("PIPELINE", None)],
+)
+async def test_post_rejects_mismatched_granularity_target_pairing(
+    http_client: httpx.AsyncClient,
+    uow_factory: SqliteUnitOfWorkFactory,
+    hasher: Argon2PasswordHasher,
+    granularity: str,
+    target_value: str | None,
+) -> None:
+    """A mismatched granularity/target pairing SHALL be a 422, not a 500.
+
+    Regression: the pairing invariant was enforced only in the Subscription
+    aggregate (ValueError → 500). It is now validated at the request boundary.
+    """
+    _user, csrf = await _login_as(http_client, uow_factory, hasher, email="alice@example.com")
+    response = await http_client.post(
+        "/subscriptions",
+        json={"granularity": granularity, "target_value": target_value},
+        headers={CSRF_HEADER_NAME: csrf},
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 @pytest.mark.requirement("L2-DASH-005")
 async def test_post_rejects_extra_user_id_field(
     http_client: httpx.AsyncClient,

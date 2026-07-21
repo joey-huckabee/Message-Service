@@ -17,6 +17,18 @@ features; correctness, security, and requirements-document fixes.
 
 ### Fixed
 
+- **`POST /subscriptions` returns the right status on ordinary user errors instead
+  of 500.** The self-service create route caught only `UnknownPipelineTypeError` /
+  `UnknownTagError`, so a duplicate subscription (unique-index `PersistenceError`)
+  surfaced as a 500 instead of 409, and a mismatched granularity/target pairing
+  (`GLOBAL` with a target, or `PIPELINE`/`TAG` without one — enforced only in the
+  `Subscription` aggregate) surfaced as a 500 instead of 422. Duplicates now map to
+  409 (mirroring the admin path), and the pairing is validated at the request
+  boundary (422).
+- **The email-delivery-outcome metric now distinguishes transient from permanent
+  failures.** It classified off a nonexistent `retriable` detail, so every failure
+  recorded `permanent_failure`; it now keys on the mailer's `failure_reason`
+  (`RETRIES_EXHAUSTED` → transient).
 - **A stage context that fails its template's JSON-Schema no longer strands the run
   in `SENDING`.** `ContextSchemaViolationError` is raised only in the renderer (schema
   validation runs at assembly time, not at submit), and the assembly + resend paths

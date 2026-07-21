@@ -34,10 +34,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from message_service.domain.aggregates.subscription import SubscriptionGranularity
 from message_service.domain.errors import (
+    PersistenceError,
     SubscriptionForbiddenError,
     SubscriptionNotFoundError,
     UnknownPipelineTypeError,
@@ -66,6 +67,22 @@ class CreateSubscriptionRequest(BaseModel):
 
     granularity: SubscriptionGranularity
     target_value: str | None = Field(default=None, max_length=255)
+
+    @model_validator(mode="after")
+    def _check_target_pairing(self) -> CreateSubscriptionRequest:
+        """Enforce the granularity/target_value pairing at the request boundary.
+
+        Mirrors the ``Subscription`` aggregate invariant so a mismatched pairing
+        (``GLOBAL`` with a target, or ``PIPELINE``/``TAG`` without one) is a 422
+        request-validation error rather than a `ValueError` from the aggregate
+        that would surface as a 500.
+        """
+        if self.granularity is SubscriptionGranularity.GLOBAL:
+            if self.target_value is not None:
+                raise ValueError("GLOBAL subscriptions must not carry a target_value")
+        elif self.target_value is None:
+            raise ValueError(f"{self.granularity.value} subscriptions require a target_value")
+        return self
 
 
 class SubscriptionResponse(BaseModel):
@@ -138,6 +155,16 @@ def build_subscriptions_router(service: Service) -> APIRouter:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(exc),
             ) from exc
+        except PersistenceError as exc:
+            # The unique index on (user_id, granularity, target_value) rejects
+            # duplicates; surface that as 409 (mirroring the admin path), re-raise
+            # anything else (a genuine persistence fault → 500).
+            if "UNIQUE" in str(exc.details.get("reason", "")):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="you already have this subscription",
+                ) from exc
+            raise
 
         return SubscriptionResponse(
             subscription_id=int(saved.subscription_id),

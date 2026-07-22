@@ -12,8 +12,16 @@ in `docs/ROADMAP.md`, not here.
 
 ## [Unreleased]
 
-Post-v0.16.0 review-and-fix pass (rounds 1 & 2) toward a 1.0.0 cut. No new
-features; correctness, security, and requirements-document fixes.
+## [0.17.0] — 2026-07-21
+
+Post-v0.16.0 review-and-fix hardening pass (a three-reviewer audit, rounds 1 &
+2) toward a 1.0.0 cut. No new features — a broad sweep of correctness,
+security, and requirements-document fixes, several of which deliberately
+tighten existing behavior (most notably: the report viewer and manual resend
+are now administrator-only, and the login path is no longer a timing oracle for
+account enumeration). Still **73 of 73 L1 requirements Implemented**; the fixes
+are traced by additive L3 statements (**435** L3 reqs, up from 423) at **94.98%
+branch coverage** over **1647 tests**.
 
 ### Fixed
 
@@ -893,7 +901,8 @@ with a re-evaluation trigger. This is the start of a 0.x line with a runway towa
 - **Runnable examples.** Eight self-contained demonstration scenarios
   (`01-hello-world` … `08-error-recovery`) that need no external mail server.
 
-[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/joey-huckabee/Message-Service/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/joey-huckabee/Message-Service/compare/v0.13.0...v0.14.0

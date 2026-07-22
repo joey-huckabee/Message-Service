@@ -65,11 +65,19 @@ def test_sweeper_loop_start_happens_after_grpc_server_start() -> None:
 
 
 @pytest.mark.requirement("L3-SWEEP-018")
+@pytest.mark.requirement("L3-OBS-017")
 def test_three_periodic_loops_started_together() -> None:
     """L3-SWEEP-018 (companion): the three periodic loops (sweeper,
     report pruner, audit log pruner) SHALL all start in `_run` after
     listener bind, before `shutdown_event.wait()`. v1 starts them
     consecutively in ``__main__._run``.
+
+    Also inspection evidence for L3-OBS-017: the audit-log cleanup task
+    participates in the SAME create_task + cancellation lifecycle as the
+    orphan sweeper — all three are scheduled on the shared
+    ``BackgroundTaskScheduler`` (the shared create_task mechanism) via the
+    identical ``<loop>.start()`` call inspected here, rather than each
+    reimplementing task creation.
     """
     func = _run_function_ast()
     started_loops: set[str] = set()

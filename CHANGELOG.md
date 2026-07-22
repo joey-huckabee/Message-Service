@@ -301,6 +301,44 @@ features; correctness, security, and requirements-document fixes.
   `L2-SUB-004`/`L2-SUB-005` (user creation, including admin, inserts no
   subscriptions) shared a happy-path 201 test that never asserted the
   no-side-effect — now has a dedicated test querying the subscriptions table.
+- **Corrected mis-attributed `@pytest.mark.requirement` markers so the trace matrix
+  reflects what each test actually verifies.** An audit found several markers pointing
+  at unrelated requirements: Session naive-datetime rejection was tagged `L3-CFG-005`
+  (a Pydantic *Config-model-naming* req) instead of `L1-AUTH-002`; the Stage
+  `submitted_at`-presence invariants were tagged `L3-STAGE-007` (retry *overwrite*)
+  instead of `L2-STAGE-002` (the stage state model); a sweeper pipeline test that
+  seeds a stale run and asserts *classification* was tagged `L1-SWEEP-001` (the polling
+  *loop* it bypasses) instead of `L1-SWEEP-002`; the admin-audit default-order test was
+  tagged `L3-DASH-033` (route auth/validation) instead of `L3-DASH-034` (the
+  `audit_id DESC` ordering it checks); and the `L3-PERS-013`/`L3-PERS-014` port-contract
+  pair (full type hints vs. `MagicMock(spec=…)`) was inverted. Also re-homed `L3-OBS-017`
+  (a Verification-**I** requirement — the cleanup task shares the sweeper's
+  create_task/cancellation lifecycle) from a `run_once()` use-case test that bypasses the
+  loop onto the startup-ordering *inspection* test that actually evidences all three
+  periodic loops sharing that lifecycle. Every requirement retains legitimate coverage —
+  the matrix has no Draft rows and all 73 L1s stay covered.
+- **Two requirements that were exercised but never *asserted* are now actually
+  verified.** The struct-round-trip servicer test omitted an `email_body_contribution`
+  but never checked the outcome — it now asserts the omission is persisted as absent
+  (`email_body_context_json`/`email_body_position` both `None`), verifying the presence
+  detection `L3-AGGR-003` claims. The `NOT_FOUND`-translation test asserted only the
+  coarse gRPC status code — it now also asserts the `x-message-service-error-code`
+  trailing-metadata value (`ERROR_CODE_RUN_NOT_FOUND`), the specific contract of
+  `L3-API-013`.
+- **Fixed a Linux-only CI flake in the dual-listener entrypoint test.**
+  `test_run_server_accepts_rpc_while_listening` — the only test that starts both the
+  gRPC server and the uvicorn dashboard via the real `_run` — intermittently failed on
+  `ubuntu-latest` with a `PytestUnraisableExceptionWarning` for an unclosed
+  `socket.socket`. The socket is uvicorn's dashboard listener (a real Python socket;
+  gRPC uses C-core fds, which is why the gRPC-only tests never leaked): uvicorn's
+  programmatic `should_exit` shutdown closes it best-effort but not synchronously, so on
+  Linux/epoll the finalizer ran at session-end GC under `filterwarnings=["error"]`. The
+  test now forces that finalizer in-scope (`gc.collect()`) and scope-ignores the
+  resulting `ResourceWarning` — a test-harness GC-timing artifact, not a product leak
+  (in production the process exits and the OS reclaims the socket).
+- **Made the admin-triggered-resend e2e deterministic.** It polled the SMTP capture
+  with a bounded `wait_for(1)`; it now drains the scheduler via `scheduler.await_all(...)`,
+  removing the timing dependency (a real flake on slower CI).
 
 ### Documentation
 

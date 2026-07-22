@@ -355,7 +355,7 @@ the single source of truth.
 |-------|-------------|--------|
 | L1-OBS-001 | L2-OBS-001, L2-OBS-002, L2-OBS-003 | Implemented |
 | L1-OBS-002 | L2-OBS-004, L2-OBS-005, L2-OBS-006 | Implemented |
-| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017, L2-OBS-018, L2-OBS-019 | Partially Implemented |
+| L1-OBS-003 | L2-OBS-007, L2-OBS-008, L2-OBS-009, L2-OBS-013, L2-OBS-014, L2-OBS-015, L2-OBS-016, L2-OBS-017, L2-OBS-018, L2-OBS-019 | Implemented |
 | L1-OBS-004 | L2-OBS-010, L2-OBS-011, L2-OBS-012 | Implemented |
 
 **L2 → L3 → Verification Artifacts**
@@ -370,7 +370,7 @@ the single source of truth.
 | L2-OBS-006 | L3-OBS-009, L3-OBS-010, L3-OBS-011 | `tests/unit/infrastructure/observability/test_metrics.py::test_email_delivery_outcome_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_email_size_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_buckets_pinned`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_duration_histogram_observe_increments_count`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_run_state_transition_increments_labeled_counter`<br>`tests/unit/infrastructure/observability/test_metrics.py::test_stage_state_transition_increments_labeled_counter` | Implemented |
 | L2-OBS-007 | L3-OBS-012, L3-OBS-013 | `tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_details_json_column_is_text_not_null`<br>`tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_indexes_present`<br>`tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_outcome_check_constraint`<br>`tests/unit/infrastructure/persistence/test_audit_log_table_shape.py::test_audit_log_table_columns_match_spec` | Implemented |
 | L2-OBS-008 | L3-OBS-014, L3-OBS-015, L3-OBS-016, L3-OBS-039, L3-OBS-040 | `tests/conformance/test_audit_log_sole_deleter.py::test_allow_list_modules_actually_exist`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_audit_log_pruner_module_actually_calls_delete_older_than`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_only_allow_listed_modules_contain_audit_log_mutation_sql`<br>`tests/conformance/test_audit_log_sole_deleter.py::test_only_pruner_module_calls_delete_older_than`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_batch_size_caps_rows_deleted_per_tick_and_drains_across_ticks`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_no_prune_audit_log_action_in_audit_action_enum`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_old_rows_are_deleted_recent_rows_preserved`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_oldest_first_ordering_within_batch`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_pruner_emits_no_audit_row_for_its_own_delete`<br>`tests/integration/persistence/test_audit_log_pruner.py::test_strict_less_than_boundary_preserves_row_at_exact_cutoff`<br>`tests/unit/config/test_schema.py::test_audit_cleanup_interval_default_is_24_hours`<br>`tests/unit/config/test_schema.py::test_audit_cleanup_interval_rejects_zero` | Implemented |
-| L2-OBS-009 | L3-OBS-017 | _(TBD)_ | Draft |
+| L2-OBS-009 | L3-OBS-017 | `tests/unit/infrastructure/sweeper/test_startup_ordering.py::test_three_periodic_loops_started_together` | Implemented |
 | L2-OBS-010 | L3-OBS-019, L3-OBS-020 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_infrastructure_error_log_level_is_warning`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_message_service_error_log_level_default_is_error`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_validation_error_log_level_is_info` | Implemented |
 | L2-OBS-011 | L3-OBS-021, L3-OBS-022 | `tests/unit/config/test_schema.py::test_log_level_accepts_canonical_values`<br>`tests/unit/config/test_schema.py::test_log_level_rejects_unknown`<br>`tests/unit/observability/test_logging_setup_shape.py::test_no_log_level_hot_reload_path_exists` | Implemented |
 | L2-OBS-012 | L3-OBS-023, L3-OBS-024 | `tests/unit/interfaces/grpc/test_error_mapping.py::test_error_severity_boundary_log_carries_error_code`<br>`tests/unit/interfaces/grpc/test_error_mapping.py::test_translate_known_aborts_with_error_code_in_trailing_metadata` | Implemented |
@@ -507,14 +507,14 @@ the single source of truth.
 | MAIL | 5 | 14 | 34 | 7 | 34 |
 | DASH | 9 | 23 | 47 | 1 | 47 |
 | PERS | 4 | 13 | 37 | 4 | 37 |
-| OBS | 4 | 19 | 44 | 4 | 43 |
+| OBS | 4 | 19 | 44 | 4 | 44 |
 | ERR | 4 | 10 | 24 | 0 | 24 |
 | CFG | 3 | 8 | 16 | 3 | 16 |
 | DEP | 3 | 9 | 20 | 1 | 20 |
 | CICD | 7 | 16 | 19 | 1 | 19 |
-| **Total** | **73** | **206** | **435** | **70** | **434** |
+| **Total** | **73** | **206** | **435** | **70** | **435** |
 
-**Requirements verified by at least one test**: 504 of 641 (78.6%).
+**Requirements verified by at least one test**: 505 of 641 (78.8%).
 
 ### Orphan check
 
